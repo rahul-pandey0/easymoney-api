@@ -1,0 +1,36 @@
+# ── Documentation & scripts (not part of deployment) ──
+*.md
+*.sh
+
+# ── .NET build outputs ──
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+# ── Logs ──
+logs/
+*.log
+
+# ── Secrets / local config ──
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.p12
+secrets.json
+
+# ── KYC file uploads (runtime data, not source) ──
+kyc_storage/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Rider / JetBrains ──
+.idea/
+
+# ── SQL dumps (large, not source) ──
+*.sql

@@ -1,0 +1,96 @@
+using EasyMoney.Api.Auth;
+using EasyMoney.Api.Domain;
+using EasyMoney.Api.Dtos;
+using EasyMoney.Api.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace EasyMoney.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/tenants")]
+[Authorize]
+public class TenantsController : ControllerBase
+{
+    private readonly ITenantService _tenants;
+    private readonly ITenantContext _ctx;
+
+    public TenantsController(ITenantService tenants, ITenantContext ctx)
+    {
+        _tenants = tenants; _ctx = ctx;
+    }
+
+    static TenantDto ToDto(Tenant t) => new(
+        t.TenantId, t.Name,
+        t.RegistrationNumber, t.Address, t.Phone,
+        t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone,
+        t.Status.ToString(), t.CreatedAt,
+        t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt);
+
+    // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
+    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<IActionResult> Create([FromBody] CreateTenantRequest req)
+    {
+        try
+        {
+            var t = await _tenants.CreateTenantAsync(req, _ctx.UserId, _ctx.UserId);
+            return CreatedAtAction(nameof(Get), new { tenantId = t.TenantId }, ToDto(t));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    // GET /api/v1/tenants
+    [HttpGet, Authorize(Roles = Roles.AnySifin)]
+    public async Task<IActionResult> List() =>
+        Ok((await _tenants.ListAsync()).Select(ToDto));
+
+    // GET /api/v1/tenants/{tenantId}
+    [HttpGet("{tenantId:long}"),
+     Authorize(Roles = Roles.AnySifin + "," + Roles.AnyOrg + "," + Roles.Auditor)]
+    public async Task<IActionResult> Get(long tenantId)
+    {
+        if (!_ctx.IsSifin && _ctx.TenantId != tenantId) return Forbid();
+        var t = await _tenants.GetAsync(tenantId);
+        return t is null ? NotFound() : Ok(ToDto(t));
+    }
+
+    // GET /api/v1/tenants/{tenantId}/scheme-config
+    [HttpGet("{tenantId:long}/scheme-config"),
+     Authorize(Roles = Roles.AnySifin + "," + Roles.AnyOrg + "," + Roles.Auditor)]
+    public async Task<IActionResult> GetSchemeConfig(long tenantId)
+    {
+        if (!_ctx.IsSifin && _ctx.TenantId != tenantId) return Forbid();
+        try { return Ok(await _tenants.GetSchemeConfigAsync(tenantId)); }
+        catch (DomainException ex) { return NotFound(new { error = ex.Message }); }
+    }
+
+    // PATCH /api/v1/tenants/{tenantId}/scheme-config  — update bidding/scheme parameters
+    [HttpPatch("{tenantId:long}/scheme-config"),
+     Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
+    public async Task<IActionResult> UpdateSchemeConfig(long tenantId, [FromBody] SchemeConfigUpdatePayload req)
+    {
+        if (!_ctx.IsSifin && _ctx.TenantId != tenantId) return Forbid();
+        try
+        {
+            await _tenants.UpdateSchemeConfigAsync(tenantId, req, _ctx.UserId);
+            return Ok(await _tenants.GetSchemeConfigAsync(tenantId));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    // PATCH /api/v1/tenants/{tenantId}/status  — activate / suspend / close
+    [HttpPatch("{tenantId:long}/status"),
+     Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<IActionResult> SetStatus(long tenantId, [FromBody] SetTenantStatusRequest req)
+    {
+        if (!Enum.TryParse<TenantStatus>(req.Status, true, out var status))
+            return BadRequest(new { error = $"Invalid status '{req.Status}'. Valid: ACTIVE, SUSPENDED, CLOSED" });
+        try
+        {
+            await _tenants.SetTenantStatusAsync(tenantId, status, _ctx.UserId);
+            var t = await _tenants.GetAsync(tenantId);
+            return Ok(ToDto(t!));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+}
