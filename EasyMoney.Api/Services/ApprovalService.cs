@@ -265,10 +265,10 @@ public class ApprovalService : IApprovalService
             {
                 var p = Parse<AccountOpenPayload>(req.Payload);
                 var accountSvc = _sp.GetRequiredService<IAccountService>();
-                var account = await accountSvc.OpenAccountAsync(
+                    var account = await accountSvc.OpenAccountAsync(
                     p.MemberId, p.MonthlyContribution, p.AccountOpenDate,
-                    createdBy: req.RequestedBy, authorizedBy: _ctx.UserId);
-                req.EntityId = account.AccountId;
+                    createdBy: req.RequestedBy, authorizedBy: _ctx.UserId, payload: p);             
+                    req.EntityId = account.AccountId;
                 break;
             }
             case ApprovalActionType.LOAN_DISBURSEMENT:

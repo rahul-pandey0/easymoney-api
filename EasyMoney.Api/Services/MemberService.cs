@@ -10,7 +10,7 @@ namespace EasyMoney.Api.Services;
 public interface IMemberService
 {
     Task<Member> CreateAsync(CreateMemberRequest req);
-    Task<Member?> GetAsync(long memberId);
+    Task<Member?> GetAsync(long memberId);     
     Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
 }

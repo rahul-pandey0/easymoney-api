@@ -114,7 +114,22 @@ public record UserStatusChangePayload(bool IsActive);
 public record AccountOpenPayload(
     long MemberId,
     decimal MonthlyContribution,
-    DateOnly AccountOpenDate);
+    DateOnly AccountOpenDate,
+
+       // New fields from frontend
+    string? OldAccountNo,
+    string? PhoneNo,
+    string? CustomerName,
+    decimal InterestRate,
+    decimal TargetAmount,
+    DateOnly? PaymentDate,
+    decimal PaidAmount,
+    decimal LoanAmount,
+    decimal BonusAmount,
+    decimal InterestAmount,
+    decimal TotalAmount,
+    string? Remarks
+    );
 
 public record MemberKycApprovalPayload(
     long MemberId,

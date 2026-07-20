@@ -22,17 +22,59 @@ public class AccountsController : ControllerBase
         _accounts = accounts; _ledger = ledger; _exit = exit; _ctx = ctx;
     }
 
-    [HttpPost("members/{memberId:long}/accounts"),
-     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
-    public async Task<ActionResult<AccountSummaryDto>> OpenAccount(long memberId, [FromBody] OpenAccountRequest req)
+    //[HttpPost("members/{memberId:long}/accounts"),
+    // Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    //public async Task<ActionResult<AccountSummaryDto>> OpenAccount(long memberId, [FromBody] OpenAccountRequest req)
+    //{
+    //    try
+    //    {
+    //        var a = await _accounts.OpenAccountAsync(memberId, req.MonthlyContribution, req.AccountOpenDate,
+    //            createdBy: _ctx.UserId, authorizedBy: _ctx.UserId );
+    //        return Ok(await _accounts.GetSummaryAsync(a.AccountId));
+    //    }
+    //    catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    //}
+
+    [HttpPost("members/{memberId:long}/accounts")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    public async Task<ActionResult<AccountSummaryDto>> OpenAccount( long memberId,[FromBody] OpenAccountRequest req)
     {
         try
         {
-            var a = await _accounts.OpenAccountAsync(memberId, req.MonthlyContribution, req.AccountOpenDate,
-                createdBy: _ctx.UserId, authorizedBy: _ctx.UserId);
+            // Create the payload from the request
+            var payload = new AccountOpenPayload(
+                MemberId: memberId,
+                MonthlyContribution: req.MonthlyContribution,
+                AccountOpenDate: req.AccountOpenDate,
+                OldAccountNo: req.OldAccountNo,
+                PhoneNo: req.PhoneNo,
+                CustomerName: req.CustomerName,
+                InterestRate: req.InterestRate,
+                TargetAmount: req.TargetAmount,
+                PaymentDate: req.PaymentDate,
+                PaidAmount: req.PaidAmount,
+                LoanAmount: req.LoanAmount,
+                BonusAmount: req.BonusAmount,
+                InterestAmount: req.InterestAmount,
+                TotalAmount: req.TotalAmount,
+                Remarks: req.Remarks
+            );
+
+            var a = await _accounts.OpenAccountAsync(
+                memberId: memberId,
+                monthlyContribution: req.MonthlyContribution,
+                openDate: req.AccountOpenDate,
+                createdBy: _ctx.UserId,
+                authorizedBy: _ctx.UserId,
+                payload  // Pass the payload
+            );
+
             return Ok(await _accounts.GetSummaryAsync(a.AccountId));
         }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpGet("members/{memberId:long}/accounts")]

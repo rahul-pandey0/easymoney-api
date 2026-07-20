@@ -413,6 +413,18 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.Property(x => x.PhoneNo).HasColumnName("phone_no");
+            e.Property(x => x.OldAccountNo).HasColumnName("old_account_no");
+            e.Property(x => x.CustomerName).HasColumnName("customer_name");
+            e.Property(x => x.InterestRate).HasColumnName("interest_rate").HasDefaultValue(0m);
+            e.Property(x => x.TargetAmount).HasColumnName("target_amount").HasDefaultValue(0m);
+            e.Property(x => x.PaymentDate).HasColumnName("payment_date");
+            e.Property(x => x.PaidAmount).HasColumnName("paid_amount").HasDefaultValue(0m);
+            e.Property(x => x.LoanAmount).HasColumnName("loan_amount").HasDefaultValue(0m); 
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasDefaultValue(0m); 
+            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasDefaultValue(0m); 
+            e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasDefaultValue(0m); 
+            e.Property(x => x.Remarks).HasColumnName("remarks");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
