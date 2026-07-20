@@ -1,5 +1,5 @@
 using EasyMoney.Api.Domain;
-
+using Microsoft.AspNetCore.Http;
 namespace EasyMoney.Api.Dtos;
 
 // ============================================================
@@ -16,7 +16,87 @@ public record CreateMemberRequest(
     string? Pincode,
     string? BankAccountNo,
     string? BankIfsc,
-    string? BankHolderName);
+    string? BankHolderName,
+
+
+     // Personal Details
+    string? CustomerId,
+    string? Name,
+    string? Address,
+    string? MobileNumber,
+    string? ResidencePhone,
+    string? OfficePhone,
+    //string? Email,
+    int? Age,
+    string? Education,
+    string? MaritalStatus,
+
+    // ID Details
+    string? IdType,
+    string? IdNumber,
+    string? AddressProof,
+    string? DocumentNumber,
+    string? CustomerImage,
+    string? IdImage,
+    string? DocumentImage,
+
+    // Member Details
+    //string? MembershipNumber,
+    //string? AccountType,
+    //string? AccountNumber,
+
+    // Other Bank Details
+    string? BankName,
+    string? SavingsAccountNumber,
+    string? CurrentAccountNumber,
+
+    // Family Details
+    int? TotalFamilyMembers,
+    int? DependentFamilyMembers,
+    int? EarningFamilyMembers,
+    string? AdditionalPersonalDetails,
+    string? Remarks,
+    string? Remarks1,
+
+    // Vehicle Details
+    string? BikeModel,
+    string? BikeCompany,
+    string? CarModel,
+    string? CarCompany,
+    string? TractorModel,
+    string? TractorCompany,
+    string? HeavyVehicleModel,
+    string? HeavyVehicleCompany,
+
+    // Property Details
+    string? AgricultureLand,
+    decimal? AgricultureArea,
+    string? AgricultureSurveyNo,
+    decimal? AgricultureValue,
+
+    string? SiteDetails,
+    decimal? SiteArea,
+    string? SiteSurveyNo,
+    decimal? SiteValue,
+
+    string? PlantationDetails,
+    decimal? PlantationArea,
+    string? PlantationSurveyNo,
+    decimal? PlantationValue,
+
+    string? HouseDetails,
+    decimal? HouseArea,
+    string? HouseNumber,
+    decimal? HouseValue,
+
+    // Occupational Details
+    string? EmploymentNature,
+    string? EmployerName,
+    decimal? SalaryDetails,
+    string? Designation,
+    string? OrganizationNature,
+    string? Department,
+    string? OfficeAddress);
 
 public record UpdateMemberRequest(
     string? FullName,
@@ -48,15 +128,65 @@ public record MemberDto(
     string? BankAccountNo,
     string? BankIfsc,
     string? BankHolderName,
-    DateTime CreatedAt);
+    DateTime CreatedAt
+    );
 
 // ============================================================
 // Individual / Corporate full KYC detail
 // ============================================================
+//public record UpsertIndividualKycRequest(
+//    DateOnly? DateOfBirth,
+//    Gender? Gender,
+//    string? FatherOrSpouseName,
+//    string? PanNumber,
+//    string? AadhaarNumber,
+//    string? AadhaarLast4,
+//    string? Occupation,
+//    IncomeBand? AnnualIncomeBand,
+//    string? NomineeName,
+//    string? NomineeRelation,
+//    DateOnly? NomineeDob,
+//    string? PermanentAddressLine,
+//    string? PermanentCity,
+//    string? PermanentState,
+//    string? PermanentPincode);
+
 public record UpsertIndividualKycRequest(
-    DateOnly? DateOfBirth,
-    Gender? Gender,
+    // Personal Details
+    string? CustomerId,
+    string? Name,
     string? FatherOrSpouseName,
+    string? Address,
+    string? MobileNumber,
+    string? ResidencePhone,
+    string? OfficePhone,
+    string? Email,
+    DateOnly? DateOfBirth,
+    int? Age,
+    string? Education,
+    string? MaritalStatus,
+
+    // ID Details
+    string? IdType,
+    string? IdNumber,
+    string? AddressProof,
+    string? DocumentNumber,
+    string? CustomerImage,
+    string? IdImage,
+    string? DocumentImage,
+
+    //// Member Details
+    //string? MembershipNumber,
+    //string? AccountType,
+    //string? AccountNumber,
+
+    // Other Bank Details
+    string? BankName,
+    string? SavingsAccountNumber,
+    string? CurrentAccountNumber,
+
+    // KYC
+    Gender? Gender,
     string? PanNumber,
     string? AadhaarNumber,
     string? AadhaarLast4,
@@ -68,7 +198,57 @@ public record UpsertIndividualKycRequest(
     string? PermanentAddressLine,
     string? PermanentCity,
     string? PermanentState,
-    string? PermanentPincode);
+    string? PermanentPincode,
+
+    // Family Details
+    int? TotalFamilyMembers,
+    int? DependentFamilyMembers,
+    int? EarningFamilyMembers,
+    string? AdditionalPersonalDetails,
+    string? Remarks,
+    string? Remarks1,
+
+    // Vehicle Details
+    string? BikeModel,
+    string? BikeCompany,
+    string? CarModel,
+    string? CarCompany,
+    string? TractorModel,
+    string? TractorCompany,
+    string? HeavyVehicleModel,
+    string? HeavyVehicleCompany,
+
+    // Property Details
+    string? AgricultureLand,
+    decimal? AgricultureArea,
+    string? AgricultureSurveyNo,
+    decimal? AgricultureValue,
+
+    string? SiteDetails,
+    decimal? SiteArea,
+    string? SiteSurveyNo,
+    decimal? SiteValue,
+
+    string? PlantationDetails,
+    decimal? PlantationArea,
+    string? PlantationSurveyNo,
+    decimal? PlantationValue,
+
+    string? HouseDetails,
+    decimal? HouseArea,
+    string? HouseNumber,
+    decimal? HouseValue,
+
+    // Occupational Details
+    string? EmploymentNature,
+    string? EmployerName,
+    decimal? SalaryDetails,
+    string? Designation,
+    string? OrganizationNature,
+    string? Department,
+    string? OfficeAddress
+);
+
 
 public record UpsertCorporateKycRequest(
     CorporateEntityType? EntityType,
@@ -125,4 +305,4 @@ public record KycReviewDto(
 // ============================================================
 // Tier promotion (MINIMAL -> FULL)
 // ============================================================
-public record PromoteToFullKycRequest(); // no body; presence of detail row + docs is the condition
+public record PromoteToFullKycRequest(); // no body; presence of detail row + docs is the condition  it is correct 

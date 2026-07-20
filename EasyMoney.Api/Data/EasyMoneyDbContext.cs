@@ -38,6 +38,13 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<UserBranch> UserBranches => Set<UserBranch>();
+
+    public DbSet<Department> Departments => Set<Department>();
+
+    //public DbSet<IndividualDetail> IndividualDetails { get; set; }
+
+
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -89,6 +96,61 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
             e.HasOne(x => x.Tenant).WithOne(t => t.SchemeConfig).HasForeignKey<SchemeConfig>(x => x.TenantId);
+            // Bank Details
+            e.Property(x => x.BankName).HasColumnName("bank_name");
+            e.Property(x => x.CustAddress1).HasColumnName("cust_address1");
+            e.Property(x => x.CustAddress2).HasColumnName("cust_address2");
+            e.Property(x => x.CustAddress3).HasColumnName("cust_address3");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.PhNum).HasColumnName("ph_num");
+            //e.Property(x => x.Fax).HasColumnName("fax");
+            e.Property(x => x.RdStatus).HasColumnName("rd_status");
+
+            // Bonus / Commission
+            e.Property(x => x.GrossBonus)
+                .HasColumnName("gross_bonus")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.TenantCommission)
+                .HasColumnName("tenant_commission")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.NetBonus)
+                .HasColumnName("net_bonus")
+                .HasColumnType("decimal(18,2)");
+
+            // Reserve / GL Accounts
+            e.Property(x => x.Reserve1).HasColumnName("reserve1");
+            e.Property(x => x.Reserve2).HasColumnName("reserve2");
+            e.Property(x => x.PoolMoney).HasColumnName("pool_money");
+            e.Property(x => x.TenantPin).HasColumnName("tenant_pin");
+            e.Property(x => x.LoanAssetGL).HasColumnName("loan_asset_gl");
+            e.Property(x => x.SifinPayable).HasColumnName("sifin_payable");
+
+            // Time Change
+            e.Property(x => x.TimeChPass)
+                .HasColumnName("time_ch_pass")
+                .HasColumnType("decimal(18,2)");
+
+            // Penalty Accounts
+            e.Property(x => x.PenaltyAcc).HasColumnName("penalty_acc");
+            e.Property(x => x.NMPenaltyAcc).HasColumnName("nm_penalty_acc");
+
+            // Interest Configuration
+            e.Property(x => x.MinimumRate)
+                .HasColumnName("minimum_rate")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.MaximumRate)
+                .HasColumnName("maximum_rate")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.MinimumPeriod).HasColumnName("minimum_period");
+            e.Property(x => x.MaximumPeriod).HasColumnName("maximum_period");
+
+            // Tax
+            e.Property(x => x.TdsAc).HasColumnName("tds_ac");
+            e.Property(x => x.ServicesTax).HasColumnName("services_tax");
         });
 
         b.Entity<AppUser>(e =>
@@ -145,11 +207,53 @@ public class EasyMoneyDbContext : DbContext
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
+        //b.Entity<IndividualKycDetail>(e =>
+        //{
+        //    e.ToTable("individual_kyc_detail");
+        //    e.HasKey(x => x.MemberId);
+        //    e.Property(x => x.MemberId).HasColumnName("member_id");
+        //    e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
+        //    e.Property(x => x.Gender).HasColumnName("gender").HasConversion<string>();
+        //    e.Property(x => x.FatherOrSpouseName).HasColumnName("father_or_spouse_name");
+        //    e.Property(x => x.PanNumber).HasColumnName("pan_number");
+        //    e.Property(x => x.AadhaarNumber).HasColumnName("aadhaar_number");
+        //    e.Property(x => x.AadhaarLast4).HasColumnName("aadhaar_last4");
+        //    e.Property(x => x.Occupation).HasColumnName("occupation");
+        //    // The DB enum literals start with digits (e.g. '1L_5L'). C# enum names
+        //    // cannot start with a digit, so we prefix with underscore and translate
+        //    // both directions via a value converter.
+        //    e.Property(x => x.AnnualIncomeBand).HasColumnName("annual_income_band")
+        //        .HasConversion(
+        //            v => v.HasValue ? IncomeBandToDb(v.Value) : null,
+        //            v => v == null ? (IncomeBand?)null : IncomeBandFromDb(v));
+        //    e.Property(x => x.NomineeName).HasColumnName("nominee_name");
+        //    e.Property(x => x.NomineeRelation).HasColumnName("nominee_relation");
+        //    e.Property(x => x.NomineeDob).HasColumnName("nominee_dob");
+        //    e.Property(x => x.PermanentAddressLine).HasColumnName("permanent_address_line");
+        //    e.Property(x => x.PermanentCity).HasColumnName("permanent_city");
+        //    e.Property(x => x.PermanentState).HasColumnName("permanent_state");
+        //    e.Property(x => x.PermanentPincode).HasColumnName("permanent_pincode");
+        //    e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        //});
+
         b.Entity<IndividualKycDetail>(e =>
         {
             e.ToTable("individual_kyc_detail");
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
+            // Personal Details
+            e.Property(x => x.CustomerId).HasColumnName("customer_id").HasMaxLength(45);
+            e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
+            e.Property(x => x.Address).HasColumnName("address");
+            e.Property(x => x.MobileNumber).HasColumnName("mobile_number").HasMaxLength(20);
+            e.Property(x => x.ResidencePhone).HasColumnName("residence_phone").HasMaxLength(20);
+            e.Property(x => x.OfficePhone).HasColumnName("office_phone").HasMaxLength(20);
+            e.Property(x => x.Email).HasColumnName("email").HasMaxLength(100);
+            e.Property(x => x.Age).HasColumnName("age");
+            e.Property(x => x.Education).HasColumnName("education").HasMaxLength(100);
+            e.Property(x => x.MaritalStatus).HasColumnName("marital_status").HasMaxLength(30);
+
+            // KYC Details
             e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
             e.Property(x => x.Gender).HasColumnName("gender").HasConversion<string>();
             e.Property(x => x.FatherOrSpouseName).HasColumnName("father_or_spouse_name");
@@ -157,20 +261,82 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AadhaarNumber).HasColumnName("aadhaar_number");
             e.Property(x => x.AadhaarLast4).HasColumnName("aadhaar_last4");
             e.Property(x => x.Occupation).HasColumnName("occupation");
-            // The DB enum literals start with digits (e.g. '1L_5L'). C# enum names
-            // cannot start with a digit, so we prefix with underscore and translate
-            // both directions via a value converter.
-            e.Property(x => x.AnnualIncomeBand).HasColumnName("annual_income_band")
-                .HasConversion(
+
+            e.Property(x => x.AnnualIncomeBand).HasColumnName("annual_income_band").HasConversion(
                     v => v.HasValue ? IncomeBandToDb(v.Value) : null,
                     v => v == null ? (IncomeBand?)null : IncomeBandFromDb(v));
+
             e.Property(x => x.NomineeName).HasColumnName("nominee_name");
             e.Property(x => x.NomineeRelation).HasColumnName("nominee_relation");
             e.Property(x => x.NomineeDob).HasColumnName("nominee_dob");
+
             e.Property(x => x.PermanentAddressLine).HasColumnName("permanent_address_line");
             e.Property(x => x.PermanentCity).HasColumnName("permanent_city");
             e.Property(x => x.PermanentState).HasColumnName("permanent_state");
             e.Property(x => x.PermanentPincode).HasColumnName("permanent_pincode");
+
+            // ID Details
+            e.Property(x => x.IdType).HasColumnName("id_type").HasMaxLength(50);
+            e.Property(x => x.IdNumber).HasColumnName("id_number").HasMaxLength(100);
+            e.Property(x => x.AddressProof).HasColumnName("address_proof").HasMaxLength(100);
+            e.Property(x => x.DocumentNumber).HasColumnName("document_number").HasMaxLength(100);
+            e.Property(x => x.CustomerImage).HasColumnName("customer_image").HasMaxLength(255);
+            e.Property(x => x.IdImage).HasColumnName("id_image").HasMaxLength(255);
+            e.Property(x => x.DocumentImage).HasColumnName("document_image").HasMaxLength(255);
+
+            // Bank Details
+            e.Property(x => x.BankName).HasColumnName("bank_name").HasMaxLength(100);
+            e.Property(x => x.SavingsAccountNumber).HasColumnName("savings_account_number").HasMaxLength(50);
+            e.Property(x => x.CurrentAccountNumber).HasColumnName("current_account_number").HasMaxLength(50);
+
+            // Family Details
+            e.Property(x => x.TotalFamilyMembers).HasColumnName("total_family_members");
+            e.Property(x => x.DependentFamilyMembers).HasColumnName("dependent_family_members");
+            e.Property(x => x.EarningFamilyMembers).HasColumnName("earning_family_members");
+            e.Property(x => x.AdditionalPersonalDetails).HasColumnName("additional_personal_details");
+            e.Property(x => x.Remarks).HasColumnName("remarks");
+            e.Property(x => x.Remarks1).HasColumnName("remarks1");
+
+            // Vehicle Details
+            e.Property(x => x.BikeModel).HasColumnName("bike_model").HasMaxLength(100);
+            e.Property(x => x.BikeCompany).HasColumnName("bike_company").HasMaxLength(100);
+            e.Property(x => x.CarModel).HasColumnName("car_model").HasMaxLength(100);
+            e.Property(x => x.CarCompany).HasColumnName("car_company").HasMaxLength(100);
+            e.Property(x => x.TractorModel).HasColumnName("tractor_model").HasMaxLength(100);
+            e.Property(x => x.TractorCompany).HasColumnName("tractor_company").HasMaxLength(100);
+            e.Property(x => x.HeavyVehicleModel).HasColumnName("heavy_vehicle_model").HasMaxLength(100);
+            e.Property(x => x.HeavyVehicleCompany).HasColumnName("heavy_vehicle_company").HasMaxLength(100);
+
+            // Property Details
+            e.Property(x => x.AgricultureLand).HasColumnName("agriculture_land").HasMaxLength(255);
+            e.Property(x => x.AgricultureArea).HasColumnName("agriculture_area").HasColumnType("decimal(18,2)");
+            e.Property(x => x.AgricultureSurveyNo).HasColumnName("agriculture_survey_no").HasMaxLength(100);
+            e.Property(x => x.AgricultureValue).HasColumnName("agriculture_value").HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.SiteDetails).HasColumnName("site_details");
+            e.Property(x => x.SiteArea).HasColumnName("site_area").HasColumnType("decimal(18,2)");
+            e.Property(x => x.SiteSurveyNo).HasColumnName("site_survey_no").HasMaxLength(100);
+            e.Property(x => x.SiteValue).HasColumnName("site_value").HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.PlantationDetails).HasColumnName("plantation_details");
+            e.Property(x => x.PlantationArea).HasColumnName("plantation_area").HasColumnType("decimal(18,2)");
+            e.Property(x => x.PlantationSurveyNo).HasColumnName("plantation_survey_no").HasMaxLength(100);
+            e.Property(x => x.PlantationValue).HasColumnName("plantation_value").HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.HouseDetails).HasColumnName("house_details");
+            e.Property(x => x.HouseArea).HasColumnName("house_area").HasColumnType("decimal(18,2)");
+            e.Property(x => x.HouseNumber).HasColumnName("house_number").HasMaxLength(100);
+            e.Property(x => x.HouseValue).HasColumnName("house_value").HasColumnType("decimal(18,2)");
+
+            // Occupational Details
+            e.Property(x => x.EmploymentNature).HasColumnName("employment_nature").HasMaxLength(100);
+            e.Property(x => x.EmployerName).HasColumnName("employer_name").HasMaxLength(150);
+            e.Property(x => x.SalaryDetails).HasColumnName("salary_details").HasColumnType("decimal(18,2)");
+            e.Property(x => x.Designation).HasColumnName("designation").HasMaxLength(100);
+            e.Property(x => x.OrganizationNature).HasColumnName("organization_nature").HasMaxLength(100);
+            e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
+            e.Property(x => x.OfficeAddress).HasColumnName("office_address");
+
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
         });
 
@@ -465,7 +631,175 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.DecidedAt).HasColumnName("decided_at");
             e.Property(x => x.DecisionRemarks).HasColumnName("decision_remarks");
         });
+
+        b.Entity<UserBranch>(e =>
+        {
+            e.ToTable("user_branch");
+
+            e.HasKey(x => x.UserBranchId);
+
+            e.Property(x => x.UserBranchId)
+                .HasColumnName("user_branch_id");
+
+            e.Property(x => x.UserId)
+                .HasColumnName("user_id");
+
+            e.Property(x => x.BranchId)
+                .HasColumnName("branch_id");
+
+            e.Property(x => x.IsActive)
+                .HasColumnName("is_active");
+
+            e.Property(x => x.CreatedAt)
+                .HasColumnName("created_at");
+
+            // Uncomment these if your entity contains these fields
+            //e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            //e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            //e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+
+            // If User belongs to a tenant, apply tenant filter
+            // e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+
+            // Relationships (if applicable)
+            // e.HasOne(x => x.User)
+            //     .WithMany()
+            //     .HasForeignKey(x => x.UserId);
+        });
+        b.Entity<Department>(e =>
+        {
+            e.ToTable("department");
+
+            e.HasKey(x => x.DepartmentId);
+
+            e.Property(x => x.DepartmentId)
+                .HasColumnName("department_id");
+
+            e.Property(x => x.DepartmentName)
+                .HasColumnName("department_name");
+
+            e.Property(x => x.Description)
+                .HasColumnName("description");
+
+            e.Property(x => x.IsActive)
+                .HasColumnName("is_active");
+
+            e.Property(x => x.CreatedAt)
+                .HasColumnName("created_at");
+            e.Property(x => x.UpdatedAt)
+               .HasColumnName("updated_at");
+
+            // Uncomment if these fields exist in your entity
+            // e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            // e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+        });
+        //b.Entity<IndividualDetail>(e =>
+        //{
+        //    e.ToTable("individual_detail");
+
+        //    e.HasKey(x => x.IndividualDetailId);
+
+        //    e.Property(x => x.IndividualDetailId).HasColumnName("individual_detail_id");
+
+        //    // Personal Details
+        //    e.Property(x => x.CustomerId).HasColumnName("customer_id").HasMaxLength(45);
+        //    e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
+        //    e.Property(x => x.FatherOrSpouseName).HasColumnName("father_or_spouse_name").HasMaxLength(100);
+        //    e.Property(x => x.Address).HasColumnName("address");
+        //    e.Property(x => x.MobileNumber).HasColumnName("mobile_number").HasMaxLength(20);
+        //    e.Property(x => x.ResidencePhone).HasColumnName("residence_phone").HasMaxLength(20);
+        //    e.Property(x => x.OfficePhone).HasColumnName("office_phone").HasMaxLength(20);
+        //    e.Property(x => x.Email).HasColumnName("email").HasMaxLength(100);
+        //    e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
+        //    e.Property(x => x.Age).HasColumnName("age");
+        //    e.Property(x => x.Education).HasColumnName("education").HasMaxLength(100);
+        //    e.Property(x => x.MaritalStatus).HasColumnName("marital_status").HasMaxLength(30);
+
+        //    // ID Details
+        //    e.Property(x => x.IdType).HasColumnName("id_type").HasMaxLength(50);
+        //    e.Property(x => x.IdNumber).HasColumnName("id_number").HasMaxLength(100);
+        //    e.Property(x => x.AddressProof).HasColumnName("address_proof").HasMaxLength(100);
+        //    e.Property(x => x.DocumentNumber).HasColumnName("document_number").HasMaxLength(100);
+        //    e.Property(x => x.CustomerImage).HasColumnName("customer_image").HasMaxLength(255);
+        //    e.Property(x => x.IdImage).HasColumnName("id_image").HasMaxLength(255);
+        //    e.Property(x => x.DocumentImage).HasColumnName("document_image").HasMaxLength(255);
+
+        //    // Member Details
+        //    //e.Property(x => x.MembershipNumber).HasColumnName("membership_number").HasMaxLength(50);
+        //    //e.Property(x => x.AccountType).HasColumnName("account_type").HasMaxLength(30);
+        //    //e.Property(x => x.AccountNumber).HasColumnName("account_number").HasMaxLength(50);
+
+        //    // Other Bank Details
+        //    e.Property(x => x.BankName).HasColumnName("bank_name").HasMaxLength(100);
+        //    e.Property(x => x.SavingsAccountNumber).HasColumnName("savings_account_number").HasMaxLength(50);
+        //    e.Property(x => x.CurrentAccountNumber).HasColumnName("current_account_number").HasMaxLength(50);
+
+        //    // KYC
+        //    e.Property(x => x.NomineeName).HasColumnName("nominee_name").HasMaxLength(100);
+        //    e.Property(x => x.NomineeRelation).HasColumnName("nominee_relation").HasMaxLength(50);
+        //    e.Property(x => x.NomineeDob).HasColumnName("nominee_dob");
+        //    e.Property(x => x.Occupation).HasColumnName("occupation").HasMaxLength(100);
+        //    e.Property(x => x.AnnualIncomeBand).HasColumnName("annual_income_band").HasMaxLength(50);
+        //    e.Property(x => x.PermanentAddressLine).HasColumnName("permanent_address_line");
+        //    e.Property(x => x.PermanentCity).HasColumnName("permanent_city").HasMaxLength(100);
+        //    e.Property(x => x.PermanentState).HasColumnName("permanent_state").HasMaxLength(100);
+        //    e.Property(x => x.PermanentPincode).HasColumnName("permanent_pincode").HasMaxLength(20);
+        //    e.Property(x => x.Gender).HasColumnName("gender").HasMaxLength(20);
+        //    e.Property(x => x.PanNumber).HasColumnName("pan_number").HasMaxLength(20);
+        //    e.Property(x => x.AadhaarNumber).HasColumnName("aadhaar_number").HasMaxLength(20);
+
+        //    // Family Details
+        //    e.Property(x => x.TotalFamilyMembers).HasColumnName("total_family_members");
+        //    e.Property(x => x.DependentFamilyMembers).HasColumnName("dependent_family_members");
+        //    e.Property(x => x.EarningFamilyMembers).HasColumnName("earning_family_members");
+        //    e.Property(x => x.AdditionalPersonalDetails).HasColumnName("additional_personal_details");
+        //    e.Property(x => x.Remarks).HasColumnName("remarks");
+        //    e.Property(x => x.Remarks1).HasColumnName("remarks1");
+
+        //    // Vehicle Details
+        //    e.Property(x => x.BikeModel).HasColumnName("bike_model").HasMaxLength(100);
+        //    e.Property(x => x.BikeCompany).HasColumnName("bike_company").HasMaxLength(100);
+        //    e.Property(x => x.CarModel).HasColumnName("car_model").HasMaxLength(100);
+        //    e.Property(x => x.CarCompany).HasColumnName("car_company").HasMaxLength(100);
+        //    e.Property(x => x.TractorModel).HasColumnName("tractor_model").HasMaxLength(100);
+        //    e.Property(x => x.TractorCompany).HasColumnName("tractor_company").HasMaxLength(100);
+        //    e.Property(x => x.HeavyVehicleModel).HasColumnName("heavy_vehicle_model").HasMaxLength(100);
+        //    e.Property(x => x.HeavyVehicleCompany).HasColumnName("heavy_vehicle_company").HasMaxLength(100);
+
+        //    // Property Details
+        //    e.Property(x => x.AgricultureLand).HasColumnName("agriculture_land");
+        //    e.Property(x => x.AgricultureArea).HasColumnName("agriculture_area").HasColumnType("decimal(18,2)");
+        //    e.Property(x => x.AgricultureSurveyNo).HasColumnName("agriculture_survey_no").HasMaxLength(100);
+        //    e.Property(x => x.AgricultureValue).HasColumnName("agriculture_value").HasColumnType("decimal(18,2)");
+
+        //    e.Property(x => x.SiteDetails).HasColumnName("site_details");
+        //    e.Property(x => x.SiteArea).HasColumnName("site_area").HasColumnType("decimal(18,2)");
+        //    e.Property(x => x.SiteSurveyNo).HasColumnName("site_survey_no").HasMaxLength(100);
+        //    e.Property(x => x.SiteValue).HasColumnName("site_value").HasColumnType("decimal(18,2)");
+
+        //    e.Property(x => x.PlantationDetails).HasColumnName("plantation_details");
+        //    e.Property(x => x.PlantationArea).HasColumnName("plantation_area").HasColumnType("decimal(18,2)");
+        //    e.Property(x => x.PlantationSurveyNo).HasColumnName("plantation_survey_no").HasMaxLength(100);
+        //    e.Property(x => x.PlantationValue).HasColumnName("plantation_value").HasColumnType("decimal(18,2)");
+
+        //    e.Property(x => x.HouseDetails).HasColumnName("house_details");
+        //    e.Property(x => x.HouseArea).HasColumnName("house_area").HasColumnType("decimal(18,2)");
+        //    e.Property(x => x.HouseNumber).HasColumnName("house_number").HasMaxLength(100);
+        //    e.Property(x => x.HouseValue).HasColumnName("house_value").HasColumnType("decimal(18,2)");
+
+        //    // Occupational Details
+        //    e.Property(x => x.EmploymentNature).HasColumnName("employment_nature").HasMaxLength(100);
+        //    e.Property(x => x.EmployerName).HasColumnName("employer_name").HasMaxLength(150);
+        //    e.Property(x => x.SalaryDetails).HasColumnName("salary_details").HasColumnType("decimal(18,2)");
+        //    e.Property(x => x.Designation).HasColumnName("designation").HasMaxLength(100);
+        //    e.Property(x => x.OrganizationNature).HasColumnName("organization_nature").HasMaxLength(100);
+        //    e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
+        //    e.Property(x => x.OfficeAddress).HasColumnName("office_address");
+        //});
+
     }
+
 
     private static string IncomeBandToDb(IncomeBand b) => b switch
     {

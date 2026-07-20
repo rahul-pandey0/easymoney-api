@@ -44,6 +44,8 @@ public class TenantsController : ControllerBase
     public async Task<IActionResult> List() =>
         Ok((await _tenants.ListAsync()).Select(ToDto));
 
+
+
     // GET /api/v1/tenants/{tenantId}
     [HttpGet("{tenantId:long}"),
      Authorize(Roles = Roles.AnySifin + "," + Roles.AnyOrg + "," + Roles.Auditor)]
@@ -92,5 +94,22 @@ public class TenantsController : ControllerBase
             return Ok(ToDto(t!));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+    [HttpPost("{tenantId:long}/scheme-config")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
+    public async Task<IActionResult> CreateScheme(long tenantId, [FromBody] SchemeConfigUpdatePayload req)
+    {
+        try
+        {
+            await _tenants.CreateSchemeConfigAsync(tenantId, req, _ctx.UserId);
+
+            var scheme = await _tenants.GetSchemeConfigAsync(tenantId);
+
+            return Ok(scheme);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

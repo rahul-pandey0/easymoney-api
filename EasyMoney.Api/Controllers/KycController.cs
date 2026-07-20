@@ -22,7 +22,7 @@ public class KycController : ControllerBase
 
     // ============================================================
     // Individual / Corporate detail
-    // ============================================================
+    // =======================================================s=====
     [HttpPut("kyc/individual-detail"),
      Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
     public async Task<IActionResult> UpsertIndividual(long memberId, [FromBody] UpsertIndividualKycRequest req)
