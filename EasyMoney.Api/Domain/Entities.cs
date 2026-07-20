@@ -37,10 +37,74 @@ public class SchemeConfig
     // Per-tenant maker-checker flag (default ON). When OFF, actions execute
     // immediately and an approval_request row is still written with status=AUTO_APPROVED.
     public bool MakerCheckerEnabled { get; set; } = true;
+    //public long? UpdatedBy { get; set; }
+    //public DateTime? UpdatedAt { get; set; }
+    //public long? AuthorizedBy { get; set; }
+    //public DateTime? AuthorizedAt { get; set; }
+    //public Tenant Tenant { get; set; } = null!;
+    // -----------------------------
+    // Bank Information
+    // -----------------------------
+    public string? BankName { get; set; }
+    public string? CustAddress1 { get; set; }
+    public string? CustAddress2 { get; set; }
+    public string? CustAddress3 { get; set; }
+    public string? Email { get; set; }
+    public string? PhNum { get; set; }
+    //public string? Fax { get; set; }
+    public string? RdStatus { get; set; }
+
+    // -----------------------------
+    // Bonus / Commission
+    // -----------------------------
+    public decimal GrossBonus { get; set; }
+    public decimal TenantCommission { get; set; }
+    public decimal NetBonus { get; set; }
+
+    // -----------------------------
+    // GL Accounts / Reserve
+    // -----------------------------
+    public string? Reserve1 { get; set; }
+    public string? Reserve2 { get; set; }
+    public string? PoolMoney { get; set; }
+    public string? TenantPin { get; set; }
+    public string? LoanAssetGL { get; set; }
+    public string? SifinPayable { get; set; }
+
+    // -----------------------------
+    // Time Change
+    // -----------------------------
+    public decimal TimeChPass { get; set; }
+
+    // -----------------------------
+    // Penalty Accounts
+    // -----------------------------
+    public string? PenaltyAcc { get; set; }
+    public string? NMPenaltyAcc { get; set; }
+
+    // -----------------------------
+    // Interest Configuration
+    // -----------------------------
+    public decimal MinimumRate { get; set; }
+    public decimal MaximumRate { get; set; }
+    public int MinimumPeriod { get; set; }
+    public int MaximumPeriod { get; set; }
+
+    // -----------------------------
+    // Tax Accounts
+    // -----------------------------
+    public string? TdsAc { get; set; }
+    public string? ServicesTax { get; set; }
+
+    // -----------------------------
+    // Audit Fields
+    // -----------------------------
     public long? UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+
+    // Navigation Property
     public Tenant Tenant { get; set; } = null!;
 }
 
@@ -91,9 +155,42 @@ public class Member
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+//public class IndividualKycDetail
+//{
+//    public long MemberId { get; set; }
+//    public DateOnly? DateOfBirth { get; set; }
+//    public Gender? Gender { get; set; }
+//    public string? FatherOrSpouseName { get; set; }
+//    public string? PanNumber { get; set; }
+//    public string? AadhaarNumber { get; set; }
+//    public string? AadhaarLast4 { get; set; }
+//    public string? Occupation { get; set; }
+//    public IncomeBand? AnnualIncomeBand { get; set; }
+//    public string? NomineeName { get; set; }
+//    public string? NomineeRelation { get; set; }
+//    public DateOnly? NomineeDob { get; set; }
+//    public string? PermanentAddressLine { get; set; }
+//    public string? PermanentCity { get; set; }
+//    public string? PermanentState { get; set; }
+//    public string? PermanentPincode { get; set; }
+//    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+//}
+
 public class IndividualKycDetail
 {
     public long MemberId { get; set; }
+
+    public string? CustomerId { get; set; }
+    public string? Name { get; set; }
+    public string? Address { get; set; }
+    public string? MobileNumber { get; set; }
+    public string? ResidencePhone { get; set; }
+    public string? OfficePhone { get; set; }
+    public string? Email { get; set; }
+    public int? Age { get; set; }
+    public string? Education { get; set; }
+    public string? MaritalStatus { get; set; }
+
     public DateOnly? DateOfBirth { get; set; }
     public Gender? Gender { get; set; }
     public string? FatherOrSpouseName { get; set; }
@@ -109,9 +206,65 @@ public class IndividualKycDetail
     public string? PermanentCity { get; set; }
     public string? PermanentState { get; set; }
     public string? PermanentPincode { get; set; }
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-}
 
+    public string? IdType { get; set; }
+    public string? IdNumber { get; set; }
+    public string? AddressProof { get; set; }
+    public string? DocumentNumber { get; set; }
+    public string? CustomerImage { get; set; }
+    public string? IdImage { get; set; }
+    public string? DocumentImage { get; set; }
+
+    public string? BankName { get; set; }
+    public string? SavingsAccountNumber { get; set; }
+    public string? CurrentAccountNumber { get; set; }
+
+    public int? TotalFamilyMembers { get; set; }
+    public int? DependentFamilyMembers { get; set; }
+    public int? EarningFamilyMembers { get; set; }
+    public string? AdditionalPersonalDetails { get; set; }
+    public string? Remarks { get; set; }
+    public string? Remarks1 { get; set; }
+
+    public string? BikeModel { get; set; }
+    public string? BikeCompany { get; set; }
+    public string? CarModel { get; set; }
+    public string? CarCompany { get; set; }
+    public string? TractorModel { get; set; }
+    public string? TractorCompany { get; set; }
+    public string? HeavyVehicleModel { get; set; }
+    public string? HeavyVehicleCompany { get; set; }
+
+    public string? AgricultureLand { get; set; }
+    public decimal? AgricultureArea { get; set; }
+    public string? AgricultureSurveyNo { get; set; }
+    public decimal? AgricultureValue { get; set; }
+
+    public string? SiteDetails { get; set; }
+    public decimal? SiteArea { get; set; }
+    public string? SiteSurveyNo { get; set; }
+    public decimal? SiteValue { get; set; }
+
+    public string? PlantationDetails { get; set; }
+    public decimal? PlantationArea { get; set; }
+    public string? PlantationSurveyNo { get; set; }
+    public decimal? PlantationValue { get; set; }
+
+    public string? HouseDetails { get; set; }
+    public decimal? HouseArea { get; set; }
+    public string? HouseNumber { get; set; }
+    public decimal? HouseValue { get; set; }
+
+    public string? EmploymentNature { get; set; }
+    public string? EmployerName { get; set; }
+    public decimal? SalaryDetails { get; set; }
+    public string? Designation { get; set; }
+    public string? OrganizationNature { get; set; }
+    public string? Department { get; set; }
+    public string? OfficeAddress { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
+}
 public class CorporateKycDetail
 {
     public long MemberId { get; set; }
@@ -354,4 +507,129 @@ public class ApprovalRequest
     public long? DecidedBy { get; set; }
     public DateTime? DecidedAt { get; set; }
     public string? DecisionRemarks { get; set; }
+}
+public class UserBranch
+{
+    public long UserBranchId { get; set; }
+
+    public long UserId { get; set; }
+
+    public long BranchId { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+public class Department
+{
+    public long DepartmentId { get; set; }
+
+    public string DepartmentName { get; set; } = null!;
+
+    public string? Description { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? UpdatedAt { get; set; }
+}
+public class IndividualDetail
+{
+    public long IndividualDetailId { get; set; }
+
+    // Personal Details
+    public string? CustomerId { get; set; }
+    public string? Name { get; set; }
+    public string? FatherOrSpouseName { get; set; }
+    public string? Address { get; set; }
+    public string? MobileNumber { get; set; }
+    public string? ResidencePhone { get; set; }
+    public string? OfficePhone { get; set; }
+    public string? Email { get; set; }
+    public DateOnly? DateOfBirth { get; set; }
+    public int? Age { get; set; }
+    public string? Education { get; set; }
+    public string? MaritalStatus { get; set; }
+
+    // ID Details
+    public string? IdType { get; set; }
+    public string? IdNumber { get; set; }
+    public string? AddressProof { get; set; }
+    public string? DocumentNumber { get; set; }
+    public string? CustomerImage { get; set; }
+    public string? IdImage { get; set; }
+    public string? DocumentImage { get; set; }
+
+    // Member Details
+    public string? MembershipNumber { get; set; }
+    public string? AccountType { get; set; }
+    public string? AccountNumber { get; set; }
+
+    // Other Bank Details
+    public string? BankName { get; set; }
+    public string? SavingsAccountNumber { get; set; }
+    public string? CurrentAccountNumber { get; set; }
+
+    // Existing KYC Fields
+    public string? NomineeName { get; set; }
+    public string? NomineeRelation { get; set; }
+    public DateOnly? NomineeDob { get; set; }
+    public string? Occupation { get; set; }
+    public string? AnnualIncomeBand { get; set; }
+    public string? PermanentAddressLine { get; set; }
+    public string? PermanentCity { get; set; }
+    public string? PermanentState { get; set; }
+    public string? PermanentPincode { get; set; }
+    public string? Gender { get; set; }
+    public string? PanNumber { get; set; }
+    public string? AadhaarNumber { get; set; }
+
+    // Family Details
+    public int? TotalFamilyMembers { get; set; }
+    public int? DependentFamilyMembers { get; set; }
+    public int? EarningFamilyMembers { get; set; }
+    public string? AdditionalPersonalDetails { get; set; }
+    public string? Remarks { get; set; }
+    public string? Remarks1 { get; set; }
+
+    // Vehicle Details
+    public string? BikeModel { get; set; }
+    public string? BikeCompany { get; set; }
+    public string? CarModel { get; set; }
+    public string? CarCompany { get; set; }
+    public string? TractorModel { get; set; }
+    public string? TractorCompany { get; set; }
+    public string? HeavyVehicleModel { get; set; }
+    public string? HeavyVehicleCompany { get; set; }
+
+    // Property Details
+    public string? AgricultureLand { get; set; }
+    public decimal? AgricultureArea { get; set; }
+    public string? AgricultureSurveyNo { get; set; }
+    public decimal? AgricultureValue { get; set; }
+
+    public string? SiteDetails { get; set; }
+    public decimal? SiteArea { get; set; }
+    public string? SiteSurveyNo { get; set; }
+    public decimal? SiteValue { get; set; }
+
+    public string? PlantationDetails { get; set; }
+    public decimal? PlantationArea { get; set; }
+    public string? PlantationSurveyNo { get; set; }
+    public decimal? PlantationValue { get; set; }
+
+    public string? HouseDetails { get; set; }
+    public decimal? HouseArea { get; set; }
+    public string? HouseNumber { get; set; }
+    public decimal? HouseValue { get; set; }
+
+    // Occupational Details
+    public string? EmploymentNature { get; set; }
+    public string? EmployerName { get; set; }
+    public decimal? SalaryDetails { get; set; }
+    public string? Designation { get; set; }
+    public string? OrganizationNature { get; set; }
+    public string? Department { get; set; }
+    public string? OfficeAddress { get; set; }
 }
