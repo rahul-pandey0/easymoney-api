@@ -112,4 +112,12 @@ public class TenantsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+    [HttpGet("scheme-configs")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<ActionResult<IReadOnlyList<SchemeSummaryDto>>> GetAllSchemeConfigs()
+    {
+        var result = await _tenants.GetAllSchemeSummariesAsync();
+        return Ok(result);
+    }
+
 }

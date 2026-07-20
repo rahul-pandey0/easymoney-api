@@ -306,3 +306,4 @@ public record KycReviewDto(
 // Tier promotion (MINIMAL -> FULL)
 // ============================================================
 public record PromoteToFullKycRequest(); // no body; presence of detail row + docs is the condition  it is correct 
+

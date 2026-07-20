@@ -14,6 +14,7 @@ public interface ITenantService
     Task<IReadOnlyList<Tenant>> ListAsync();
     Task<SchemeConfig> GetSchemeConfigAsync(long tenantId);
     Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload req, long? authorizedBy);
+    Task<IReadOnlyList<SchemeSummaryDto>> GetAllSchemeSummariesAsync();
 }
 
 public class TenantService : ITenantService
@@ -286,7 +287,74 @@ public class TenantService : ITenantService
         sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
     }
+    public async Task<IReadOnlyList<SchemeSummaryDto>> GetAllSchemeSummariesAsync()
+    {
+        var data = await (
+            from t in _db.Tenants.AsNoTracking()
+            join s in _db.SchemeConfigs.AsNoTracking()
+                on t.TenantId equals s.TenantId
+            select new SchemeSummaryDto(
+                t.TenantId,
+                t.Name,
+                t.Address,
+                t.Phone,
+                t.OrgEmail,
 
+                s.TenureMonths,
+                s.OrgFeePct,
+                s.SifinCommissionPct,
+                s.MinBidPct,
+                s.MaxBidPct,
+                s.EarlyExitPenaltyPct,
+                s.MinInstallmentsForEligibility,
+                s.BiddingWindowOpenDay,
+                s.BiddingDayOfMonth,
+                s.NoBidDefaultDividendPct,
+
+                s.KycMode.ToString(),
+                s.MakerCheckerEnabled,
+
+                s.BankName,
+                s.CustAddress1,
+                s.CustAddress2,
+                s.CustAddress3,
+                s.PhNum,
+                s.RdStatus,
+
+                s.GrossBonus,
+                s.TenantCommission,
+                s.NetBonus,
+
+                s.Reserve1,
+                s.Reserve2,
+                s.PoolMoney,
+                s.TenantPin,
+                s.LoanAssetGL,
+                s.SifinPayable,
+
+                s.TimeChPass,
+
+                s.PenaltyAcc,
+                s.NMPenaltyAcc,
+
+                s.MinimumRate,
+                s.MaximumRate,
+                s.MinimumPeriod,
+                s.MaximumPeriod,
+
+                s.TdsAc,
+                s.ServicesTax,
+
+                s.UpdatedBy,
+                s.UpdatedAt,
+                s.AuthorizedBy,
+                s.AuthorizedAt
+            )
+        ).ToListAsync();
+
+        return data;
+    
+    }
 
     public Task<Tenant?> GetAsync(long tenantId) =>
         _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == tenantId);
