@@ -38,26 +38,101 @@ public class KycService : IKycService
     // ============================================================
     // Individual / Corporate detail upserts
     // ============================================================
+    //public async Task UpsertIndividualDetailAsync(long memberId, UpsertIndividualKycRequest req)
+    //{
+    //    var m = await _db.Members.FirstOrDefaultAsync(x => x.MemberId == memberId)
+    //        ?? throw new DomainException($"Member {memberId} not found");
+    //    if (m.MemberType != MemberType.INDIVIDUAL)
+    //        throw new DomainException("Individual KYC detail only applies to INDIVIDUAL members");
+
+    //    var detail = await _db.IndividualKycDetails.FirstOrDefaultAsync(x => x.MemberId == memberId);
+    //    if (detail is null)
+    //    {
+    //        detail = new IndividualKycDetail { MemberId = memberId };
+    //        _db.IndividualKycDetails.Add(detail);
+    //    }
+    //    detail.DateOfBirth = req.DateOfBirth ?? detail.DateOfBirth;
+    //    detail.Gender = req.Gender ?? detail.Gender;
+    //    detail.FatherOrSpouseName = req.FatherOrSpouseName ?? detail.FatherOrSpouseName;
+    //    detail.PanNumber = req.PanNumber ?? detail.PanNumber;
+    //    detail.AadhaarNumber = req.AadhaarNumber ?? detail.AadhaarNumber;
+    //    detail.AadhaarLast4 = req.AadhaarLast4 ?? detail.AadhaarLast4
+    //        ?? (req.AadhaarNumber is { Length: 12 } a ? a[^4..] : null);
+    //    detail.Occupation = req.Occupation ?? detail.Occupation;
+    //    detail.AnnualIncomeBand = req.AnnualIncomeBand ?? detail.AnnualIncomeBand;
+    //    detail.NomineeName = req.NomineeName ?? detail.NomineeName;
+    //    detail.NomineeRelation = req.NomineeRelation ?? detail.NomineeRelation;
+    //    detail.NomineeDob = req.NomineeDob ?? detail.NomineeDob;
+    //    detail.PermanentAddressLine = req.PermanentAddressLine ?? detail.PermanentAddressLine;
+    //    detail.PermanentCity = req.PermanentCity ?? detail.PermanentCity;
+    //    detail.PermanentState = req.PermanentState ?? detail.PermanentState;
+    //    detail.PermanentPincode = req.PermanentPincode ?? detail.PermanentPincode;
+    //    detail.UpdatedAt = DateTime.UtcNow;
+    //    await _db.SaveChangesAsync();
+    //}
+
+
     public async Task UpsertIndividualDetailAsync(long memberId, UpsertIndividualKycRequest req)
     {
         var m = await _db.Members.FirstOrDefaultAsync(x => x.MemberId == memberId)
             ?? throw new DomainException($"Member {memberId} not found");
+
         if (m.MemberType != MemberType.INDIVIDUAL)
             throw new DomainException("Individual KYC detail only applies to INDIVIDUAL members");
 
         var detail = await _db.IndividualKycDetails.FirstOrDefaultAsync(x => x.MemberId == memberId);
-        if (detail is null)
+
+        if (detail == null)
         {
-            detail = new IndividualKycDetail { MemberId = memberId };
+            detail = new IndividualKycDetail
+            {
+                MemberId = memberId
+            };
+
             _db.IndividualKycDetails.Add(detail);
         }
-        detail.DateOfBirth = req.DateOfBirth ?? detail.DateOfBirth;
-        detail.Gender = req.Gender ?? detail.Gender;
+
+        // Personal Details
+        detail.CustomerId = req.CustomerId ?? detail.CustomerId;
+        detail.Name = req.Name ?? detail.Name;
         detail.FatherOrSpouseName = req.FatherOrSpouseName ?? detail.FatherOrSpouseName;
+        detail.Address = req.Address ?? detail.Address;
+        detail.MobileNumber = req.MobileNumber ?? detail.MobileNumber;
+        detail.ResidencePhone = req.ResidencePhone ?? detail.ResidencePhone;
+        detail.OfficePhone = req.OfficePhone ?? detail.OfficePhone;
+        detail.Email = req.Email ?? detail.Email;
+        detail.DateOfBirth = req.DateOfBirth ?? detail.DateOfBirth;
+        detail.Age = req.Age ?? detail.Age;
+        detail.Education = req.Education ?? detail.Education;
+        detail.MaritalStatus = req.MaritalStatus ?? detail.MaritalStatus;
+
+        // ID Details
+        detail.IdType = req.IdType ?? detail.IdType;
+        detail.IdNumber = req.IdNumber ?? detail.IdNumber;
+        detail.AddressProof = req.AddressProof ?? detail.AddressProof;
+        detail.DocumentNumber = req.DocumentNumber ?? detail.DocumentNumber;
+        detail.CustomerImage = req.CustomerImage ?? detail.CustomerImage;
+        detail.IdImage = req.IdImage ?? detail.IdImage;
+        detail.DocumentImage = req.DocumentImage ?? detail.DocumentImage;
+
+        //// Member Details
+        //detail.MembershipNumber = req.MembershipNumber ?? detail.MembershipNumber;
+        //detail.AccountType = req.AccountType ?? detail.AccountType;
+        //detail.AccountNumber = req.AccountNumber ?? detail.AccountNumber;
+
+        // Other Bank Details
+        detail.BankName = req.BankName ?? detail.BankName;
+        detail.SavingsAccountNumber = req.SavingsAccountNumber ?? detail.SavingsAccountNumber;
+        detail.CurrentAccountNumber = req.CurrentAccountNumber ?? detail.CurrentAccountNumber;
+
+        // KYC
+        detail.Gender = req.Gender ?? detail.Gender;
         detail.PanNumber = req.PanNumber ?? detail.PanNumber;
         detail.AadhaarNumber = req.AadhaarNumber ?? detail.AadhaarNumber;
-        detail.AadhaarLast4 = req.AadhaarLast4 ?? detail.AadhaarLast4
+        detail.AadhaarLast4 = req.AadhaarLast4
+            ?? detail.AadhaarLast4
             ?? (req.AadhaarNumber is { Length: 12 } a ? a[^4..] : null);
+
         detail.Occupation = req.Occupation ?? detail.Occupation;
         detail.AnnualIncomeBand = req.AnnualIncomeBand ?? detail.AnnualIncomeBand;
         detail.NomineeName = req.NomineeName ?? detail.NomineeName;
@@ -67,7 +142,57 @@ public class KycService : IKycService
         detail.PermanentCity = req.PermanentCity ?? detail.PermanentCity;
         detail.PermanentState = req.PermanentState ?? detail.PermanentState;
         detail.PermanentPincode = req.PermanentPincode ?? detail.PermanentPincode;
+
+        // Family Details
+        detail.TotalFamilyMembers = req.TotalFamilyMembers ?? detail.TotalFamilyMembers;
+        detail.DependentFamilyMembers = req.DependentFamilyMembers ?? detail.DependentFamilyMembers;
+        detail.EarningFamilyMembers = req.EarningFamilyMembers ?? detail.EarningFamilyMembers;
+        detail.AdditionalPersonalDetails = req.AdditionalPersonalDetails ?? detail.AdditionalPersonalDetails;
+        detail.Remarks = req.Remarks ?? detail.Remarks;
+        detail.Remarks1 = req.Remarks1 ?? detail.Remarks1;
+
+        // Vehicle Details
+        detail.BikeModel = req.BikeModel ?? detail.BikeModel;
+        detail.BikeCompany = req.BikeCompany ?? detail.BikeCompany;
+        detail.CarModel = req.CarModel ?? detail.CarModel;
+        detail.CarCompany = req.CarCompany ?? detail.CarCompany;
+        detail.TractorModel = req.TractorModel ?? detail.TractorModel;
+        detail.TractorCompany = req.TractorCompany ?? detail.TractorCompany;
+        detail.HeavyVehicleModel = req.HeavyVehicleModel ?? detail.HeavyVehicleModel;
+        detail.HeavyVehicleCompany = req.HeavyVehicleCompany ?? detail.HeavyVehicleCompany;
+
+        // Property Details
+        detail.AgricultureLand = req.AgricultureLand ?? detail.AgricultureLand;
+        detail.AgricultureArea = req.AgricultureArea ?? detail.AgricultureArea;
+        detail.AgricultureSurveyNo = req.AgricultureSurveyNo ?? detail.AgricultureSurveyNo;
+        detail.AgricultureValue = req.AgricultureValue ?? detail.AgricultureValue;
+
+        detail.SiteDetails = req.SiteDetails ?? detail.SiteDetails;
+        detail.SiteArea = req.SiteArea ?? detail.SiteArea;
+        detail.SiteSurveyNo = req.SiteSurveyNo ?? detail.SiteSurveyNo;
+        detail.SiteValue = req.SiteValue ?? detail.SiteValue;
+
+        detail.PlantationDetails = req.PlantationDetails ?? detail.PlantationDetails;
+        detail.PlantationArea = req.PlantationArea ?? detail.PlantationArea;
+        detail.PlantationSurveyNo = req.PlantationSurveyNo ?? detail.PlantationSurveyNo;
+        detail.PlantationValue = req.PlantationValue ?? detail.PlantationValue;
+
+        detail.HouseDetails = req.HouseDetails ?? detail.HouseDetails;
+        detail.HouseArea = req.HouseArea ?? detail.HouseArea;
+        detail.HouseNumber = req.HouseNumber ?? detail.HouseNumber;
+        detail.HouseValue = req.HouseValue ?? detail.HouseValue;
+
+        // Occupational Details
+        detail.EmploymentNature = req.EmploymentNature ?? detail.EmploymentNature;
+        detail.EmployerName = req.EmployerName ?? detail.EmployerName;
+        detail.SalaryDetails = req.SalaryDetails ?? detail.SalaryDetails;
+        detail.Designation = req.Designation ?? detail.Designation;
+        detail.OrganizationNature = req.OrganizationNature ?? detail.OrganizationNature;
+        detail.Department = req.Department ?? detail.Department;
+        detail.OfficeAddress = req.OfficeAddress ?? detail.OfficeAddress;
+
         detail.UpdatedAt = DateTime.UtcNow;
+
         await _db.SaveChangesAsync();
     }
 

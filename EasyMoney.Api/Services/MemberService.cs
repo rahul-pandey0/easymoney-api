@@ -2,6 +2,7 @@ using EasyMoney.Api.Auth;
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace EasyMoney.Api.Services;
@@ -9,10 +10,11 @@ namespace EasyMoney.Api.Services;
 public interface IMemberService
 {
     Task<Member> CreateAsync(CreateMemberRequest req);
-    Task<Member?> GetAsync(long memberId);
+    Task<Member?> GetAsync(long memberId);     
     Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
 }
+
 
 public class MemberService : IMemberService
 {
@@ -24,6 +26,24 @@ public class MemberService : IMemberService
     public MemberService(EasyMoneyDbContext db, ITenantContext ctx, IKycService kyc, ILogger<MemberService> log)
     {
         _db = db; _ctx = ctx; _kyc = kyc; _log = log;
+    }
+    private async Task<string?> SaveFileAsync(IFormFile? file)
+    {
+        if (file == null || file.Length == 0)
+            return null;
+
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+
+        if (!Directory.Exists(uploadsFolder))
+            Directory.CreateDirectory(uploadsFolder);
+
+        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+        var filePath = Path.Combine(uploadsFolder, fileName);
+
+        using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        return $"uploads/{fileName}";
     }
 
     public async Task<Member> CreateAsync(CreateMemberRequest req)
@@ -46,7 +66,8 @@ public class MemberService : IMemberService
             BankIfsc = req.BankIfsc,
             BankHolderName = req.BankHolderName,
             KycTier = KycTier.MINIMAL,
-            KycStatus = KycStatus.PENDING
+            KycStatus = KycStatus.PENDING,
+           
         };
         _db.Members.Add(m);
         await _db.SaveChangesAsync();
@@ -111,5 +132,7 @@ public class MemberService : IMemberService
         m.KycTier.ToString(), m.KycStatus.ToString(),
         m.KycApprovedAt, m.KycApprovedBy,
         m.BankAccountNo, m.BankIfsc, m.BankHolderName,
-        m.CreatedAt);
+        m.CreatedAt
+        );
+         
 }

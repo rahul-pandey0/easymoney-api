@@ -13,6 +13,8 @@ public interface ITenantService
     Task<Tenant?> GetAsync(long tenantId);
     Task<IReadOnlyList<Tenant>> ListAsync();
     Task<SchemeConfig> GetSchemeConfigAsync(long tenantId);
+    Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload req, long? authorizedBy);
+    Task<IReadOnlyList<SchemeSummaryDto>> GetAllSchemeSummariesAsync();
 }
 
 public class TenantService : ITenantService
@@ -62,6 +64,104 @@ public class TenantService : ITenantService
         return t;
     }
 
+    public async Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload p, long? authorizedBy)
+    {
+        // Check whether the tenant exists
+        var tenant = await _db.Tenants
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId);
+
+        if (tenant == null)
+            throw new DomainException($"Tenant '{tenantId}' does not exist.");
+
+        // Check whether a scheme configuration already exists
+        bool schemeExists = await _db.SchemeConfigs
+            .IgnoreQueryFilters()
+            .AnyAsync(s => s.TenantId == tenantId);
+
+        if (schemeExists)
+            throw new DomainException($"Scheme configuration already exists for tenant '{tenantId}'.");
+
+        var schemeConfig = new SchemeConfig
+        {
+            TenantId = tenantId,
+
+            TenureMonths = p.TenureMonths ?? 20,
+            OrgFeePct = p.OrgFeePct ?? 5.00m,
+            SifinCommissionPct = p.SifinCommissionPct ?? 1.00m,
+            MinBidPct = p.MinBidPct ?? 15.00m,
+            MaxBidPct = p.MaxBidPct ?? 50.00m,
+            EarlyExitPenaltyPct = p.EarlyExitPenaltyPct ?? 15.00m,
+            MinInstallmentsForEligibility = p.MinInstallmentsForEligibility ?? 2,
+            BiddingWindowOpenDay = p.BiddingWindowOpenDay ?? 1,
+            BiddingDayOfMonth = p.BiddingDayOfMonth ?? 15,
+            NoBidDefaultDividendPct = p.NoBidDefaultDividendPct ?? 0.00m,
+
+            KycMode = Enum.TryParse<KycMode>(p.KycMode, true, out var mode)
+                ? mode
+                : KycMode.MINIMAL_FIRST,
+
+            MakerCheckerEnabled = p.MakerCheckerEnabled ?? true,
+
+            // Bank Details
+            BankName = p.BankName,
+            CustAddress1 = p.CustAddress1,
+            CustAddress2 = p.CustAddress2,
+            CustAddress3 = p.CustAddress3,
+            Email = p.Email,
+            PhNum = p.PhNum,
+            RdStatus = p.RdStatus,
+
+            // Bonus
+            GrossBonus = p.GrossBonus ?? 0m,
+            TenantCommission = p.TenantCommission ?? 0m,
+            NetBonus = p.NetBonus ?? 0m,
+
+            // GL / Reserve
+            Reserve1 = p.Reserve1,
+            Reserve2 = p.Reserve2,
+            PoolMoney = p.PoolMoney,
+            TenantPin = p.TenantPin,
+            LoanAssetGL = p.LoanAssetGL,
+            SifinPayable = p.SifinPayable,
+
+            // Time Change
+            TimeChPass = p.TimeChPass ?? 0m,
+
+            // Penalty
+            PenaltyAcc = p.PenaltyAcc,
+            NMPenaltyAcc = p.NMPenaltyAcc,
+
+            // Interest
+            MinimumRate = p.MinimumRate ?? 0m,
+            MaximumRate = p.MaximumRate ?? 0m,
+            MinimumPeriod = p.MinimumPeriod ?? 0,
+            MaximumPeriod = p.MaximumPeriod ?? 0,
+
+            // Tax
+            TdsAc = p.TdsAc,
+            ServicesTax = p.ServicesTax,
+
+            // Audit
+            UpdatedBy = authorizedBy,
+            UpdatedAt = DateTime.UtcNow,
+            AuthorizedBy = authorizedBy,
+            AuthorizedAt = DateTime.UtcNow
+        };
+
+        _db.SchemeConfigs.Add(schemeConfig);
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new DomainException(ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
     public async Task SetTenantStatusAsync(long tenantId, TenantStatus status, long? updatedBy)
     {
         var t = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
@@ -91,6 +191,91 @@ public class TenantService : ITenantService
             sc.KycMode = km;
         if (p.MakerCheckerEnabled.HasValue) sc.MakerCheckerEnabled = p.MakerCheckerEnabled.Value;
 
+        // Bank Details
+        if (!string.IsNullOrWhiteSpace(p.BankName))
+            sc.BankName = p.BankName;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress1))
+            sc.CustAddress1 = p.CustAddress1;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress2))
+            sc.CustAddress2 = p.CustAddress2;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress3))
+            sc.CustAddress3 = p.CustAddress3;
+
+        if (!string.IsNullOrWhiteSpace(p.Email))
+            sc.Email = p.Email;
+
+        if (!string.IsNullOrWhiteSpace(p.PhNum))
+            sc.PhNum = p.PhNum;
+
+        //if (!string.IsNullOrWhiteSpace(p.Fax))
+        //    sc.Fax = p.Fax;
+
+        if (!string.IsNullOrWhiteSpace(p.RdStatus))
+            sc.RdStatus = p.RdStatus;
+
+        // Bonus / Commission
+        if (p.GrossBonus.HasValue)
+            sc.GrossBonus = p.GrossBonus.Value;
+
+        if (p.TenantCommission.HasValue)
+            sc.TenantCommission = p.TenantCommission.Value;
+
+        if (p.NetBonus.HasValue)
+            sc.NetBonus = p.NetBonus.Value;
+
+        // Reserve / GL
+        if (!string.IsNullOrWhiteSpace(p.Reserve1))
+            sc.Reserve1 = p.Reserve1;
+
+        if (!string.IsNullOrWhiteSpace(p.Reserve2))
+            sc.Reserve2 = p.Reserve2;
+
+        if (!string.IsNullOrWhiteSpace(p.PoolMoney))
+            sc.PoolMoney = p.PoolMoney;
+
+        if (!string.IsNullOrWhiteSpace(p.TenantPin))
+            sc.TenantPin = p.TenantPin;
+
+        if (!string.IsNullOrWhiteSpace(p.LoanAssetGL))
+            sc.LoanAssetGL = p.LoanAssetGL;
+
+        if (!string.IsNullOrWhiteSpace(p.SifinPayable))
+            sc.SifinPayable = p.SifinPayable;
+
+        // Time Change
+        if (p.TimeChPass.HasValue)
+            sc.TimeChPass = p.TimeChPass.Value;
+
+        // Penalty Accounts
+        if (!string.IsNullOrWhiteSpace(p.PenaltyAcc))
+            sc.PenaltyAcc = p.PenaltyAcc;
+
+        if (!string.IsNullOrWhiteSpace(p.NMPenaltyAcc))
+            sc.NMPenaltyAcc = p.NMPenaltyAcc;
+
+        // Interest Configuration
+        if (p.MinimumRate.HasValue)
+            sc.MinimumRate = p.MinimumRate.Value;
+
+        if (p.MaximumRate.HasValue)
+            sc.MaximumRate = p.MaximumRate.Value;
+
+        if (p.MinimumPeriod.HasValue)
+            sc.MinimumPeriod = p.MinimumPeriod.Value;
+
+        if (p.MaximumPeriod.HasValue)
+            sc.MaximumPeriod = p.MaximumPeriod.Value;
+
+        // Tax
+        if (!string.IsNullOrWhiteSpace(p.TdsAc))
+            sc.TdsAc = p.TdsAc;
+
+        if (!string.IsNullOrWhiteSpace(p.ServicesTax))
+            sc.ServicesTax = p.ServicesTax;
+
         // Sanity checks
         if (sc.MinBidPct >= sc.MaxBidPct)
             throw new DomainException("MinBidPct must be < MaxBidPct");
@@ -101,6 +286,74 @@ public class TenantService : ITenantService
         sc.AuthorizedBy = authorizedBy;
         sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
+    }
+    public async Task<IReadOnlyList<SchemeSummaryDto>> GetAllSchemeSummariesAsync()
+    {
+        var data = await (
+            from t in _db.Tenants.AsNoTracking()
+            join s in _db.SchemeConfigs.AsNoTracking()
+                on t.TenantId equals s.TenantId
+            select new SchemeSummaryDto(
+                t.TenantId,
+                t.Name,
+                t.Address,
+                t.Phone,
+                t.OrgEmail,
+
+                s.TenureMonths,
+                s.OrgFeePct,
+                s.SifinCommissionPct,
+                s.MinBidPct,
+                s.MaxBidPct,
+                s.EarlyExitPenaltyPct,
+                s.MinInstallmentsForEligibility,
+                s.BiddingWindowOpenDay,
+                s.BiddingDayOfMonth,
+                s.NoBidDefaultDividendPct,
+
+                s.KycMode.ToString(),
+                s.MakerCheckerEnabled,
+
+                s.BankName,
+                s.CustAddress1,
+                s.CustAddress2,
+                s.CustAddress3,
+                s.PhNum,
+                s.RdStatus,
+
+                s.GrossBonus,
+                s.TenantCommission,
+                s.NetBonus,
+
+                s.Reserve1,
+                s.Reserve2,
+                s.PoolMoney,
+                s.TenantPin,
+                s.LoanAssetGL,
+                s.SifinPayable,
+
+                s.TimeChPass,
+
+                s.PenaltyAcc,
+                s.NMPenaltyAcc,
+
+                s.MinimumRate,
+                s.MaximumRate,
+                s.MinimumPeriod,
+                s.MaximumPeriod,
+
+                s.TdsAc,
+                s.ServicesTax,
+
+                s.UpdatedBy,
+                s.UpdatedAt,
+                s.AuthorizedBy,
+                s.AuthorizedAt
+            )
+        ).ToListAsync();
+
+        return data;
+    
     }
 
     public Task<Tenant?> GetAsync(long tenantId) =>

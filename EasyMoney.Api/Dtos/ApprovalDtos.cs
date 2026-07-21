@@ -56,7 +56,49 @@ public record SchemeConfigUpdatePayload(
     int? BiddingDayOfMonth,
     decimal? NoBidDefaultDividendPct,
     string? KycMode,                   // MINIMAL_FIRST | FULL_ONLY
-    bool? MakerCheckerEnabled);
+    bool? MakerCheckerEnabled,
+    // Bank Details
+    string? BankName,
+    string? CustAddress1,
+    string? CustAddress2,
+    string? CustAddress3,
+    string? Email,
+    string? PhNum,
+    //string? Fax,
+    string? RdStatus,
+
+    // Bonus / Commission
+    decimal? GrossBonus,
+    decimal? TenantCommission,
+    decimal? NetBonus,
+
+    // GL / Reserve
+    string? Reserve1,
+    string? Reserve2,
+    string? PoolMoney,
+    string? TenantPin,
+    string? LoanAssetGL,
+    string? SifinPayable,
+
+    // Time Change
+    decimal? TimeChPass,
+
+    // Penalty
+    string? PenaltyAcc,
+    string? NMPenaltyAcc,
+
+    // Interest
+    decimal? MinimumRate,
+    decimal? MaximumRate,
+    int? MinimumPeriod,
+    int? MaximumPeriod,
+
+    // Tax
+    string? TdsAc,
+    string? ServicesTax
+);
+
+
 
 public record UserCreatePayload(
     long? TenantId,
@@ -72,7 +114,22 @@ public record UserStatusChangePayload(bool IsActive);
 public record AccountOpenPayload(
     long MemberId,
     decimal MonthlyContribution,
-    DateOnly AccountOpenDate);
+    DateOnly AccountOpenDate,
+
+       // New fields from frontend
+    string? OldAccountNo,
+    string? PhoneNo,
+    string? CustomerName,
+    decimal InterestRate,
+    decimal TargetAmount,
+    DateOnly? PaymentDate,
+    decimal PaidAmount,
+    decimal LoanAmount,
+    decimal BonusAmount,
+    decimal InterestAmount,
+    decimal TotalAmount,
+    string? Remarks
+    );
 
 public record MemberKycApprovalPayload(
     long MemberId,

@@ -8,7 +8,7 @@ namespace EasyMoney.Api.Services;
 
 public interface IAccountService
 {
-    Task<Account> OpenAccountAsync(long memberId, decimal monthlyContribution, DateOnly openDate, long? createdBy, long? authorizedBy);
+    Task<Account> OpenAccountAsync(long memberId, decimal monthlyContribution, DateOnly openDate, long? createdBy, long? authorizedBy, AccountOpenPayload payload);
 
     Task<AccountSummaryDto> GetSummaryAsync(long accountId);
     Task<IReadOnlyList<AccountSummaryDto>> ListByMemberAsync(long memberId);
@@ -31,7 +31,7 @@ public class AccountService : IAccountService
         _db = db; _ctx = ctx; _accounting = accounting; _ledger = ledger; _log = log;
     }
 
-    public async Task<Account> OpenAccountAsync(long memberId, decimal monthlyContribution, DateOnly openDate, long? createdBy, long? authorizedBy)
+    public async Task<Account> OpenAccountAsync(long memberId, decimal monthlyContribution, DateOnly openDate, long? createdBy, long? authorizedBy, AccountOpenPayload req)
     {
         if (monthlyContribution <= 0) throw new DomainException("Monthly contribution must be > 0");
 
@@ -68,7 +68,21 @@ public class AccountService : IAccountService
             CreatedAt = DateTime.UtcNow,
             CreatedBy = createdBy ?? _ctx.UserId,
             AuthorizedBy = authorizedBy,
-            AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null
+            AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null,
+
+            OldAccountNo = req.OldAccountNo,
+            PhoneNo = req.PhoneNo,
+            CustomerName = req.CustomerName,
+            InterestRate = req.InterestRate,
+            TargetAmount = req.TargetAmount,
+            PaymentDate = req.PaymentDate,
+            PaidAmount = req.PaidAmount,
+            LoanAmount = req.LoanAmount,
+            BonusAmount = req.BonusAmount,
+            InterestAmount = req.InterestAmount,
+            TotalAmount = req.TotalAmount,
+            Remarks = req.Remarks
+
         };
         _db.Accounts.Add(acct);
         await _db.SaveChangesAsync();
@@ -134,8 +148,8 @@ public class AccountService : IAccountService
             a.MonthlyContribution, a.AccountOpenDate, a.TenureEndDate,
             a.Status.ToString(), a.InstallmentsPaid, a.IsPrized,
             eligibleToBid, eligibleForDividend,
-            corpus,
-            loan?.CycleId,
-            a.CreatedAt);
+            corpus, loan?.CycleId,a.CreatedAt, a.OldAccountNo, a.PhoneNo, a.CustomerName, a.InterestRate, a.TargetAmount,
+            a.PaymentDate, a.PaidAmount,a.LoanAmount,a.BonusAmount, a.InterestAmount,
+            a.TotalAmount, a.Remarks);
     }
 }

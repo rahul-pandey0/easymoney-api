@@ -1,4 +1,4 @@
-using EasyMoney.Api.Auth;
+﻿using EasyMoney.Api.Auth;
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;

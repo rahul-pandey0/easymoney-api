@@ -5,14 +5,19 @@ namespace EasyMoney.Api.Dtos;
 // ============================================================
 // Account
 // ============================================================
-public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate);
+public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate ,  long MemberId,
+    string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount,
+    DateOnly? PaymentDate,decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
+    decimal TotalAmount, string? Remarks);
 public record AccountSummaryDto(
     long AccountId, string AccountNumber, long MemberId, long TenantId,
     decimal MonthlyContribution, DateOnly AccountOpenDate, DateOnly TenureEndDate,
     string Status, int InstallmentsPaid, bool IsPrized,
     bool IsEligibleToBid, bool IsEligibleForDividend,
     decimal CorpusBalance, long? PrizeWonInCycleId,
-    DateTime CreatedAt);
+    DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
+    DateOnly? PaymentDate, decimal PaidAmount, decimal LoanAmount,decimal bonusAmount, decimal InterestAmount,
+        decimal TotalAmount, string Remarks);
 
 // ============================================================
 // Payment / Ledger
