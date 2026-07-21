@@ -95,7 +95,10 @@ public record SchemeConfigUpdatePayload(
 
     // Tax
     string? TdsAc,
-    string? ServicesTax
+    string? ServicesTax,
+    string? SchemeName,
+decimal? FixedRate,
+string? GstGl
 );
 
 

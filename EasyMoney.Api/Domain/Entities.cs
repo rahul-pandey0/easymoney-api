@@ -106,6 +106,11 @@ public class SchemeConfig
 
     // Navigation Property
     public Tenant Tenant { get; set; } = null!;
+    public string? SchemeName { get; set; }
+
+    public decimal FixedRate { get; set; }
+
+    public string? GstGl { get; set; }
 }
 
 public class AppUser
@@ -179,7 +184,6 @@ public class Member
 public class IndividualKycDetail
 {
     public long MemberId { get; set; }
-
     public string? CustomerId { get; set; }
     public string? Name { get; set; }
     public string? Address { get; set; }

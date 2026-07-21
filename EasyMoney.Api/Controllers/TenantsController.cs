@@ -92,9 +92,9 @@ public class TenantsController : ControllerBase
             await _tenants.SetTenantStatusAsync(tenantId, status, _ctx.UserId);
             var t = await _tenants.GetAsync(tenantId);
             return Ok(ToDto(t!));
-        }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        }        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
+    // POST /api/v1/tenants/{tenantId}/scheme-config — create scheme configuration
     [HttpPost("{tenantId:long}/scheme-config")]
     [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
     public async Task<IActionResult> CreateScheme(long tenantId, [FromBody] SchemeConfigUpdatePayload req)
