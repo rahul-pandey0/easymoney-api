@@ -7,7 +7,7 @@ namespace EasyMoney.Api.Services;
 
 public interface ITenantService
 {
-    Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy);
+    Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy, bool isSuperAdmin);
     Task SetTenantStatusAsync(long tenantId, TenantStatus status, long? updatedBy);
     Task UpdateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload p, long? authorizedBy);
     Task<Tenant?> GetAsync(long tenantId);
@@ -28,11 +28,30 @@ public class TenantService : ITenantService
         _db = db; _accounting = accounting; _log = log;
     }
 
-    public async Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy)
+    public async Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy, bool isSuperAdmin)
     {
         if (string.IsNullOrWhiteSpace(req.Name)) throw new DomainException("Tenant name required");
         if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Name == req.Name))
             throw new DomainException("Tenant name already exists");
+
+        //var t = new Tenant
+        //{
+        //    Name = req.Name,
+        //    RegistrationNumber = req.RegistrationNumber,
+        //    Address = req.Address,
+        //    Phone = req.Phone,
+        //    OrgEmail = req.OrgEmail,
+        //    ContactPersonName = req.ContactPersonName,
+        //    ContactPersonPhone = req.ContactPersonPhone,
+        //    StartDate = req.StartDate,
+        //    EffectiveDate = req.EffectiveDate,
+        //    //Status = TenantStatus.ACTIVE,
+        //    Status = isSuperAdmin? TenantStatus.ACTIVE: TenantStatus.PENDING,
+        //    CreatedBy = createdBy,
+        //    AuthorizedBy = authorizedBy,
+        //    AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null,
+
+        //};
 
         var t = new Tenant
         {
@@ -43,13 +62,47 @@ public class TenantService : ITenantService
             OrgEmail = req.OrgEmail,
             ContactPersonName = req.ContactPersonName,
             ContactPersonPhone = req.ContactPersonPhone,
-            Status = TenantStatus.ACTIVE,
+
+            StartDate = req.StartDate,
+            EffectiveDate = req.EffectiveDate,
+
+            Status = isSuperAdmin
+        ? TenantStatus.ACTIVE
+        : TenantStatus.PENDING,
+
             CreatedBy = createdBy,
-            AuthorizedBy = authorizedBy,
-            AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null
+
+            AuthorizedBy = isSuperAdmin
+        ? createdBy
+        : null,
+
+            AuthorizedAt = isSuperAdmin
+        ? DateTime.UtcNow
+        : null
         };
         _db.Tenants.Add(t);
         await _db.SaveChangesAsync();
+
+        if (!isSuperAdmin)
+        {
+            if (!createdBy.HasValue)
+                throw new DomainException("Created user required for maker-checker request");
+
+            var approval = new ApprovalRequest
+            {
+                TenantId = t.TenantId,
+                ActionType = ApprovalActionType.TENANT_CREATE,
+                EntityType = "TENANT",
+                EntityId = t.TenantId,
+                Payload = System.Text.Json.JsonSerializer.Serialize(req),
+                Status = ApprovalStatus.PENDING,
+                RequestedBy = createdBy.Value,
+                RequestedAt = DateTime.UtcNow
+            };
+
+            _db.ApprovalRequests.Add(approval);
+            await _db.SaveChangesAsync();
+        }
 
         // 1:1 scheme_config row (defaults baked in via Domain entity property initializers)
         var sc = new SchemeConfig { TenantId = t.TenantId };
@@ -162,13 +215,40 @@ public class TenantService : ITenantService
         }
     }
 
+    //public async Task SetTenantStatusAsync(long tenantId, TenantStatus status, long? updatedBy)
+    //{
+    //    var t = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+    //        ?? throw new DomainException($"Tenant {tenantId} not found");
+    //    t.Status = status;
+    //    t.UpdatedBy = updatedBy;
+    //    t.UpdatedAt = DateTime.UtcNow;
+    //    await _db.SaveChangesAsync();
+    //}
+
     public async Task SetTenantStatusAsync(long tenantId, TenantStatus status, long? updatedBy)
     {
-        var t = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+        var t = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.TenantId == tenantId)
             ?? throw new DomainException($"Tenant {tenantId} not found");
+
         t.Status = status;
         t.UpdatedBy = updatedBy;
         t.UpdatedAt = DateTime.UtcNow;
+
+        // Set authorization details when the tenant becomes ACTIVE
+        if (status == TenantStatus.ACTIVE)
+        {
+            t.AuthorizedBy = updatedBy;
+            t.AuthorizedAt = DateTime.UtcNow;
+        }
+
+        // Optional: Clear authorization details if rejected
+        if (status == TenantStatus.REJECTED)
+        {
+            t.AuthorizedBy = null;
+            t.AuthorizedAt = null;
+        }
+
         await _db.SaveChangesAsync();
     }
 

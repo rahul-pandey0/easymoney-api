@@ -33,6 +33,8 @@ public record GlAccountDto(
     string? ParentCode,
     bool IsActive,
     decimal Balance);
+    //string? AccountNumber,
+    //string? Phone);
 
 // ============================================================
 // Read — GL ledger (per-GL-account journal lines)
