@@ -40,7 +40,9 @@ public record TenantCreatePayload(
     string? Phone,
     string? OrgEmail,
     string? ContactPersonName,
-    string? ContactPersonPhone);
+    string? ContactPersonPhone,
+    DateOnly StartDate,
+    DateOnly EffectiveDate);
 
 public record TenantStatusChangePayload(string Status);   // ACTIVE | SUSPENDED
 
@@ -95,7 +97,10 @@ public record SchemeConfigUpdatePayload(
 
     // Tax
     string? TdsAc,
-    string? ServicesTax
+    string? ServicesTax,
+    string? SchemeName,
+decimal? FixedRate,
+string? GstGl
 );
 
 

@@ -23,17 +23,18 @@ public class TenantsController : ControllerBase
     static TenantDto ToDto(Tenant t) => new(
         t.TenantId, t.Name,
         t.RegistrationNumber, t.Address, t.Phone,
-        t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone,
+        t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone, t.StartDate, t.EffectiveDate,
         t.Status.ToString(), t.CreatedAt,
         t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt);
 
     // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
-    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgOperator + "," + Roles.OrgAdmin)]
     public async Task<IActionResult> Create([FromBody] CreateTenantRequest req)
     {
         try
         {
-            var t = await _tenants.CreateTenantAsync(req, _ctx.UserId, _ctx.UserId);
+            var isSuperAdmin = User.IsInRole(Roles.SifinAdmin);
+            var t = await _tenants.CreateTenantAsync(req, _ctx.UserId,isSuperAdmin ? _ctx.UserId : null,isSuperAdmin);
             return CreatedAtAction(nameof(Get), new { tenantId = t.TenantId }, ToDto(t));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
@@ -92,9 +93,9 @@ public class TenantsController : ControllerBase
             await _tenants.SetTenantStatusAsync(tenantId, status, _ctx.UserId);
             var t = await _tenants.GetAsync(tenantId);
             return Ok(ToDto(t!));
-        }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        }        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
+    // POST /api/v1/tenants/{tenantId}/scheme-config — create scheme configuration
     [HttpPost("{tenantId:long}/scheme-config")]
     [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
     public async Task<IActionResult> CreateScheme(long tenantId, [FromBody] SchemeConfigUpdatePayload req)

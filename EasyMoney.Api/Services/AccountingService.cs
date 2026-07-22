@@ -294,6 +294,47 @@ public class AccountingService : IAccountingService
         return rows;
     }
 
+    //public async Task<IReadOnlyList<GlAccountDto>> GetChartOfAccountsAsync(long tenantId)
+    //{
+    //    var rows = await (
+    //        from g in _db.GlAccounts.IgnoreQueryFilters()
+    //            .Where(g => g.TenantId == tenantId)
+
+    //        join b in _db.GlAccountBalances
+    //            on g.GlAccountId equals b.GlAccountId into bj
+    //        from b in bj.DefaultIfEmpty()
+
+    //            // Get latest journal line for this GL account
+    //        join jl in _db.JournalLines
+    //            on g.GlAccountId equals jl.GlAccountId into jlg
+    //        from jl in jlg.OrderByDescending(x => x.LineId).Take(1).DefaultIfEmpty()
+
+    //        join a in _db.Accounts
+    //            on jl.MemberAccountId equals a.AccountId into ag
+    //        from a in ag.DefaultIfEmpty()
+
+    //        join m in _db.Members
+    //            on a.MemberId equals m.MemberId into mg
+    //        from m in mg.DefaultIfEmpty()
+
+    //        orderby g.Code
+
+    //        select new GlAccountDto(
+    //            g.GlAccountId,
+    //            g.Code,
+    //            g.Name,
+    //            g.AccountClass.ToString(),
+    //            g.ParentCode,
+    //            g.IsActive,
+    //            b == null ? 0m : b.Balance,
+    //            a == null ? null : a.AccountNumber,
+    //            m == null ? null : m.Phone
+    //        )
+    //    ).ToListAsync();
+
+    //    return rows;
+    //}
+
     // ===========================================================
     // Balance reads
     // ===========================================================

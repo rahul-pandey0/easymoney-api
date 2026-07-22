@@ -15,8 +15,8 @@ public interface ILedgerService
     /// Also writes a ledger_entry (PAYMENT_RECEIVED) row linked to dueId (if supplied)
     /// and bumps installments_paid.
     /// </summary>
-    Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null);
-
+    //Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null);
+    Task<PaymentResultDto> RecordPaymentAsync(long accountId, RecordPaymentRequest request, PaymentMethod method);
     /// <summary>
     /// Called once when an account is opened. Writes all CONTRIBUTION_DUE entries upfront
     /// for every month of the tenure (tenureMonths rows). Idempotent — skips months already present.
@@ -42,9 +42,20 @@ public class LedgerService : ILedgerService
         _db = db; _ctx = ctx; _accounting = accounting; _log = log;
     }
 
-    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null)
+    //public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null)
+    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, RecordPaymentRequest request, PaymentMethod method)
     {
+
+        decimal amount = request.InstallmentAmount;
+        DateOnly paidDate = request.PaidDate;
+        long? dueId = request.DueId;
+        decimal penalty = request.PenaltyAmount;
+        decimal otherCharges = request.OtherCharges;
+        decimal totalAmount = request.TotalAmount;
+
         if (amount <= 0) throw new DomainException("Amount must be > 0");
+
+        if (totalAmount != amount + penalty + otherCharges) throw new DomainException("Total amount mismatch.");
 
         var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
             ?? throw new DomainException($"Account {accountId} not found");
@@ -90,8 +101,10 @@ public class LedgerService : ILedgerService
             description: $"Contribution from {a.AccountNumber} via {method}",
             lines: new[]
             {
-                new JournalLineInput(EntryTarget.GL, cashCode, null, amount, 0),
-                new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, amount)
+                //new JournalLineInput(EntryTarget.GL, cashCode, null, amount, 0),
+                //new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, amount)
+                new JournalLineInput(EntryTarget.GL, cashCode, null, totalAmount, 0),
+                new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, totalAmount)
             },
             createdBy: _ctx.UserId,
             authorizedBy: _ctx.UserId);
@@ -104,21 +117,31 @@ public class LedgerService : ILedgerService
             CycleId = null,
             LinkedEntryId = dueId,
             EntryType = LedgerEntryType.PAYMENT_RECEIVED,
-            Amount = amount,
+            Amount = totalAmount,
             EntryDate = paidDate,
             Description = $"Contribution payment via {method}",
-            CreatedBy = _ctx.UserId
+            CreatedBy = _ctx.UserId,
+            Remarks = request.Remarks,
+            VoucherNo = request.VoucherNo,
+            GlAccountId = request.GlAccountId,
+            GlAccountName = request.GlAccountName,
+            PhoneNumber = request.PhoneNumber,
+
         });
 
         // Increment installments_paid by floor(amount / monthly_contribution)
         int delta = (int)Math.Floor(amount / a.MonthlyContribution);
         if (delta > 0) a.InstallmentsPaid += delta;
+        if (request.ClosurePayment)
+        {
+            a.Status = AccountStatus.COMPLETED;
+        }
         await _db.SaveChangesAsync();
 
         var corpus = await _accounting.GetMemberAccountBalanceAsync(a.AccountId);
         _log.LogInformation("Payment {Amt} for account {Aid} (dueId={DueId}, installments={Inst}, corpus={Bal})",
-            amount, accountId, dueId, a.InstallmentsPaid, corpus);
-        return new PaymentResultDto(a.AccountId, amount, a.InstallmentsPaid, corpus, journalId);
+            totalAmount, accountId, dueId, a.InstallmentsPaid, corpus);
+        return new PaymentResultDto(a.AccountId, totalAmount, a.InstallmentsPaid, corpus, journalId);
     }
 
     public async Task GenerateAllDuesForAccountAsync(long accountId)

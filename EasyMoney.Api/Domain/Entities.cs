@@ -14,6 +14,8 @@ public class Tenant
     public string? ContactPersonPhone { get; set; }
     public long? CreatedBy { get; set; }
     public TenantStatus Status { get; set; } = TenantStatus.ACTIVE;
+    public DateOnly StartDate { get; set; }        // Tenant created date
+    public DateOnly EffectiveDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -108,6 +110,11 @@ public class SchemeConfig
 
     // Navigation Property
     public Tenant Tenant { get; set; } = null!;
+    public string? SchemeName { get; set; }
+
+    public decimal FixedRate { get; set; }
+
+    public string? GstGl { get; set; }
 }
 
 public class AppUser
@@ -181,7 +188,6 @@ public class Member
 public class IndividualKycDetail
 {
     public long MemberId { get; set; }
-
     public string? CustomerId { get; set; }
     public string? Name { get; set; }
     public string? Address { get; set; }
@@ -402,6 +408,11 @@ public class LedgerEntry
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? CreatedBy { get; set; }
+    public string? Remarks { get; set; }
+    public string? VoucherNo { get; set; }
+    public long? GlAccountId { get; set; }
+    public string? GlAccountName { get; set; }
+    public string? PhoneNumber { get; set; }
 }
 
 public class Dividend

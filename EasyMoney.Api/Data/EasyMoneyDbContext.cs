@@ -76,6 +76,8 @@ public class EasyMoneyDbContext : DbContext
         {
             e.ToTable("scheme_config");
             e.HasKey(x => x.TenantId);
+            e.Property(x => x.SchemeName).HasColumnName("scheme_name");
+            e.Property(x => x.FixedRate).HasColumnName("fixed_rate").HasColumnType("decimal(18,2)");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
             e.Property(x => x.TenureMonths).HasColumnName("tenure_months");
             e.Property(x => x.OrgFeePct).HasColumnName("org_fee_pct").HasColumnType("decimal(5,2)");
@@ -150,7 +152,9 @@ public class EasyMoneyDbContext : DbContext
 
             // Tax
             e.Property(x => x.TdsAc).HasColumnName("tds_ac");
+            e.Property(x => x.GstGl).HasColumnName("gst_gl");
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
+
         });
 
         b.Entity<AppUser>(e =>
@@ -496,6 +500,11 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+            e.Property(x => x.Remarks).HasColumnName("remarks");
+            e.Property(x => x.VoucherNo).HasColumnName("voucher_no");
+            e.Property(x => x.GlAccountId).HasColumnName("gl_account_id");
+            e.Property(x => x.GlAccountName).HasColumnName("gl_account_name");
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
         });
 
         b.Entity<Dividend>(e =>
