@@ -1,6 +1,6 @@
 namespace EasyMoney.Api.Domain;
 
-public enum TenantStatus { ACTIVE, SUSPENDED }
+public enum TenantStatus { ACTIVE, PENDING, REJECTED,SUSPENDED }
 public enum KycMode { MINIMAL_FIRST, FULL_ONLY }
 public enum MemberType { INDIVIDUAL, CORPORATE }
 public enum KycTier { MINIMAL, FULL }

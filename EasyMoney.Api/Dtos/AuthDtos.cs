@@ -53,7 +53,9 @@ public record CreateTenantRequest(
     string? Phone,
     string? OrgEmail,
     string? ContactPersonName,
-    string? ContactPersonPhone);
+    string? ContactPersonPhone,
+    DateOnly StartDate,
+DateOnly EffectiveDate);
 
 public record TenantDto(
     long TenantId,
@@ -64,6 +66,8 @@ public record TenantDto(
     string? OrgEmail,
     string? ContactPersonName,
     string? ContactPersonPhone,
+    DateOnly StartDate,
+    DateOnly EffectiveDate,
     string Status,
     DateTime CreatedAt,
     long? CreatedBy,

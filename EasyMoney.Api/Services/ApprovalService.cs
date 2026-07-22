@@ -200,15 +200,29 @@ public class ApprovalService : IApprovalService
     {
         switch (req.ActionType)
         {
+            //case ApprovalActionType.TENANT_CREATE:
+            //{
+            //    var p = Parse<TenantCreatePayload>(req.Payload);
+            //    var tenantSvc = _sp.GetRequiredService<ITenantService>();
+            //    var createReq = new CreateTenantRequest(p.Name, p.RegistrationNumber, p.Address, p.Phone, p.OrgEmail, p.ContactPersonName, p.ContactPersonPhone,p.StartDate, p.EffectiveDate);
+            //    var t = await tenantSvc.CreateTenantAsync(createReq, createdBy: req.RequestedBy, authorizedBy: _ctx.UserId, isSuperAdmin: true);
+            //    req.EntityId = t.TenantId;
+            //    break;
+            //}
             case ApprovalActionType.TENANT_CREATE:
-            {
-                var p = Parse<TenantCreatePayload>(req.Payload);
-                var tenantSvc = _sp.GetRequiredService<ITenantService>();
-                var createReq = new CreateTenantRequest(p.Name, p.RegistrationNumber, p.Address, p.Phone, p.OrgEmail, p.ContactPersonName, p.ContactPersonPhone);
-                var t = await tenantSvc.CreateTenantAsync(createReq, createdBy: req.RequestedBy, authorizedBy: _ctx.UserId);
-                req.EntityId = t.TenantId;
-                break;
-            }
+                {
+                    if (!req.EntityId.HasValue)
+                        throw new DomainException("Tenant id required");
+
+                    var tenantSvc = _sp.GetRequiredService<ITenantService>();
+
+                    await tenantSvc.SetTenantStatusAsync(
+                        req.EntityId.Value,
+                        TenantStatus.ACTIVE,
+                        _ctx.UserId);
+
+                    break;
+                }
             case ApprovalActionType.TENANT_STATUS_CHANGE:
             {
                 var p = Parse<TenantStatusChangePayload>(req.Payload);

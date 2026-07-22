@@ -488,6 +488,11 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+            e.Property(x => x.Remarks).HasColumnName("remarks");
+            e.Property(x => x.VoucherNo).HasColumnName("voucher_no");
+            e.Property(x => x.GlAccountId).HasColumnName("gl_account_id");
+            e.Property(x => x.GlAccountName).HasColumnName("gl_account_name");
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
         });
 
         b.Entity<Dividend>(e =>

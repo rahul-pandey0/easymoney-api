@@ -13,14 +13,45 @@ public class OpenAccountRequestValidator : AbstractValidator<OpenAccountRequest>
     }
 }
 
+//public class RecordPaymentRequestValidator : AbstractValidator<RecordPaymentRequest>
+//{
+//    public RecordPaymentRequestValidator()
+//    {
+//        RuleFor(x => x.InstallmentAmount).GreaterThan(0);
+//        RuleFor(x => x.PaidDate).Must(d => d <= DateOnly.FromDateTime(DateTime.UtcNow))
+//            .WithMessage("Paid date cannot be in the future");
+//        RuleFor(x => x.Method).NotEmpty();
+//    }
+//}
+
 public class RecordPaymentRequestValidator : AbstractValidator<RecordPaymentRequest>
 {
     public RecordPaymentRequestValidator()
     {
-        RuleFor(x => x.Amount).GreaterThan(0);
-        RuleFor(x => x.PaidDate).Must(d => d <= DateOnly.FromDateTime(DateTime.UtcNow))
+        RuleFor(x => x.InstallmentAmount)
+            .GreaterThan(0);
+
+        RuleFor(x => x.PenaltyAmount)
+            .GreaterThanOrEqualTo(0);
+
+        RuleFor(x => x.OtherCharges)
+            .GreaterThanOrEqualTo(0);
+
+        RuleFor(x => x.TotalAmount)
+            .GreaterThan(0);
+
+        RuleFor(x => x.PaidDate)
+            .Must(d => d <= DateOnly.FromDateTime(DateTime.UtcNow))
             .WithMessage("Paid date cannot be in the future");
-        RuleFor(x => x.Method).NotEmpty();
+
+        RuleFor(x => x.Method)
+            .NotEmpty();
+
+        RuleFor(x => x.VoucherNo)
+            .MaximumLength(100);
+
+        RuleFor(x => x.Remarks)
+            .MaximumLength(500);
     }
 }
 

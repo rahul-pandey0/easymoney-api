@@ -26,10 +26,19 @@ public record DueLineDto(
     string Status);   // PAID | UPCOMING | OVERDUE
 
 public record RecordPaymentRequest(
-    decimal Amount,
+    decimal InstallmentAmount,
     DateOnly PaidDate,
     string Method,     // CASH / BANK_TRANSFER / UPI / etc
-    long? DueId);      // optional: pay against a specific due line
+    long? DueId,
+    decimal PenaltyAmount,
+    decimal OtherCharges,
+    decimal TotalAmount,
+    bool ClosurePayment,
+    long? GlAccountId,
+    string? GlAccountName,
+    string? PhoneNumber,
+    string? VoucherNo,
+    string? Remarks);      // optional: pay against a specific due line
 
 public record PaymentResultDto(
     long AccountId, decimal AmountPaid, int InstallmentsPaid,
