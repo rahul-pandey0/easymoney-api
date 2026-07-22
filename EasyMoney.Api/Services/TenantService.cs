@@ -105,9 +105,9 @@ public class TenantService : ITenantService
         }
 
         // 1:1 scheme_config row (defaults baked in via Domain entity property initializers)
-        var sc = new SchemeConfig { TenantId = t.TenantId };
-        _db.SchemeConfigs.Add(sc);
-        await _db.SaveChangesAsync();
+        //var sc = new SchemeConfig { TenantId = t.TenantId };
+        //_db.SchemeConfigs.Add(sc);
+        //await _db.SaveChangesAsync();
 
         // Seed the default Chart of Accounts (13 rows) per design §3.2
         await _accounting.SeedTenantChartAsync(t.TenantId, createdBy);

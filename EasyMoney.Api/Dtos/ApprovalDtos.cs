@@ -41,8 +41,8 @@ public record TenantCreatePayload(
     string? OrgEmail,
     string? ContactPersonName,
     string? ContactPersonPhone,
-    DateOnly StartDate,
-    DateOnly EffectiveDate);
+    DateOnly? StartDate,
+    DateOnly? EffectiveDate);
 
 public record TenantStatusChangePayload(string Status);   // ACTIVE | SUSPENDED
 
