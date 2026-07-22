@@ -39,6 +39,7 @@ public class MembersController : ControllerBase
         return Ok(MemberService.ToDto(m));
     }
 
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MemberDto>>> List(
         [FromQuery] string? search, [FromQuery] int skip = 0, [FromQuery] int take = 50)

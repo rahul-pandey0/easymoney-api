@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -12,8 +14,8 @@ public class Tenant
     public string? ContactPersonPhone { get; set; }
     public long? CreatedBy { get; set; }
     public TenantStatus Status { get; set; } = TenantStatus.ACTIVE;
-    public DateOnly StartDate { get; set; }        // Tenant created date
-    public DateOnly EffectiveDate { get; set; }
+    public DateOnly? StartDate { get; set; }        // Tenant created date
+    public DateOnly? EffectiveDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -334,6 +336,19 @@ public class Account
     public long? CreatedBy { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+    //new columns
+    public string? OldAccountNo { get; set; }
+    public string? PhoneNo { get; set; } 
+    public string? CustomerName { get; set; }
+    public decimal InterestRate { get; set; }
+    public decimal TargetAmount { get; set; }
+    public DateOnly? PaymentDate { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal LoanAmount { get; set; }
+    public decimal BonusAmount { get; set; }
+    public decimal InterestAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string? Remarks { get; set; }
 }
 
 public class BiddingCycle
