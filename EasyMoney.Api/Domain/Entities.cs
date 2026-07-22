@@ -14,8 +14,8 @@ public class Tenant
     public string? ContactPersonPhone { get; set; }
     public long? CreatedBy { get; set; }
     public TenantStatus Status { get; set; } = TenantStatus.ACTIVE;
-    public DateOnly StartDate { get; set; }        // Tenant created date
-    public DateOnly EffectiveDate { get; set; }
+    public DateOnly? StartDate { get; set; }        // Tenant created date
+    public DateOnly? EffectiveDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? UpdatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
