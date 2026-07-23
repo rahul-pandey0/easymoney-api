@@ -175,10 +175,10 @@ public record UpsertIndividualKycRequest(
     string? IdImage,
     string? DocumentImage,
 
-    //// Member Details
-    //string? MembershipNumber,
-    //string? AccountType,
-    //string? AccountNumber,
+    // Member Details
+    string? MembershipNumber,
+    string? AccountType,
+    string? AccountNumber,
 
     // Other Bank Details
     string? BankName,
