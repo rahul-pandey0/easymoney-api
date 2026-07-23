@@ -13,8 +13,17 @@ public interface ITenantService
     Task<Tenant?> GetAsync(long tenantId);
     Task<IReadOnlyList<Tenant>> ListAsync();
     Task<SchemeConfig> GetSchemeConfigAsync(long tenantId);
+    Task<SchemeMaster> GetSchemeConfigAsync();
+
     Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload req, long? authorizedBy);
+    Task CreateSchemeConfigAsync(SchemeConfigUpdatePayload req, long? authorizedBy);
+
     Task<IReadOnlyList<SchemeSummaryDto>> GetAllSchemeSummariesAsync();
+
+    Task<IReadOnlyList<ProductSummaryDto>> GetAllProductSummariesAsync();
+
+    Task<ProductSummaryDto> GetProductSummaryByIdAsync(int schemeId);
+
 }
 
 public class TenantService : ITenantService
@@ -204,6 +213,88 @@ public class TenantService : ITenantService
         };
 
         _db.SchemeConfigs.Add(schemeConfig);
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new DomainException(ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+
+    public async Task CreateSchemeConfigAsync(SchemeConfigUpdatePayload p, long? authorizedBy)
+    {
+        var schemedata = new SchemeMaster 
+        {
+            //TenantId = 0,  
+
+            TenureMonths = p.TenureMonths ?? 20,
+            OrgFeePct = p.OrgFeePct ?? 5.00m,
+            SifinCommissionPct = p.SifinCommissionPct ?? 1.00m,
+            MinBidPct = p.MinBidPct ?? 15.00m,
+            MaxBidPct = p.MaxBidPct ?? 50.00m,
+            EarlyExitPenaltyPct = p.EarlyExitPenaltyPct ?? 15.00m,
+            MinInstallmentsForEligibility = p.MinInstallmentsForEligibility ?? 2,
+            BiddingWindowOpenDay = p.BiddingWindowOpenDay ?? 1,
+            BiddingDayOfMonth = p.BiddingDayOfMonth ?? 15,
+            NoBidDefaultDividendPct = p.NoBidDefaultDividendPct ?? 0.00m,
+
+            KycMode = Enum.TryParse<KycMode>(p.KycMode, true, out var mode)
+                ? mode
+                : KycMode.MINIMAL_FIRST,
+
+            MakerCheckerEnabled = p.MakerCheckerEnabled ?? true,
+
+            // Bank Details  
+            BankName = p.BankName,
+            CustAddress1 = p.CustAddress1,
+            CustAddress2 = p.CustAddress2,
+            CustAddress3 = p.CustAddress3,
+            Email = p.Email,
+            PhNum = p.PhNum,
+            RdStatus = p.RdStatus,
+
+            // Bonus  
+            GrossBonus = p.GrossBonus ?? 0m,
+            TenantCommission = p.TenantCommission ?? 0m,
+            NetBonus = p.NetBonus ?? 0m,
+
+            // GL / Reserve  
+            Reserve1 = p.Reserve1,
+            Reserve2 = p.Reserve2,
+            PoolMoney = p.PoolMoney,
+            TenantPin = p.TenantPin,
+            LoanAssetGL = p.LoanAssetGL,
+            SifinPayable = p.SifinPayable,
+
+            // Time Change  
+            TimeChPass = p.TimeChPass ?? 0m,
+
+            // Penalty  
+            PenaltyAcc = p.PenaltyAcc,
+            NMPenaltyAcc = p.NMPenaltyAcc,
+
+            // Interest  
+            MinimumRate = p.MinimumRate ?? 0m,
+            MaximumRate = p.MaximumRate ?? 0m,
+            MinimumPeriod = p.MinimumPeriod ?? 0,
+            MaximumPeriod = p.MaximumPeriod ?? 0,
+
+            // Tax  
+            TdsAc = p.TdsAc,
+            ServicesTax = p.ServicesTax,
+
+            // Audit  
+            UpdatedBy = authorizedBy,
+            UpdatedAt = DateTime.UtcNow,
+            AuthorizedBy = authorizedBy,
+            AuthorizedAt = DateTime.UtcNow
+        };
+
+        _db.SchemeMaster.Add(schemedata);
 
         try
         {
@@ -436,6 +527,30 @@ public class TenantService : ITenantService
     
     }
 
+
+   public async Task<IReadOnlyList<ProductSummaryDto>> GetAllProductSummariesAsync()
+    {
+        var schemes = await _db.SchemeMaster
+            .AsNoTracking()
+            .ToListAsync();
+
+        return schemes.Select(s => MapToDto(s)).ToList();
+    }
+
+
+    public async Task<ProductSummaryDto> GetProductSummaryByIdAsync(int schemeId)
+    {
+        var scheme = await _db.SchemeMaster
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.SchemeId == schemeId);
+
+        if (scheme == null)
+            throw new DomainException($"Scheme with ID {schemeId} not found");
+
+
+
+        return MapToDto(scheme);
+    }
     public Task<Tenant?> GetAsync(long tenantId) =>
         _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == tenantId);
 
@@ -445,4 +560,117 @@ public class TenantService : ITenantService
     public async Task<SchemeConfig> GetSchemeConfigAsync(long tenantId) =>
         await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.TenantId == tenantId)
             ?? throw new DomainException($"Tenant {tenantId} has no scheme_config");
+
+
+    public async Task<SchemeMaster> GetSchemeConfigAsync() =>
+    await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
+        ?? throw new DomainException($"Tenant no scheme_config");
+
+    private ProductSummaryDto MapToDto(SchemeMaster scheme)
+    {
+        return new ProductSummaryDto(
+            (int)scheme.SchemeId,
+            scheme.SchemeName,
+             scheme.TenureMonths,
+            scheme.OrgFeePct,
+            scheme.SifinCommissionPct,
+            scheme.MinBidPct,
+            scheme.MaxBidPct,
+            scheme.EarlyExitPenaltyPct,
+            scheme.MinInstallmentsForEligibility,
+            scheme.BiddingWindowOpenDay,
+            scheme.BiddingDayOfMonth,
+            scheme.NoBidDefaultDividendPct,
+            scheme.KycMode.ToString(),
+            scheme.MakerCheckerEnabled,
+            scheme.BankName,
+            scheme.CustAddress1,
+            scheme.CustAddress2,
+            scheme.CustAddress3,
+            scheme.PhNum,
+            scheme.RdStatus,
+            scheme.GrossBonus,
+            scheme.TenantCommission,
+            scheme.NetBonus,
+            scheme.Reserve1,
+            scheme.Reserve2,
+            scheme.PoolMoney,
+            scheme.TenantPin,
+            scheme.LoanAssetGL,
+            scheme.SifinPayable,
+            scheme.TimeChPass,
+            scheme.PenaltyAcc,
+            scheme.NMPenaltyAcc,
+            scheme.MinimumRate,
+            scheme.MaximumRate,
+            scheme.MinimumPeriod,
+            scheme.MaximumPeriod,
+            scheme.TdsAc,
+            scheme.ServicesTax,
+            scheme.UpdatedBy,
+            scheme.UpdatedAt,
+            scheme.AuthorizedBy,
+            scheme.AuthorizedAt
+        );
+    }
+
+    public async Task<IReadOnlyList<ProductSummaryDto>> GetByProductSummariesAsync() 
+    {
+        var query = from s in _db.SchemeMaster.AsNoTracking()
+                    select new ProductSummaryDto(
+                        (int)s.SchemeId,
+                        s.SchemeName,
+             
+                        s.TenureMonths,
+                        s.OrgFeePct,
+                        s.SifinCommissionPct,
+                        s.MinBidPct,
+                        s.MaxBidPct,
+                        s.EarlyExitPenaltyPct,
+                        s.MinInstallmentsForEligibility,
+                        s.BiddingWindowOpenDay,
+                        s.BiddingDayOfMonth,
+                        s.NoBidDefaultDividendPct,
+                        s.KycMode.ToString(),
+                        s.MakerCheckerEnabled,
+                        s.BankName,
+                        s.CustAddress1,
+                        s.CustAddress2,
+                        s.CustAddress3,
+                        s.PhNum,
+                        s.RdStatus,
+                        s.GrossBonus,
+                        s.TenantCommission,
+                        s.NetBonus,
+                        s.Reserve1,
+                        s.Reserve2,
+                        s.PoolMoney,
+                        s.TenantPin,
+                        s.LoanAssetGL,
+                        s.SifinPayable,
+                        s.TimeChPass,
+                        s.PenaltyAcc,
+                        s.NMPenaltyAcc,
+                        s.MinimumRate,
+                        s.MaximumRate,
+                        s.MinimumPeriod,
+                        s.MaximumPeriod,
+                        s.TdsAc,
+                        s.ServicesTax,
+                        s.UpdatedBy,
+                        s.UpdatedAt,
+                        s.AuthorizedBy,
+                        s.AuthorizedAt
+                    );
+
+        var schemes = await query.ToListAsync();
+
+        // Add tenant details if needed
+        var tenant = await _db.Tenants.AsNoTracking().FirstOrDefaultAsync();
+
+        // Since records are immutable, you'll need to create new ones with tenant data
+        // This is why the mapping approach is better
+        return schemes;
+    }
+
 }
