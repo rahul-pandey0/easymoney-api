@@ -130,6 +130,8 @@ public class AppUser
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+    public Member? Member { get; set; }
+    public Tenant? Tenant { get; set; }
 }
 
 public class RefreshToken
