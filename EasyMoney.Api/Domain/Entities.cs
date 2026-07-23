@@ -306,6 +306,10 @@ public class IndividualKycDetail
     public string? SiteSurveyNo { get; set; }
     public decimal? SiteValue { get; set; }
 
+    public string? MembershipNumber { get; set; }
+    public string? AccountType { get; set; }
+    public string? AccountNumber { get; set; }
+
     public string? PlantationDetails { get; set; }
     public decimal? PlantationArea { get; set; }
     public string? PlantationSurveyNo { get; set; }
