@@ -10,9 +10,13 @@ public interface ITenantService
     Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy, bool isSuperAdmin);
     Task SetTenantStatusAsync(long tenantId, TenantStatus status, long? updatedBy);
     Task UpdateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload p, long? authorizedBy);
+    Task UpdateProductAsync(long schemId, SchemeConfigUpdatePayload p, long? authorizedBy);  
+
     Task<Tenant?> GetAsync(long tenantId);
     Task<IReadOnlyList<Tenant>> ListAsync();
     Task<SchemeConfig> GetSchemeConfigAsync(long tenantId);
+    Task<SchemeMaster> GetProductConfigAsync(long schemeId); 
+     
     Task<SchemeMaster> GetSchemeConfigAsync();
 
     Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload req, long? authorizedBy);
@@ -148,7 +152,7 @@ public class TenantService : ITenantService
         var schemeConfig = new SchemeConfig
         {
             TenantId = tenantId,
-
+            SchemeName  =p.SchemeName,
             TenureMonths = p.TenureMonths ?? 20,
             OrgFeePct = p.OrgFeePct ?? 5.00m,
             SifinCommissionPct = p.SifinCommissionPct ?? 1.00m,
@@ -230,7 +234,7 @@ public class TenantService : ITenantService
         var schemedata = new SchemeMaster 
         {
             //TenantId = 0,  
-
+            SchemeName=p.SchemeName,
             TenureMonths = p.TenureMonths ?? 20,
             OrgFeePct = p.OrgFeePct ?? 5.00m,
             SifinCommissionPct = p.SifinCommissionPct ?? 1.00m,
@@ -440,9 +444,17 @@ public class TenantService : ITenantService
         if (p.MaximumPeriod.HasValue)
             sc.MaximumPeriod = p.MaximumPeriod.Value;
 
+        if (p.FixedRate.HasValue)
+            sc.FixedRate = p.FixedRate.Value;
         // Tax
         if (!string.IsNullOrWhiteSpace(p.TdsAc))
             sc.TdsAc = p.TdsAc;
+
+        if (!string.IsNullOrWhiteSpace(p.Email))
+            sc.Email = p.Email;
+
+        if (!string.IsNullOrWhiteSpace(p.SchemeName))
+            sc.SchemeName = p.SchemeName;
 
         if (!string.IsNullOrWhiteSpace(p.ServicesTax))
             sc.ServicesTax = p.ServicesTax;
@@ -560,11 +572,15 @@ public class TenantService : ITenantService
     public async Task<SchemeConfig> GetSchemeConfigAsync(long tenantId) =>
         await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.TenantId == tenantId)
             ?? throw new DomainException($"Tenant {tenantId} has no scheme_config");
-
+    public async Task<SchemeMaster> GetProductConfigAsync(long schemeId) =>
+await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.SchemeId == schemeId)
+    ?? throw new DomainException($"SCheme No Found");
 
     public async Task<SchemeMaster> GetSchemeConfigAsync() =>
-    await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
-        ?? throw new DomainException($"Tenant no scheme_config");
+await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
+    ?? throw new DomainException($"Tenant no scheme_config");
+
+
 
     private ProductSummaryDto MapToDto(SchemeMaster scheme)
     {
@@ -610,7 +626,10 @@ public class TenantService : ITenantService
             scheme.UpdatedBy,
             scheme.UpdatedAt,
             scheme.AuthorizedBy,
-            scheme.AuthorizedAt
+            scheme.AuthorizedAt,
+            scheme.FixedRate, 
+            scheme.Email
+
         );
     }
 
@@ -660,7 +679,9 @@ public class TenantService : ITenantService
                         s.UpdatedBy,
                         s.UpdatedAt,
                         s.AuthorizedBy,
-                        s.AuthorizedAt
+                        s.AuthorizedAt,
+                        s.FixedRate,
+                        s.Email
                     );
 
         var schemes = await query.ToListAsync();
@@ -673,4 +694,129 @@ public class TenantService : ITenantService
         return schemes;
     }
 
+
+    public async Task UpdateProductAsync(long schmeId, SchemeConfigUpdatePayload p, long? authorizedBy) 
+    {
+        var sc = await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.SchemeId == schmeId)
+            ?? throw new DomainException($"Tenant {schmeId} has no scheme_config");
+
+        if (p.TenureMonths.HasValue) sc.TenureMonths = p.TenureMonths.Value;
+        if (p.OrgFeePct.HasValue) sc.OrgFeePct = p.OrgFeePct.Value;
+        if (p.SifinCommissionPct.HasValue) sc.SifinCommissionPct = p.SifinCommissionPct.Value;
+        if (p.MinBidPct.HasValue) sc.MinBidPct = p.MinBidPct.Value;
+        if (p.MaxBidPct.HasValue) sc.MaxBidPct = p.MaxBidPct.Value;
+        if (p.EarlyExitPenaltyPct.HasValue) sc.EarlyExitPenaltyPct = p.EarlyExitPenaltyPct.Value;
+        if (p.MinInstallmentsForEligibility.HasValue) sc.MinInstallmentsForEligibility = p.MinInstallmentsForEligibility.Value;
+        if (p.BiddingWindowOpenDay.HasValue) sc.BiddingWindowOpenDay = p.BiddingWindowOpenDay.Value;
+        if (p.BiddingDayOfMonth.HasValue) sc.BiddingDayOfMonth = p.BiddingDayOfMonth.Value;
+        if (p.NoBidDefaultDividendPct.HasValue) sc.NoBidDefaultDividendPct = p.NoBidDefaultDividendPct.Value;
+        if (!string.IsNullOrWhiteSpace(p.KycMode) && Enum.TryParse<KycMode>(p.KycMode, true, out var km))
+            sc.KycMode = km;
+        if (p.MakerCheckerEnabled.HasValue) sc.MakerCheckerEnabled = p.MakerCheckerEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(p.SchemeName))
+            sc.SchemeName = p.SchemeName;
+        // Bank Details
+        if (!string.IsNullOrWhiteSpace(p.BankName))
+            sc.BankName = p.BankName;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress1))
+            sc.CustAddress1 = p.CustAddress1;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress2))
+            sc.CustAddress2 = p.CustAddress2;
+
+        if (!string.IsNullOrWhiteSpace(p.CustAddress3))
+            sc.CustAddress3 = p.CustAddress3;
+
+        if (!string.IsNullOrWhiteSpace(p.Email))
+            sc.Email = p.Email;
+
+        if (!string.IsNullOrWhiteSpace(p.PhNum))
+            sc.PhNum = p.PhNum;
+
+        //if (!string.IsNullOrWhiteSpace(p.Fax))
+        //    sc.Fax = p.Fax;
+
+        if (!string.IsNullOrWhiteSpace(p.RdStatus))
+            sc.RdStatus = p.RdStatus;
+
+        // Bonus / Commission
+        if (p.GrossBonus.HasValue)
+            sc.GrossBonus = p.GrossBonus.Value;
+
+        if (p.TenantCommission.HasValue)
+            sc.TenantCommission = p.TenantCommission.Value;
+
+        if (p.NetBonus.HasValue)
+            sc.NetBonus = p.NetBonus.Value;
+
+        // Reserve / GL
+        if (!string.IsNullOrWhiteSpace(p.Reserve1))
+            sc.Reserve1 = p.Reserve1;
+
+        if (!string.IsNullOrWhiteSpace(p.Reserve2))
+            sc.Reserve2 = p.Reserve2;
+
+        if (!string.IsNullOrWhiteSpace(p.PoolMoney))
+            sc.PoolMoney = p.PoolMoney;
+
+        if (!string.IsNullOrWhiteSpace(p.TenantPin))
+            sc.TenantPin = p.TenantPin;
+
+        if (!string.IsNullOrWhiteSpace(p.LoanAssetGL))
+            sc.LoanAssetGL = p.LoanAssetGL;
+
+        if (!string.IsNullOrWhiteSpace(p.SifinPayable))
+            sc.SifinPayable = p.SifinPayable;
+
+        // Time Change
+        if (p.TimeChPass.HasValue)
+            sc.TimeChPass = p.TimeChPass.Value;
+
+        // Penalty Accounts
+        if (!string.IsNullOrWhiteSpace(p.PenaltyAcc))
+            sc.PenaltyAcc = p.PenaltyAcc;
+
+        if (!string.IsNullOrWhiteSpace(p.NMPenaltyAcc))
+            sc.NMPenaltyAcc = p.NMPenaltyAcc;
+
+        // Interest Configuration
+        if (p.MinimumRate.HasValue)
+            sc.MinimumRate = p.MinimumRate.Value;
+
+        if (p.MaximumRate.HasValue)
+            sc.MaximumRate = p.MaximumRate.Value;
+
+        if (p.MinimumPeriod.HasValue)
+            sc.MinimumPeriod = p.MinimumPeriod.Value;
+
+        if (p.MaximumPeriod.HasValue)
+            sc.MaximumPeriod = p.MaximumPeriod.Value;
+
+        // Tax
+        if (!string.IsNullOrWhiteSpace(p.TdsAc))
+            sc.TdsAc = p.TdsAc;
+
+        if (!string.IsNullOrWhiteSpace(p.ServicesTax))
+            sc.ServicesTax = p.ServicesTax;
+
+        if (p.FixedRate.HasValue)
+            sc.FixedRate = p.FixedRate.Value;
+        if (!string.IsNullOrWhiteSpace(p.Email))
+            sc.Email = p.Email;
+
+        if (!string.IsNullOrWhiteSpace(p.ServicesTax))
+            sc.ServicesTax = p.ServicesTax;
+
+        // Sanity checks
+        if (sc.MinBidPct >= sc.MaxBidPct)
+            throw new DomainException("MinBidPct must be < MaxBidPct");
+        if (sc.BiddingWindowOpenDay >= sc.BiddingDayOfMonth)
+            throw new DomainException("BiddingWindowOpenDay must be < BiddingDayOfMonth");
+
+        sc.UpdatedAt = DateTime.UtcNow;
+        sc.AuthorizedBy = authorizedBy;
+        sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
+        await _db.SaveChangesAsync();
+    }
 }

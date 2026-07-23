@@ -122,13 +122,15 @@ public class TenantsController : ControllerBase
     }
 
     [HttpGet("scheme_tenant_product")]
-    //[Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
     public async Task<ActionResult<IReadOnlyList<ProductSummaryDto>>> GetAllSchemedata()
     {
         var result = await _tenants.GetAllProductSummariesAsync();
         return Ok(result);
     }
     [HttpGet("scheme_tenant_product/{schemeId}")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+
     public async Task<ActionResult<ProductSummaryDto>> GetSchemeById(int schemeId)
     {
         try
@@ -156,8 +158,18 @@ public class TenantsController : ControllerBase
         catch (DomainException ex)
         {
             return BadRequest(new { error = ex.Message });
-        }
+        }  
     }
-
+    [HttpPut("scheme_tenant_product/{schemeId:long}"),
+   Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," )]
+    public async Task<IActionResult> UpdateteantProdutConfig(long schemeId, [FromBody] SchemeConfigUpdatePayload req)
+    {
+        try 
+        {
+            await _tenants.UpdateProductAsync(schemeId, req, _ctx.UserId);
+            return Ok(await _tenants.GetProductConfigAsync(schemeId));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
 
 }
