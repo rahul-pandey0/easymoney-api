@@ -28,7 +28,7 @@ public class TenantsController : ControllerBase
         t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt);
 
     // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
-    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgOperator + "," + Roles.OrgAdmin)]
+    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator )]
     public async Task<IActionResult> Create([FromBody] CreateTenantRequest req)
     {
         try

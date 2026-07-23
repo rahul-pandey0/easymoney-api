@@ -398,6 +398,20 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.HeavyVehicleModel).HasColumnName("heavy_vehicle_model").HasMaxLength(100);
             e.Property(x => x.HeavyVehicleCompany).HasColumnName("heavy_vehicle_company").HasMaxLength(100);
 
+            // Member Details
+            e.Property(x => x.MembershipNumber)
+                .HasColumnName("membership_number")
+                .HasMaxLength(50);
+
+            e.Property(x => x.AccountType)
+                .HasColumnName("account_type")
+                .HasMaxLength(50);
+
+            e.Property(x => x.AccountNumber)
+                .HasColumnName("account_number")
+                .HasMaxLength(50);
+
+
             // Property Details
             e.Property(x => x.AgricultureLand).HasColumnName("agriculture_land").HasMaxLength(255);
             e.Property(x => x.AgricultureArea).HasColumnName("agriculture_area").HasColumnType("decimal(18,2)");
