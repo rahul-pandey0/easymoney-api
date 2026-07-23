@@ -117,6 +117,59 @@ public class SchemeConfig
     public string? GstGl { get; set; }
 }
 
+
+
+public class SchemeMaster 
+{
+    public long SchemeId { get; set; } 
+    public int TenureMonths { get; set; } = 20;
+    public decimal OrgFeePct { get; set; } = 5.00m;
+    public decimal SifinCommissionPct { get; set; } = 1.00m;
+    public decimal MinBidPct { get; set; } = 15.00m;
+    public decimal MaxBidPct { get; set; } = 50.00m;
+    public decimal EarlyExitPenaltyPct { get; set; } = 15.00m;
+    public int MinInstallmentsForEligibility { get; set; } = 2;
+    public int BiddingWindowOpenDay { get; set; } = 1;
+    public int BiddingDayOfMonth { get; set; } = 15;
+    public decimal NoBidDefaultDividendPct { get; set; } = 0.00m;
+    public KycMode KycMode { get; set; } = KycMode.MINIMAL_FIRST;
+    public bool MakerCheckerEnabled { get; set; } = true;
+    public string? BankName { get; set; }
+    public string? CustAddress1 { get; set; }
+    public string? CustAddress2 { get; set; }
+    public string? CustAddress3 { get; set; }
+    public string? Email { get; set; }
+    public string? PhNum { get; set; }
+  
+    public string? RdStatus { get; set; }
+    public decimal GrossBonus { get; set; }
+    public decimal TenantCommission { get; set; }
+    public decimal NetBonus { get; set; }
+    public string? Reserve1 { get; set; }
+    public string? Reserve2 { get; set; }
+    public string? PoolMoney { get; set; }
+    public string? TenantPin { get; set; }
+    public string? LoanAssetGL { get; set; }
+    public string? SifinPayable { get; set; }
+    public decimal TimeChPass { get; set; }
+    public string? PenaltyAcc { get; set; }
+    public string? NMPenaltyAcc { get; set; }
+    public decimal MinimumRate { get; set; }
+    public decimal MaximumRate { get; set; }
+    public int MinimumPeriod { get; set; }
+    public int MaximumPeriod { get; set; }
+    public string? TdsAc { get; set; }
+    public string? ServicesTax { get; set; }
+    public long? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public long? AuthorizedBy { get; set; }
+    public DateTime? AuthorizedAt { get; set; }
+    //public string Tenant { get; set; } = null!;
+    public string? SchemeName { get; set; }
+    public decimal FixedRate { get; set; }
+    public string? GstGl { get; set; }
+}
+
 public class AppUser
 {
     public long UserId { get; set; }
@@ -252,6 +305,10 @@ public class IndividualKycDetail
     public decimal? SiteArea { get; set; }
     public string? SiteSurveyNo { get; set; }
     public decimal? SiteValue { get; set; }
+
+    public string? MembershipNumber { get; set; }
+    public string? AccountType { get; set; }
+    public string? AccountNumber { get; set; }
 
     public string? PlantationDetails { get; set; }
     public decimal? PlantationArea { get; set; }

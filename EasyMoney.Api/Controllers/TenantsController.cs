@@ -28,7 +28,7 @@ public class TenantsController : ControllerBase
         t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt);
 
     // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
-    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgOperator + "," + Roles.OrgAdmin)]
+    [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator )]
     public async Task<IActionResult> Create([FromBody] CreateTenantRequest req)
     {
         try
@@ -120,5 +120,44 @@ public class TenantsController : ControllerBase
         var result = await _tenants.GetAllSchemeSummariesAsync();
         return Ok(result);
     }
+
+    [HttpGet("scheme_tenant_product")]
+    //[Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<ActionResult<IReadOnlyList<ProductSummaryDto>>> GetAllSchemedata()
+    {
+        var result = await _tenants.GetAllProductSummariesAsync();
+        return Ok(result);
+    }
+    [HttpGet("scheme_tenant_product/{schemeId}")]
+    public async Task<ActionResult<ProductSummaryDto>> GetSchemeById(int schemeId)
+    {
+        try
+        {
+            var result = await _tenants.GetProductSummaryByIdAsync(schemeId);
+            return Ok(new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+    [HttpPost("tenant_product")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
+    public async Task<IActionResult> CreateProduct([FromBody] SchemeConfigUpdatePayload req)
+    { 
+        try 
+        {
+            await _tenants.CreateSchemeConfigAsync( req, _ctx.UserId);
+
+            var scheme = await _tenants.GetSchemeConfigAsync();
+
+            return Ok(scheme);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
 
 }

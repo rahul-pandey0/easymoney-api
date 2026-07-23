@@ -16,6 +16,8 @@ public class EasyMoneyDbContext : DbContext
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<SchemeConfig> SchemeConfigs => Set<SchemeConfig>();
+    public DbSet<SchemeMaster> SchemeMaster => Set<SchemeMaster>(); 
+
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Member> Members => Set<Member>();
@@ -98,6 +100,91 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
             e.HasOne(x => x.Tenant).WithOne(t => t.SchemeConfig).HasForeignKey<SchemeConfig>(x => x.TenantId);
+            // Bank Details
+            e.Property(x => x.BankName).HasColumnName("bank_name");
+            e.Property(x => x.CustAddress1).HasColumnName("cust_address1");
+            e.Property(x => x.CustAddress2).HasColumnName("cust_address2");
+            e.Property(x => x.CustAddress3).HasColumnName("cust_address3");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.PhNum).HasColumnName("ph_num");
+            //e.Property(x => x.Fax).HasColumnName("fax");
+            e.Property(x => x.RdStatus).HasColumnName("rd_status");
+
+            // Bonus / Commission
+            e.Property(x => x.GrossBonus)
+                .HasColumnName("gross_bonus")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.TenantCommission)
+                .HasColumnName("tenant_commission")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.NetBonus)
+                .HasColumnName("net_bonus")
+                .HasColumnType("decimal(18,2)");
+
+            // Reserve / GL Accounts
+            e.Property(x => x.Reserve1).HasColumnName("reserve1");
+            e.Property(x => x.Reserve2).HasColumnName("reserve2");
+            e.Property(x => x.PoolMoney).HasColumnName("pool_money");
+            e.Property(x => x.TenantPin).HasColumnName("tenant_pin");
+            e.Property(x => x.LoanAssetGL).HasColumnName("loan_asset_gl");
+            e.Property(x => x.SifinPayable).HasColumnName("sifin_payable");
+
+            // Time Change
+            e.Property(x => x.TimeChPass)
+                .HasColumnName("time_ch_pass")
+                .HasColumnType("decimal(18,2)");
+
+            // Penalty Accounts
+            e.Property(x => x.PenaltyAcc).HasColumnName("penalty_acc");
+            e.Property(x => x.NMPenaltyAcc).HasColumnName("nm_penalty_acc");
+
+            // Interest Configuration
+            e.Property(x => x.MinimumRate)
+                .HasColumnName("minimum_rate")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.MaximumRate)
+                .HasColumnName("maximum_rate")
+                .HasColumnType("decimal(18,2)");
+
+            e.Property(x => x.MinimumPeriod).HasColumnName("minimum_period");
+            e.Property(x => x.MaximumPeriod).HasColumnName("maximum_period");
+
+            // Tax
+            e.Property(x => x.TdsAc).HasColumnName("tds_ac");
+            e.Property(x => x.GstGl).HasColumnName("gst_gl");
+            e.Property(x => x.ServicesTax).HasColumnName("services_tax");
+
+        });
+
+        b.Entity<SchemeMaster>(e =>
+        {
+            e.ToTable("scheme_master");
+            e.HasKey(x => x.SchemeId);
+            e.Property(x => x.SchemeName).HasColumnName("scheme_name");
+            e.Property(x => x.FixedRate).HasColumnName("fixed_rate").HasColumnType("decimal(18,2)");
+            e.Property(x => x.SchemeId).HasColumnName("scheme_id");
+            e.Property(x => x.TenureMonths).HasColumnName("tenure_months");
+            e.Property(x => x.OrgFeePct).HasColumnName("org_fee_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.SifinCommissionPct).HasColumnName("sifin_commission_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.MinBidPct).HasColumnName("min_bid_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.MaxBidPct).HasColumnName("max_bid_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.EarlyExitPenaltyPct).HasColumnName("early_exit_penalty_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.MinInstallmentsForEligibility).HasColumnName("min_installments_for_eligibility");
+            e.Property(x => x.BiddingWindowOpenDay).HasColumnName("bidding_window_open_day");
+            e.Property(x => x.BiddingDayOfMonth).HasColumnName("bidding_day_of_month");
+            e.Property(x => x.NoBidDefaultDividendPct).HasColumnName("no_bid_default_dividend_pct").HasColumnType("decimal(5,2)");
+            e.Property(x => x.KycMode).HasColumnName("kyc_mode").HasConversion<string>();
+            // The maker_checker_enabled flag will be added via a small migration script in Phase 2.
+            // Mapped as a column for now; harmless if absent in DB until that script runs.
+            e.Property(x => x.MakerCheckerEnabled).HasColumnName("maker_checker_enabled");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
+            e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            //e.HasOne(x => x.Tenant).WithOne(t => t.SchemeConfig).HasForeignKey<SchemeConfig>(x => x.TenantId);
             // Bank Details
             e.Property(x => x.BankName).HasColumnName("bank_name");
             e.Property(x => x.CustAddress1).HasColumnName("cust_address1");
@@ -310,6 +397,20 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.TractorCompany).HasColumnName("tractor_company").HasMaxLength(100);
             e.Property(x => x.HeavyVehicleModel).HasColumnName("heavy_vehicle_model").HasMaxLength(100);
             e.Property(x => x.HeavyVehicleCompany).HasColumnName("heavy_vehicle_company").HasMaxLength(100);
+
+            // Member Details
+            e.Property(x => x.MembershipNumber)
+                .HasColumnName("membership_number")
+                .HasMaxLength(50);
+
+            e.Property(x => x.AccountType)
+                .HasColumnName("account_type")
+                .HasMaxLength(50);
+
+            e.Property(x => x.AccountNumber)
+                .HasColumnName("account_number")
+                .HasMaxLength(50);
+
 
             // Property Details
             e.Property(x => x.AgricultureLand).HasColumnName("agriculture_land").HasMaxLength(255);

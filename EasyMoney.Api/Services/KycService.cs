@@ -115,10 +115,10 @@ public class KycService : IKycService
         detail.IdImage = req.IdImage ?? detail.IdImage;
         detail.DocumentImage = req.DocumentImage ?? detail.DocumentImage;
 
-        //// Member Details
-        //detail.MembershipNumber = req.MembershipNumber ?? detail.MembershipNumber;
-        //detail.AccountType = req.AccountType ?? detail.AccountType;
-        //detail.AccountNumber = req.AccountNumber ?? detail.AccountNumber;
+        // Member Details
+        detail.MembershipNumber = req.MembershipNumber ?? detail.MembershipNumber;
+        detail.AccountType = req.AccountType ?? detail.AccountType;
+        detail.AccountNumber = req.AccountNumber ?? detail.AccountNumber;
 
         // Other Bank Details
         detail.BankName = req.BankName ?? detail.BankName;
