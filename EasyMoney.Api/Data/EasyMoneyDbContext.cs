@@ -259,6 +259,15 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            b.Entity<AppUser>()
+    .HasOne(u => u.Member)
+    .WithMany()
+    .HasForeignKey(u => u.MemberId);
+
+            b.Entity<AppUser>()
+                .HasOne(u => u.Tenant)
+                .WithMany()
+                .HasForeignKey(u => u.TenantId);
         });
 
         b.Entity<RefreshToken>(e =>
