@@ -332,22 +332,74 @@ public class IndividualKycDetail
 
     public DateTime UpdatedAt { get; set; }
 }
+//public class CorporateKycDetail
+//{
+//    public long MemberId { get; set; }
+//    public CorporateEntityType? EntityType { get; set; }
+//    public string? CinOrRegistrationNo { get; set; }
+//    public string? PanNumber { get; set; }
+//    public string? Gstin { get; set; }
+//    public DateOnly? DateOfIncorporation { get; set; }
+//    public string? RegisteredAddressLine { get; set; }
+//    public string? RegisteredCity { get; set; }
+//    public string? RegisteredState { get; set; }
+//    public string? RegisteredPincode { get; set; }
+//    public string? AuthorizedSignatoryName { get; set; }
+//    public string? AuthorizedSignatoryDesignation { get; set; }
+//    public string? AuthorizedSignatoryPan { get; set; }
+//    public string? AuthorizedSignatoryAadhaarLast4 { get; set; }
+//    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+//}
 public class CorporateKycDetail
 {
     public long MemberId { get; set; }
+
+    // Company Details
+    public string? EntityName { get; set; }
     public CorporateEntityType? EntityType { get; set; }
     public string? CinOrRegistrationNo { get; set; }
     public string? PanNumber { get; set; }
     public string? Gstin { get; set; }
     public DateOnly? DateOfIncorporation { get; set; }
+    public string? PlaceOfIncorporation { get; set; }
+    public string? CountryOfIncorporation { get; set; }
+
+    // Registered Office
     public string? RegisteredAddressLine { get; set; }
     public string? RegisteredCity { get; set; }
     public string? RegisteredState { get; set; }
     public string? RegisteredPincode { get; set; }
+
+    // Contact Details
+    public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
+    public string? Website { get; set; }
+
+    // Director
+    public string? DirectorName { get; set; }
+    public string? DirectorDesignation { get; set; }
+    public string? DirectorDin { get; set; }
+    public string? DirectorPan { get; set; }
+    public DateOnly? DirectorDateOfBirth { get; set; }
+
+    // Beneficial Owner
+    public string? BeneficialOwnerName { get; set; }
+    public decimal? OwnershipPercentage { get; set; }
+    public string? BeneficialOwnerPan { get; set; }
+    public string? BeneficialOwnerDin { get; set; }
+    public string? Nationality { get; set; }
+    public string? BeneficialOwnerAddress { get; set; }
+
+    // Authorized Signatory
     public string? AuthorizedSignatoryName { get; set; }
     public string? AuthorizedSignatoryDesignation { get; set; }
     public string? AuthorizedSignatoryPan { get; set; }
+    public string? AuthorizedSignatoryDin { get; set; }
+    public string? AuthorizedSignatoryEmail { get; set; }
+    public string? AuthorizedSignatoryPhoneNumber { get; set; }
+
     public string? AuthorizedSignatoryAadhaarLast4 { get; set; }
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
