@@ -459,19 +459,66 @@ public class EasyMoneyDbContext : DbContext
             e.ToTable("corporate_kyc_detail");
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
+            //e.Property(x => x.EntityType).HasColumnName("entity_type").HasConversion<string>();
+            //e.Property(x => x.CinOrRegistrationNo).HasColumnName("cin_or_registration_no");
+            //e.Property(x => x.PanNumber).HasColumnName("pan_number");
+            //e.Property(x => x.Gstin).HasColumnName("gstin");
+            //e.Property(x => x.DateOfIncorporation).HasColumnName("date_of_incorporation");
+            //e.Property(x => x.RegisteredAddressLine).HasColumnName("registered_address_line");
+            //e.Property(x => x.RegisteredCity).HasColumnName("registered_city");
+            //e.Property(x => x.RegisteredState).HasColumnName("registered_state");
+            //e.Property(x => x.RegisteredPincode).HasColumnName("registered_pincode");
+            //e.Property(x => x.AuthorizedSignatoryName).HasColumnName("authorized_signatory_name");
+            //e.Property(x => x.AuthorizedSignatoryDesignation).HasColumnName("authorized_signatory_designation");
+            //e.Property(x => x.AuthorizedSignatoryPan).HasColumnName("authorized_signatory_pan");
+            //e.Property(x => x.AuthorizedSignatoryAadhaarLast4).HasColumnName("authorized_signatory_aadhaar_last4");
+            //e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+
+            // Company Details
+            e.Property(x => x.EntityName).HasColumnName("entity_name");
             e.Property(x => x.EntityType).HasColumnName("entity_type").HasConversion<string>();
             e.Property(x => x.CinOrRegistrationNo).HasColumnName("cin_or_registration_no");
             e.Property(x => x.PanNumber).HasColumnName("pan_number");
             e.Property(x => x.Gstin).HasColumnName("gstin");
             e.Property(x => x.DateOfIncorporation).HasColumnName("date_of_incorporation");
+            e.Property(x => x.PlaceOfIncorporation).HasColumnName("place_of_incorporation");
+            e.Property(x => x.CountryOfIncorporation).HasColumnName("country_of_incorporation");
+
+            // Registered Office
             e.Property(x => x.RegisteredAddressLine).HasColumnName("registered_address_line");
             e.Property(x => x.RegisteredCity).HasColumnName("registered_city");
             e.Property(x => x.RegisteredState).HasColumnName("registered_state");
             e.Property(x => x.RegisteredPincode).HasColumnName("registered_pincode");
+
+            // Contact Details
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.Website).HasColumnName("website");
+
+            // Director
+            e.Property(x => x.DirectorName).HasColumnName("director_name");
+            e.Property(x => x.DirectorDesignation).HasColumnName("director_designation");
+            e.Property(x => x.DirectorDin).HasColumnName("director_din");
+            e.Property(x => x.DirectorPan).HasColumnName("director_pan");
+            e.Property(x => x.DirectorDateOfBirth).HasColumnName("director_date_of_birth");
+
+            // Beneficial Owner
+            e.Property(x => x.BeneficialOwnerName).HasColumnName("beneficial_owner_name");
+            e.Property(x => x.OwnershipPercentage).HasColumnName("ownership_percentage");
+            e.Property(x => x.BeneficialOwnerPan).HasColumnName("beneficial_owner_pan");
+            e.Property(x => x.BeneficialOwnerDin).HasColumnName("beneficial_owner_din");
+            e.Property(x => x.Nationality).HasColumnName("nationality");
+            e.Property(x => x.BeneficialOwnerAddress).HasColumnName("beneficial_owner_address");
+
+            // Authorized Signatory
             e.Property(x => x.AuthorizedSignatoryName).HasColumnName("authorized_signatory_name");
             e.Property(x => x.AuthorizedSignatoryDesignation).HasColumnName("authorized_signatory_designation");
             e.Property(x => x.AuthorizedSignatoryPan).HasColumnName("authorized_signatory_pan");
+            e.Property(x => x.AuthorizedSignatoryDin).HasColumnName("authorized_signatory_din");
+            e.Property(x => x.AuthorizedSignatoryEmail).HasColumnName("authorized_signatory_email");
+            e.Property(x => x.AuthorizedSignatoryPhoneNumber).HasColumnName("authorized_signatory_phone_number");
             e.Property(x => x.AuthorizedSignatoryAadhaarLast4).HasColumnName("authorized_signatory_aadhaar_last4");
+
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
         });
 

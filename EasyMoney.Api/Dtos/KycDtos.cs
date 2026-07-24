@@ -250,21 +250,68 @@ public record UpsertIndividualKycRequest(
 );
 
 
+//public record UpsertCorporateKycRequest(
+//    CorporateEntityType? EntityType,
+//    string? CinOrRegistrationNo,
+//    string? PanNumber,
+//    string? Gstin,
+//    DateOnly? DateOfIncorporation,
+//    string? RegisteredAddressLine,
+//    string? RegisteredCity,
+//    string? RegisteredState,
+//    string? RegisteredPincode,
+//    string? AuthorizedSignatoryName,
+//    string? AuthorizedSignatoryDesignation,
+//    string? AuthorizedSignatoryPan,
+//    string? AuthorizedSignatoryAadhaarLast4);
+
 public record UpsertCorporateKycRequest(
+
+    // Company Details
+    string? EntityName,
     CorporateEntityType? EntityType,
     string? CinOrRegistrationNo,
     string? PanNumber,
     string? Gstin,
     DateOnly? DateOfIncorporation,
+    string? PlaceOfIncorporation,
+    string? CountryOfIncorporation,
+
+    // Registered Office
     string? RegisteredAddressLine,
     string? RegisteredCity,
     string? RegisteredState,
     string? RegisteredPincode,
+
+    // Contact Details
+    string? PhoneNumber,
+    string? Email,
+    string? Website,
+
+    // Director
+    string? DirectorName,
+    string? DirectorDesignation,
+    string? DirectorDin,
+    string? DirectorPan,
+    DateOnly? DirectorDateOfBirth,
+
+    // Beneficial Owner
+    string? BeneficialOwnerName,
+    decimal? OwnershipPercentage,
+    string? BeneficialOwnerPan,
+    string? BeneficialOwnerDin,
+    string? Nationality,
+    string? BeneficialOwnerAddress,
+
+    // Authorized Signatory
     string? AuthorizedSignatoryName,
     string? AuthorizedSignatoryDesignation,
     string? AuthorizedSignatoryPan,
-    string? AuthorizedSignatoryAadhaarLast4);
-
+    string? AuthorizedSignatoryDin,
+    string? AuthorizedSignatoryEmail,
+    string? AuthorizedSignatoryPhoneNumber,
+    string? AuthorizedSignatoryAadhaarLast4
+);
 // ============================================================
 // KYC documents
 // ============================================================
