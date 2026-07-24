@@ -11,8 +11,10 @@ public record LoginResponse(
     long UserId,
     string Email,
     string Role,
-    long? TenantId,
-    long? MemberId);
+    long? TenantId, 
+    long? MemberId, 
+    string? TenantName 
+    );
 
 public record MeResponse(
     long UserId,
