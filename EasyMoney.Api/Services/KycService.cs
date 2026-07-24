@@ -209,20 +209,66 @@ public class KycService : IKycService
             detail = new CorporateKycDetail { MemberId = memberId };
             _db.CorporateKycDetails.Add(detail);
         }
+        //detail.EntityType = req.EntityType ?? detail.EntityType;
+        //detail.CinOrRegistrationNo = req.CinOrRegistrationNo ?? detail.CinOrRegistrationNo;
+        //detail.PanNumber = req.PanNumber ?? detail.PanNumber;
+        //detail.Gstin = req.Gstin ?? detail.Gstin;
+        //detail.DateOfIncorporation = req.DateOfIncorporation ?? detail.DateOfIncorporation;
+        //detail.RegisteredAddressLine = req.RegisteredAddressLine ?? detail.RegisteredAddressLine;
+        //detail.RegisteredCity = req.RegisteredCity ?? detail.RegisteredCity;
+        //detail.RegisteredState = req.RegisteredState ?? detail.RegisteredState;
+        //detail.RegisteredPincode = req.RegisteredPincode ?? detail.RegisteredPincode;
+        //detail.AuthorizedSignatoryName = req.AuthorizedSignatoryName ?? detail.AuthorizedSignatoryName;
+        //detail.AuthorizedSignatoryDesignation = req.AuthorizedSignatoryDesignation ?? detail.AuthorizedSignatoryDesignation;
+        //detail.AuthorizedSignatoryPan = req.AuthorizedSignatoryPan ?? detail.AuthorizedSignatoryPan;
+        //detail.AuthorizedSignatoryAadhaarLast4 = req.AuthorizedSignatoryAadhaarLast4 ?? detail.AuthorizedSignatoryAadhaarLast4;
+
+        // Company Details
+        detail.EntityName = req.EntityName ?? detail.EntityName;
         detail.EntityType = req.EntityType ?? detail.EntityType;
         detail.CinOrRegistrationNo = req.CinOrRegistrationNo ?? detail.CinOrRegistrationNo;
         detail.PanNumber = req.PanNumber ?? detail.PanNumber;
         detail.Gstin = req.Gstin ?? detail.Gstin;
         detail.DateOfIncorporation = req.DateOfIncorporation ?? detail.DateOfIncorporation;
+        detail.PlaceOfIncorporation = req.PlaceOfIncorporation ?? detail.PlaceOfIncorporation;
+        detail.CountryOfIncorporation = req.CountryOfIncorporation ?? detail.CountryOfIncorporation;
+
+        // Registered Address
         detail.RegisteredAddressLine = req.RegisteredAddressLine ?? detail.RegisteredAddressLine;
         detail.RegisteredCity = req.RegisteredCity ?? detail.RegisteredCity;
         detail.RegisteredState = req.RegisteredState ?? detail.RegisteredState;
         detail.RegisteredPincode = req.RegisteredPincode ?? detail.RegisteredPincode;
+
+        // Contact Details
+        detail.PhoneNumber = req.PhoneNumber ?? detail.PhoneNumber;
+        detail.Email = req.Email ?? detail.Email;
+        detail.Website = req.Website ?? detail.Website;
+
+        // Director
+        detail.DirectorName = req.DirectorName ?? detail.DirectorName;
+        detail.DirectorDesignation = req.DirectorDesignation ?? detail.DirectorDesignation;
+        detail.DirectorDin = req.DirectorDin ?? detail.DirectorDin;
+        detail.DirectorPan = req.DirectorPan ?? detail.DirectorPan;
+        detail.DirectorDateOfBirth = req.DirectorDateOfBirth ?? detail.DirectorDateOfBirth;
+
+        // Beneficial Owner
+        detail.BeneficialOwnerName = req.BeneficialOwnerName ?? detail.BeneficialOwnerName;
+        detail.OwnershipPercentage = req.OwnershipPercentage ?? detail.OwnershipPercentage;
+        detail.BeneficialOwnerPan = req.BeneficialOwnerPan ?? detail.BeneficialOwnerPan;
+        detail.BeneficialOwnerDin = req.BeneficialOwnerDin ?? detail.BeneficialOwnerDin;
+        detail.Nationality = req.Nationality ?? detail.Nationality;
+        detail.BeneficialOwnerAddress = req.BeneficialOwnerAddress ?? detail.BeneficialOwnerAddress;
+
+        // Authorized Signatory
         detail.AuthorizedSignatoryName = req.AuthorizedSignatoryName ?? detail.AuthorizedSignatoryName;
         detail.AuthorizedSignatoryDesignation = req.AuthorizedSignatoryDesignation ?? detail.AuthorizedSignatoryDesignation;
         detail.AuthorizedSignatoryPan = req.AuthorizedSignatoryPan ?? detail.AuthorizedSignatoryPan;
+        detail.AuthorizedSignatoryDin = req.AuthorizedSignatoryDin ?? detail.AuthorizedSignatoryDin;
+        detail.AuthorizedSignatoryEmail = req.AuthorizedSignatoryEmail ?? detail.AuthorizedSignatoryEmail;
+        detail.AuthorizedSignatoryPhoneNumber = req.AuthorizedSignatoryPhoneNumber ?? detail.AuthorizedSignatoryPhoneNumber;
         detail.AuthorizedSignatoryAadhaarLast4 = req.AuthorizedSignatoryAadhaarLast4 ?? detail.AuthorizedSignatoryAadhaarLast4;
         detail.UpdatedAt = DateTime.UtcNow;
+
         await _db.SaveChangesAsync();
     }
 

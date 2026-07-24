@@ -121,7 +121,7 @@ try
     builder.Services.AddScoped<IBiddingService, BiddingService>();
     builder.Services.AddScoped<IExitService, ExitService>();
     builder.Services.AddScoped<INotificationService, NotificationService>();
-
+    builder.Services.AddScoped<DashboardService>();
     // ==== CORS ====
     var allowedOrigins = builder.Configuration
         .GetSection("Cors:AllowedOrigins")
