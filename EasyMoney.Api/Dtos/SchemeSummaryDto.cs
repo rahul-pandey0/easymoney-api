@@ -112,5 +112,7 @@ public record ProductSummaryDto(
     long? UpdatedBy,
     DateTime? UpdatedAt,
     long? AuthorizedBy,
-    DateTime? AuthorizedAt
+    DateTime? AuthorizedAt,
+   decimal? FixedRate,
+   string? Email
 );

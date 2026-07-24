@@ -3,6 +3,7 @@ using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace EasyMoney.Api.Services;
 
@@ -25,9 +26,11 @@ public class AuthService : IAuthService
     private readonly JwtSettings _jwt;
     private readonly ITenantContext _tenantCtx;
 
-    public AuthService(EasyMoneyDbContext db, ITokenService tokens, JwtSettings jwt, ITenantContext tenantCtx)
+
+
+    public AuthService(EasyMoneyDbContext db, ITokenService tokens, JwtSettings jwt, ITenantContext tenantCtx) 
     {
-        _db = db; _tokens = tokens; _jwt = jwt; _tenantCtx = tenantCtx;
+        _db = db; _tokens = tokens; _jwt = jwt; _tenantCtx = tenantCtx;;
     }
 
     public async Task<LoginResponse> LoginAsync(string email, string password)
@@ -44,7 +47,6 @@ public class AuthService : IAuthService
         // log in until authorized_by is stamped. Seeded SIFIN users are pre-authorized.
         if (user.AuthorizedAt is null && user.Role is not UserRole.SIFIN_ADMIN)
             throw new DomainException("User pending authorization");
-
         var access = _tokens.CreateAccessToken(user);
         var (raw, hash) = _tokens.CreateRefreshToken();
         var expires = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays);
@@ -55,11 +57,17 @@ public class AuthService : IAuthService
             ExpiresAt = expires
         });
         await _db.SaveChangesAsync();
+        //var tenantName = await GetTenantNameAsync(user.TenantId);
+        //var tenantname = tenant.name;
+        //var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == user.TenantId || null);
+        //var tenantName = tenant.Name;
+
+        string tenantName = GetTenantNameForUser(user);
 
         return new LoginResponse(
             access, raw, DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
             user.UserId, user.Email, user.Role.ToString(),
-            user.TenantId, user.MemberId);
+            user.TenantId, user.MemberId, tenantName);
     }
 
     public async Task<LoginResponse> RefreshAsync(string refreshTokenRaw)
@@ -85,10 +93,15 @@ public class AuthService : IAuthService
         });
         await _db.SaveChangesAsync();
 
+        //var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == user.TenantId);
+        //var tenantName = tenant.Name;
+        string tenantName = GetTenantNameForUser(user);
+
+
         return new LoginResponse(
             access, raw, DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
             user.UserId, user.Email, user.Role.ToString(),
-            user.TenantId, user.MemberId);
+            user.TenantId, user.MemberId, tenantName);
     }
 
     public async Task LogoutAsync(string refreshTokenRaw)
@@ -164,4 +177,18 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
         return u;
     }
+    private string GetTenantNameForUser(AppUser user)
+    {
+        // Super Admin or users without tenant
+        if (!user.TenantId.HasValue)
+            return "System"; // or "Super Admin" or "Global"
+
+        // Tenant user - try to get tenant name
+        var tenant = _db.Tenants
+            .IgnoreQueryFilters()
+            .FirstOrDefault(t => t.TenantId == user.TenantId.Value);
+
+        return tenant?.Name ?? "Unknown Tenant";
+    }
+
 }
