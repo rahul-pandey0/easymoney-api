@@ -34,6 +34,8 @@ public record UserDto(
     long? TenantId,
     long? MemberId,
     string Email,
+    string? Name,
+    string? TenantName,
     string Role,
     bool IsActive,
     long? CreatedBy,

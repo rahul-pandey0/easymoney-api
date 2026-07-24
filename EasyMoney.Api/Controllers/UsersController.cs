@@ -23,11 +23,24 @@ public class UsersController : ControllerBase
         _auth = auth; _db = db; _ctx = ctx;
     }
 
+    //static UserDto ToDto(AppUser u) => new(
+    //    u.UserId, u.TenantId, u.MemberId, u.Email,
+    //    u.Role.ToString(), u.IsActive, u.Member?.Name,u.Tenant?.Name,
+    //    u.CreatedBy, u.CreatedAt,
+    //    u.AuthorizedBy, u.AuthorizedAt);
     static UserDto ToDto(AppUser u) => new(
-        u.UserId, u.TenantId, u.MemberId, u.Email,
-        u.Role.ToString(), u.IsActive,
-        u.CreatedBy, u.CreatedAt,
-        u.AuthorizedBy, u.AuthorizedAt);
+    u.UserId,
+    u.TenantId,
+    u.MemberId,
+    u.Email,
+    u.Member?.FullName,
+    u.Tenant?.Name,
+    u.Role.ToString(),
+    u.IsActive,
+    u.CreatedBy,
+    u.CreatedAt,
+    u.AuthorizedBy,
+    u.AuthorizedAt);
 
     // POST /api/v1/users  — create a new user (org or SIFIN-level)
     // SIFIN can create any role; ORG_ADMIN can create org-scoped roles for their own tenant.
@@ -74,17 +87,35 @@ public class UsersController : ControllerBase
         // Org roles may only view their own tenant
         if (!_ctx.IsSifin && _ctx.TenantId != tenantId) return Forbid();
 
-        var q = _db.AppUsers.IgnoreQueryFilters()
-            .Where(u => u.TenantId == tenantId);
+        //var q = _db.AppUsers.IgnoreQueryFilters()
+        //    .Where(u => u.TenantId == tenantId);
+        var q = _db.AppUsers
+    .IgnoreQueryFilters()
+    .Include(u => u.Member)
+    .Include(u => u.Tenant)
+    .Where(u => u.TenantId == tenantId);
         if (isActive.HasValue) q = q.Where(u => u.IsActive == isActive.Value);
 
         var users = await q.OrderBy(u => u.UserId)
             .Skip(skip).Take(Math.Clamp(take, 1, 200))
+            //.Select(u => new UserDto(
+            //    u.UserId, u.TenantId, u.MemberId, u.Email,
+            //    u.Role.ToString(), u.IsActive,
+            //    u.CreatedBy, u.CreatedAt,
+            //    u.AuthorizedBy, u.AuthorizedAt))
             .Select(u => new UserDto(
-                u.UserId, u.TenantId, u.MemberId, u.Email,
-                u.Role.ToString(), u.IsActive,
-                u.CreatedBy, u.CreatedAt,
-                u.AuthorizedBy, u.AuthorizedAt))
+    u.UserId,
+    u.TenantId,
+    u.MemberId,
+    u.Email,
+    u.Member != null ? u.Member.FullName : null,
+    u.Tenant != null ? u.Tenant.Name : null,
+    u.Role.ToString(),
+    u.IsActive,
+    u.CreatedBy,
+    u.CreatedAt,
+    u.AuthorizedBy,
+    u.AuthorizedAt))
             .ToListAsync();
         return Ok(users);
     }
@@ -99,7 +130,12 @@ public class UsersController : ControllerBase
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50)
     {
-        var q = _db.AppUsers.IgnoreQueryFilters().AsQueryable();
+        //var q = _db.AppUsers.IgnoreQueryFilters().AsQueryable();
+        var q = _db.AppUsers
+    .IgnoreQueryFilters()
+    .Include(u => u.Member)
+    .Include(u => u.Tenant)
+    .AsQueryable();
         if (tenantId.HasValue) q = q.Where(u => u.TenantId == tenantId.Value);
         if (isActive.HasValue) q = q.Where(u => u.IsActive == isActive.Value);
         if (!string.IsNullOrEmpty(role) && Enum.TryParse<UserRole>(role, true, out var r))
@@ -107,11 +143,24 @@ public class UsersController : ControllerBase
 
         var users = await q.OrderBy(u => u.UserId)
             .Skip(skip).Take(Math.Clamp(take, 1, 200))
+            //.Select(u => new UserDto(
+            //    u.UserId, u.TenantId, u.MemberId, u.Email,
+            //    u.Role.ToString(), u.IsActive,
+            //    u.CreatedBy, u.CreatedAt,
+            //    u.AuthorizedBy, u.AuthorizedAt))
             .Select(u => new UserDto(
-                u.UserId, u.TenantId, u.MemberId, u.Email,
-                u.Role.ToString(), u.IsActive,
-                u.CreatedBy, u.CreatedAt,
-                u.AuthorizedBy, u.AuthorizedAt))
+    u.UserId,
+    u.TenantId,
+    u.MemberId,
+    u.Email,
+    u.Member != null ? u.Member.FullName : null,
+    u.Tenant != null ? u.Tenant.Name : null,
+    u.Role.ToString(),
+    u.IsActive,
+    u.CreatedBy,
+    u.CreatedAt,
+    u.AuthorizedBy,
+    u.AuthorizedAt))
             .ToListAsync();
         return Ok(users);
     }
@@ -121,16 +170,34 @@ public class UsersController : ControllerBase
      Authorize(Roles = Roles.AnySifin + "," + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor)]
     public async Task<IActionResult> Get(long userId)
     {
-        var u = await _db.AppUsers.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(x => x.UserId == userId);
+        //var u = await _db.AppUsers.IgnoreQueryFilters()
+        //    .FirstOrDefaultAsync(x => x.UserId == userId);
+        var u = await _db.AppUsers
+    .IgnoreQueryFilters()
+    .Include(x => x.Member)
+    .Include(x => x.Tenant)
+    .FirstOrDefaultAsync(x => x.UserId == userId);
         if (u is null) return NotFound();
         // Org roles may only view users in their own tenant
         if (!_ctx.IsSifin && u.TenantId != _ctx.TenantId) return Forbid();
+        //return Ok(new UserDto(
+        //    u.UserId, u.TenantId, u.MemberId, u.Email,
+        //    u.Role.ToString(), u.IsActive,
+        //    u.CreatedBy, u.CreatedAt,
+        //    u.AuthorizedBy, u.AuthorizedAt));
         return Ok(new UserDto(
-            u.UserId, u.TenantId, u.MemberId, u.Email,
-            u.Role.ToString(), u.IsActive,
-            u.CreatedBy, u.CreatedAt,
-            u.AuthorizedBy, u.AuthorizedAt));
+    u.UserId,
+    u.TenantId,
+    u.MemberId,
+    u.Email,
+    u.Member?.FullName,
+    u.Tenant?.Name,
+    u.Role.ToString(),
+    u.IsActive,
+    u.CreatedBy,
+    u.CreatedAt,
+    u.AuthorizedBy,
+    u.AuthorizedAt));
     }
 
     // PUT /api/v1/users/{userId}/status  — activate or deactivate
@@ -146,15 +213,41 @@ public class UsersController : ControllerBase
         // SIFIN_ADMIN cannot be deactivated via this endpoint (safety guard)
         if (target.Role == UserRole.SIFIN_ADMIN && !req.IsActive)
             return BadRequest(new { error = "Cannot deactivate a SIFIN_ADMIN account" });
+        //try
+        //{
+        //    var u = await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
+        //    return Ok(new UserDto(
+        //        u.UserId, u.TenantId, u.MemberId, u.Email,
+        //        u.Role.ToString(), u.IsActive,
+        //        u.CreatedBy, u.CreatedAt,
+        //        u.AuthorizedBy, u.AuthorizedAt));
+        //}
+
         try
         {
-            var u = await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
+            await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
+
+            var u = await _db.AppUsers
+                .IgnoreQueryFilters()
+                .Include(x => x.Member)
+                .Include(x => x.Tenant)
+                .FirstAsync(x => x.UserId == userId);
+
             return Ok(new UserDto(
-                u.UserId, u.TenantId, u.MemberId, u.Email,
-                u.Role.ToString(), u.IsActive,
-                u.CreatedBy, u.CreatedAt,
-                u.AuthorizedBy, u.AuthorizedAt));
+                u.UserId,
+                u.TenantId,
+                u.MemberId,
+                u.Email,
+                u.Member?.FullName,
+                u.Tenant?.Name,
+                u.Role.ToString(),
+                u.IsActive,
+                u.CreatedBy,
+                u.CreatedAt,
+                u.AuthorizedBy,
+                u.AuthorizedAt));
         }
+
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -177,14 +270,38 @@ public class UsersController : ControllerBase
         if (newIsSifin && !_ctx.IsSifin)
             return Forbid();
 
+        //try
+        //{
+        //    var u = await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
+        //    return Ok(new UserDto(
+        //        u.UserId, u.TenantId, u.MemberId, u.Email,
+        //        u.Role.ToString(), u.IsActive,
+        //        u.CreatedBy, u.CreatedAt,
+        //        u.AuthorizedBy, u.AuthorizedAt));
+        //}
         try
         {
-            var u = await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
+            await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
+
+            var u = await _db.AppUsers
+                .Include(x => x.Member)
+                .Include(x => x.Tenant)
+                .IgnoreQueryFilters()
+                .FirstAsync(x => x.UserId == userId);
+
             return Ok(new UserDto(
-                u.UserId, u.TenantId, u.MemberId, u.Email,
-                u.Role.ToString(), u.IsActive,
-                u.CreatedBy, u.CreatedAt,
-                u.AuthorizedBy, u.AuthorizedAt));
+                u.UserId,
+                u.TenantId,
+                u.MemberId,
+                u.Email,
+                u.Member?.FullName,
+                u.Tenant?.Name,
+                u.Role.ToString(),
+                u.IsActive,
+                u.CreatedBy,
+                u.CreatedAt,
+                u.AuthorizedBy,
+                u.AuthorizedAt));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
