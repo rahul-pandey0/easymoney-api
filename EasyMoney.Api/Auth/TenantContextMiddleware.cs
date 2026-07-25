@@ -18,6 +18,12 @@ public class TenantContextMiddleware
             if (long.TryParse(tenantClaim, out var tId)) tc.TenantId = tId;
             if (long.TryParse(userClaim, out var uId)) tc.UserId = uId;
             tc.Role = roleClaim;
+
+            // Enable tenant bypass for SIFIN users
+            if (tc.IsSifin)
+            {
+                tc.SetBypass(true);
+            }
         }
         await _next(ctx);
     }

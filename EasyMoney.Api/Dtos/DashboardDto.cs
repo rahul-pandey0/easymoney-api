@@ -13,4 +13,6 @@ public class DashboardDto
     public decimal TotalCollections { get; set; }
     public decimal TotalLoanAmount { get; set; }
     public int CustomersWithoutAccounts { get; set; }
+    public decimal LoanRecoveryPercentage { get; set; }
+    public int ApprovedKyc { get; set; }
 }
