@@ -42,7 +42,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<UserBranch> UserBranches => Set<UserBranch>();
 
-    public DbSet<Department> Departments => Set<Department>();
+
 
     //public DbSet<IndividualDetail> IndividualDetails { get; set; }
 
@@ -843,34 +843,6 @@ public class EasyMoneyDbContext : DbContext
             // e.HasOne(x => x.User)
             //     .WithMany()
             //     .HasForeignKey(x => x.UserId);
-        });
-        b.Entity<Department>(e =>
-        {
-            e.ToTable("department");
-
-            e.HasKey(x => x.DepartmentId);
-
-            e.Property(x => x.DepartmentId)
-                .HasColumnName("department_id");
-
-            e.Property(x => x.DepartmentName)
-                .HasColumnName("department_name");
-
-            e.Property(x => x.Description)
-                .HasColumnName("description");
-
-            e.Property(x => x.IsActive)
-                .HasColumnName("is_active");
-
-            e.Property(x => x.CreatedAt)
-                .HasColumnName("created_at");
-            e.Property(x => x.UpdatedAt)
-               .HasColumnName("updated_at");
-
-            // Uncomment if these fields exist in your entity
-            // e.Property(x => x.CreatedBy).HasColumnName("created_by");
-            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
-            // e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
         });
         //b.Entity<IndividualDetail>(e =>
         //{

@@ -657,20 +657,7 @@ public class UserBranch
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
-public class Department
-{
-    public long DepartmentId { get; set; }
 
-    public string DepartmentName { get; set; } = null!;
-
-    public string? Description { get; set; }
-
-    public bool IsActive { get; set; } = true;
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public DateTime? UpdatedAt { get; set; }
-}
 public class IndividualDetail
 {
     public long IndividualDetailId { get; set; }
