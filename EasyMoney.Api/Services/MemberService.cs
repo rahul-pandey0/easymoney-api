@@ -11,7 +11,8 @@ public interface IMemberService
 {
     Task<Member> CreateAsync(CreateMemberRequest req);
     Task<Member?> GetAsync(long memberId);     
-    Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
+    //Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
+    Task<PagedResult<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
 }
 
@@ -79,19 +80,46 @@ public class MemberService : IMemberService
     public Task<Member?> GetAsync(long memberId) =>
         _db.Members.FirstOrDefaultAsync(m => m.MemberId == memberId);
 
-    public async Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take)
+    //public async Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take)
+    //{
+    //    var q = _db.Members.AsQueryable();
+    //    if (!string.IsNullOrWhiteSpace(search))
+    //    {
+    //        q = q.Where(m => m.FullName.Contains(search)
+    //                         || (m.Phone != null && m.Phone.Contains(search))
+    //                         || (m.Email != null && m.Email.Contains(search)));
+    //    }
+    //    return await q.OrderByDescending(m => m.CreatedAt)
+    //        .Skip(skip).Take(Math.Clamp(take, 1, 200))
+    //        .Select(m => ToDto(m))
+    //        .ToListAsync();
+    //}
+    public async Task<PagedResult<MemberDto>> ListAsync(string? search, int skip, int take)
     {
         var q = _db.Members.AsQueryable();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
-            q = q.Where(m => m.FullName.Contains(search)
-                             || (m.Phone != null && m.Phone.Contains(search))
-                             || (m.Email != null && m.Email.Contains(search)));
+            q = q.Where(m =>
+                m.FullName.Contains(search) ||
+                (m.Phone != null && m.Phone.Contains(search)) ||
+                (m.Email != null && m.Email.Contains(search)));
         }
-        return await q.OrderByDescending(m => m.CreatedAt)
-            .Skip(skip).Take(Math.Clamp(take, 1, 200))
+
+        var totalCount = await q.CountAsync();
+
+        var items = await q
+            .OrderByDescending(m => m.CreatedAt)
+            .Skip(skip)
+            .Take(Math.Clamp(take, 1, 200))
             .Select(m => ToDto(m))
             .ToListAsync();
+
+        return new PagedResult<MemberDto>
+        {
+            Items = items,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req)
