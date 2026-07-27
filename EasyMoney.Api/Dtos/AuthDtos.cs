@@ -59,7 +59,16 @@ public record CreateTenantRequest(
     string? ContactPersonName,
     string? ContactPersonPhone,
     DateOnly? StartDate,
-DateOnly? EffectiveDate);
+    DateOnly? EffectiveDate, 
+    bool? AuthorisationRequired,
+    bool? SmsNotification,
+    bool? EmailNotification
+
+
+
+
+
+    );
 
 public record TenantDto(
     long TenantId,
@@ -76,5 +85,31 @@ public record TenantDto(
     DateTime CreatedAt,
     long? CreatedBy,
     long? AuthorizedBy,
-    DateTime? AuthorizedAt);
+    DateTime? AuthorizedAt,
+    bool? AuthorisationRequired,
+    bool? SmsNotification,
+    bool? EmailNotification
+);
 
+
+
+public record GeneralLedgerDto(
+    int ? GlId,
+    string? GlCode,
+    string? GlName,  
+    string? GlDescription,
+    bool? Forbank,
+    string? Category,
+    bool? IsReported,
+    bool? HasTransactions,
+    bool? HasGst,
+    DateTime? CreatedAt,
+    long? CreatedBy,
+    DateTime? UpdatedAt,    // Add this
+    long? UpdatedBy,
+    DateTime? AuthorizedAt,
+    long? AuthorizedBy,
+    string? Status,
+    int? ParentGl,
+    string? Type
+    );

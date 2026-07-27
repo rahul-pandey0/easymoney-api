@@ -6,6 +6,8 @@ public enum MemberType { INDIVIDUAL, CORPORATE }
 public enum KycTier { MINIMAL, FULL }
 public enum KycStatus { PENDING, UNDER_REVIEW, APPROVED, REJECTED, RE_KYC_REQUIRED }
 public enum Gender { MALE, FEMALE, OTHER }
+public enum GlStatus { Active, IncActive }
+
 public enum IncomeBand { BELOW_1L, _1L_5L, _5L_10L, _10L_25L, ABOVE_25L }
 public enum CorporateEntityType { PRIVATE_LTD, PUBLIC_LTD, PARTNERSHIP, LLP, PROPRIETORSHIP, TRUST, SOCIETY, OTHER }
 public enum KycDocType
