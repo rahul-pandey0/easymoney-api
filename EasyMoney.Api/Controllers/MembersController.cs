@@ -41,7 +41,8 @@ public class MembersController : ControllerBase
 
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<MemberDto>>> List(
+    //public async Task<ActionResult<IReadOnlyList<MemberDto>>> List(
+    public async Task<ActionResult<PagedResult<MemberDto>>> List(
         [FromQuery] string? search, [FromQuery] int skip = 0, [FromQuery] int take = 50)
         => Ok(await _members.ListAsync(search, skip, take));
 
