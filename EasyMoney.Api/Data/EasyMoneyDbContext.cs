@@ -16,7 +16,8 @@ public class EasyMoneyDbContext : DbContext
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<SchemeConfig> SchemeConfigs => Set<SchemeConfig>();
-    public DbSet<SchemeMaster> SchemeMaster => Set<SchemeMaster>(); 
+    public DbSet<SchemeMaster> SchemeMaster => Set<SchemeMaster>();
+    public DbSet<GeneralLedgerMaster> GeneralLedgerMaster => Set<GeneralLedgerMaster>();
 
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -72,6 +73,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.Property(x => x.AuthorisationRequired).HasColumnName("authorisation_required");
+            e.Property(x => x.EmailNotification).HasColumnName("email_notification");
+            e.Property(x => x.SmsNotification).HasColumnName("sms_notification");
+
         });
 
         b.Entity<SchemeConfig>(e =>
@@ -244,7 +249,32 @@ public class EasyMoneyDbContext : DbContext
 
         });
 
-        b.Entity<AppUser>(e =>
+
+        b.Entity<GeneralLedgerMaster>(e =>
+        {
+            e.ToTable("general_ledger_master");
+            e.HasKey(x => x.GlId);
+            e.Property(x => x.GlId).HasColumnName("gl_id");
+            e.Property(x => x.GlCode).HasColumnName("gl_code");
+            e.Property(x => x.GlName).HasColumnName("gl_name");
+            e.Property(x => x.GlDescription).HasColumnName("gl_description"); 
+            e.Property(x => x.Forbank).HasColumnName("for_bank");
+            e.Property(x => x.Category).HasColumnName("category").HasConversion<string>();
+            e.Property(x => x.IsReported).HasColumnName("is_reported");
+            e.Property(x => x.HasTransactions).HasColumnName("has_transactions");
+            e.Property(x => x.HasGst).HasColumnName("has_gst");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
+            e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.Type).HasColumnName("type");
+            e.Property(x => x.ParentGl).HasColumnName("parent_gl");
+            e.Property(x => x.status).HasColumnName("status");
+        });
+
+    b.Entity<AppUser>(e =>
         {
             e.ToTable("app_user");
             e.HasKey(x => x.UserId);

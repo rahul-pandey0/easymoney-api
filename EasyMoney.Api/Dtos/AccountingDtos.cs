@@ -1,4 +1,5 @@
 using EasyMoney.Api.Domain;
+using System.Collections.Generic;
 
 namespace EasyMoney.Api.Dtos;
 
@@ -119,3 +120,6 @@ public record IncomeStatementDto(
     BalanceSheetGroupDto Income,
     BalanceSheetGroupDto Expense,
     decimal NetIncome);
+
+
+
