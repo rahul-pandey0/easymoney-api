@@ -114,5 +114,6 @@ public record ProductSummaryDto(
     long? AuthorizedBy,
     DateTime? AuthorizedAt,
    decimal? FixedRate,
-   string? Email
+   string? Email,
+   string? GstGl
 );
