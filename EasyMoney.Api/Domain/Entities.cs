@@ -22,7 +22,31 @@ public class Tenant
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     public SchemeConfig SchemeConfig { get; set; } = null!;
+    public bool? AuthorisationRequired { get; set; }
+    public bool? SmsNotification { get; set; }
+    public bool? EmailNotification { get; set; }
 }
+public class GeneralLedgerMaster
+{
+    public int GlId { get; set; } 
+    public string? GlCode { get; set; } = null!;
+    public string? GlName { get; set; } = null!;  
+    public string? GlDescription { get; set; }
+    public bool Forbank { get; set; }
+    public string? Category { get; set; }
+    public bool IsReported { get; set; }
+    public bool HasTransactions { get; set; }
+    public bool HasGst { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public long? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public long? UpdatedBy { get; set; }
+    public DateTime? AuthorizedAt { get; set; }
+    public long? AuthorizedBy { get; set; }
+    public string? status { get; set; }
+    public int? ParentGl { get; set; }
+    public string? Type { get; set; }
+} 
 
 public class SchemeConfig
 {

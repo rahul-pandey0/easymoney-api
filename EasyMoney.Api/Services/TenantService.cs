@@ -1,6 +1,7 @@
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace EasyMoney.Api.Services;
@@ -28,6 +29,21 @@ public interface ITenantService
 
     Task<ProductSummaryDto> GetProductSummaryByIdAsync(int schemeId);
 
+
+    //gl creation  
+    //Task<GeneralLedgerMaster> GetByIdAsync(int glId);
+    //Task<GeneralLedgerMaster> GetGlAsync();
+    Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync();
+    Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId);  
+      Task<GeneralLedgerMaster> GetGlAsync();
+    Task<GeneralLedgerMaster> GetGlAsync(int glId);
+
+    Task CreateGl(GeneralLedgerDto req, long? authorizedBy);  
+    Task UpdateProductAsync(int glId, GeneralLedgerDto p, long? authorizedBy);  
+
+
+
+
 }
 
 public class TenantService : ITenantService
@@ -46,26 +62,8 @@ public class TenantService : ITenantService
         if (string.IsNullOrWhiteSpace(req.Name)) throw new DomainException("Tenant name required");
         if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Name == req.Name))
             throw new DomainException("Tenant name already exists");
-
-        //var t = new Tenant
-        //{
-        //    Name = req.Name,
-        //    RegistrationNumber = req.RegistrationNumber,
-        //    Address = req.Address,
-        //    Phone = req.Phone,
-        //    OrgEmail = req.OrgEmail,
-        //    ContactPersonName = req.ContactPersonName,
-        //    ContactPersonPhone = req.ContactPersonPhone,
-        //    StartDate = req.StartDate,
-        //    EffectiveDate = req.EffectiveDate,
-        //    //Status = TenantStatus.ACTIVE,
-        //    Status = isSuperAdmin? TenantStatus.ACTIVE: TenantStatus.PENDING,
-        //    CreatedBy = createdBy,
-        //    AuthorizedBy = authorizedBy,
-        //    AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null,
-
-        //};
-
+         if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Phone == req.Phone))
+            throw new DomainException("Tenant Mobile No already exists");
         var t = new Tenant
         {
             Name = req.Name,
@@ -75,23 +73,15 @@ public class TenantService : ITenantService
             OrgEmail = req.OrgEmail,
             ContactPersonName = req.ContactPersonName,
             ContactPersonPhone = req.ContactPersonPhone,
-
             StartDate = req.StartDate,
             EffectiveDate = req.EffectiveDate,
-
-            Status = isSuperAdmin
-        ? TenantStatus.ACTIVE
-        : TenantStatus.PENDING,
-
+            Status = isSuperAdmin ? TenantStatus.ACTIVE : TenantStatus.PENDING,
             CreatedBy = createdBy,
-
-            AuthorizedBy = isSuperAdmin
-        ? createdBy
-        : null,
-
-            AuthorizedAt = isSuperAdmin
-        ? DateTime.UtcNow
-        : null
+            AuthorizedBy = isSuperAdmin ? createdBy : null,
+            AuthorizedAt = isSuperAdmin ? DateTime.UtcNow  : null,
+            AuthorisationRequired = req.AuthorisationRequired ?? false,
+            SmsNotification = req.SmsNotification ?? false,
+            EmailNotification = req.EmailNotification ?? false
         };
         _db.Tenants.Add(t);
         await _db.SaveChangesAsync();
@@ -122,7 +112,6 @@ public class TenantService : ITenantService
         //_db.SchemeConfigs.Add(sc);
         //await _db.SaveChangesAsync();
 
-        // Seed the default Chart of Accounts (13 rows) per design §3.2
         await _accounting.SeedTenantChartAsync(t.TenantId, createdBy);
 
         _log.LogInformation("Created tenant {Tid} '{Name}' (reg={Reg}) with default scheme_config + CoA",
@@ -142,12 +131,12 @@ public class TenantService : ITenantService
             throw new DomainException($"Tenant '{tenantId}' does not exist.");
 
         // Check whether a scheme configuration already exists
-        bool schemeExists = await _db.SchemeConfigs
-            .IgnoreQueryFilters()
-            .AnyAsync(s => s.TenantId == tenantId);
+        //bool schemeExists = await _db.SchemeConfigs
+        //    .IgnoreQueryFilters()
+        //    .AnyAsync(s => s.TenantId == tenantId && s.SchemeName==p.SchemeName);
 
-        if (schemeExists)
-            throw new DomainException($"Scheme configuration already exists for tenant '{tenantId}'.");
+        //if (schemeExists)
+        //    throw new DomainException($"Scheme configuration already exists for tenant '{p.SchemeName}'.");
 
         var schemeConfig = new SchemeConfig
         {
@@ -191,7 +180,7 @@ public class TenantService : ITenantService
             TenantPin = p.TenantPin,
             LoanAssetGL = p.LoanAssetGL,
             SifinPayable = p.SifinPayable,
-
+            GstGl   =p.GstGl,
             // Time Change
             TimeChPass = p.TimeChPass ?? 0m,
 
@@ -290,6 +279,7 @@ public class TenantService : ITenantService
             // Tax  
             TdsAc = p.TdsAc,
             ServicesTax = p.ServicesTax,
+            GstGl=p.GstGl,
 
             // Audit  
             UpdatedBy = authorizedBy,
@@ -580,7 +570,14 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.SchemeId 
 await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
     ?? throw new DomainException($"Tenant no scheme_config");
 
+     
+    public async Task<GeneralLedgerMaster> GetGlAsync() => 
+        await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
+            ?? throw new DomainException($"Tenant no scheme_config");
 
+    public async Task<GeneralLedgerMaster> GetGlAsync(int glId) =>
+    await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == glId)
+    ?? throw new DomainException($"SCheme No Found");
 
     private ProductSummaryDto MapToDto(SchemeMaster scheme)
     {
@@ -628,7 +625,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             scheme.AuthorizedBy,
             scheme.AuthorizedAt,
             scheme.FixedRate, 
-            scheme.Email
+            scheme.Email,
+            scheme.GstGl
 
         );
     }
@@ -681,7 +679,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
                         s.AuthorizedBy,
                         s.AuthorizedAt,
                         s.FixedRate,
-                        s.Email
+                        s.Email,
+                        s.GstGl
                     );
 
         var schemes = await query.ToListAsync();
@@ -769,6 +768,9 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         if (!string.IsNullOrWhiteSpace(p.SifinPayable))
             sc.SifinPayable = p.SifinPayable;
 
+        if (!string.IsNullOrWhiteSpace(p.GstGl))
+            sc.GstGl = p.GstGl;
+
         // Time Change
         if (p.TimeChPass.HasValue)
             sc.TimeChPass = p.TimeChPass.Value;
@@ -819,4 +821,91 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
     }
+
+    public async Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync()
+    {
+        var gl = await _db.GeneralLedgerMaster  
+            .AsNoTracking()
+            .ToListAsync();
+
+        return gl;
+    }
+    public async Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId)
+    {
+        var gl = await _db.GeneralLedgerMaster.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.GlId == glId);
+
+        if (gl == null)
+            throw new DomainException($"General_ledger with ID {glId} not found");
+
+        return gl; // Corrected to return the GeneralLedgerMaster entity directly  
+    }
+
+    public async Task CreateGl(GeneralLedgerDto p, long? authorizedBy) 
+    {
+        var schemedata = new GeneralLedgerMaster
+        {
+            //TenantId = 0,
+            //GlId=0,
+            GlCode = p.GlCode,
+            GlName = p.GlName,
+            GlDescription = p.GlDescription,
+            Category = p.Category ?? null,
+            Forbank = p.Forbank ?? false,
+            IsReported = p.IsReported ?? false,
+            HasTransactions = p.HasTransactions ?? false,
+            HasGst = p.HasGst ?? false,           
+            // Audit  
+            CreatedAt= DateTime.UtcNow,
+            CreatedBy= authorizedBy,
+            UpdatedBy = authorizedBy,
+            UpdatedAt = DateTime.UtcNow,
+            AuthorizedBy = authorizedBy,
+            AuthorizedAt = DateTime.UtcNow,
+            ParentGl = p.ParentGl,
+            Type = p.Type,
+            status =p.Status,
+
+        };
+
+        _db.GeneralLedgerMaster.Add(schemedata);
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new DomainException(ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+    public async Task UpdateProductAsync(int GlId, GeneralLedgerDto p, long? authorizedBy)
+    {
+        var sc = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == GlId)
+            ?? throw new DomainException($"General Ledger {GlId} has no Gl_config");
+
+
+        if (p.GlId.HasValue)sc.GlId = p.GlId.Value;
+        if (!string.IsNullOrWhiteSpace(p.GlCode))sc.GlCode = p.GlCode;
+        if (!string.IsNullOrWhiteSpace(p.GlName))sc.GlName = p.GlName;
+        if (!string.IsNullOrWhiteSpace(p.GlDescription)) sc.GlDescription = p.GlDescription;
+
+        if (p.Forbank.HasValue) sc.Forbank = p.Forbank.Value;
+        if (p.IsReported.HasValue) sc.IsReported = p.IsReported.Value;
+        if (p.HasTransactions.HasValue) sc.IsReported = p.HasTransactions.Value;
+        if (p.HasGst.HasValue) sc.HasGst = p.HasGst.Value;
+        if (!string.IsNullOrWhiteSpace(p.Type)) sc.Type = p.Type;
+        if (!string.IsNullOrWhiteSpace(p.Status)) sc.status = p.Status;
+        if (p.ParentGl.HasValue)sc.ParentGl = p.ParentGl ?? 0;
+        sc.UpdatedBy = authorizedBy;
+        sc.UpdatedAt = DateTime.UtcNow;
+
+        sc.AuthorizedBy = authorizedBy;
+        sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
+        await _db.SaveChangesAsync();
+    }
+
+
+
 }

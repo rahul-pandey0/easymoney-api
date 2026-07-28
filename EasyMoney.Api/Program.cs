@@ -190,11 +190,11 @@ try
     });
 
     // ==== Pipeline ====
-    if (app.Environment.IsDevelopment())
-    {
+   // if (app.Environment.IsDevelopment())
+    //{
         app.UseSwagger();
         app.UseSwaggerUI();
-    }
+    //}
 
     app.UseCors();
     app.UseAuthentication();
@@ -263,15 +263,15 @@ try
     }
 
     // ==== Hangfire recurring job: open cycle + generate dues on the 1st of each month ====
-    RecurringJob.AddOrUpdate<MonthlyCycleJob>(
-        "monthly-cycle",
-        job => job.ExecuteAsync(),
-        Cron.Monthly(1, 0)); // 1st of month, midnight UTC
+    //RecurringJob.AddOrUpdate<MonthlyCycleJob>(
+    //    "monthly-cycle",
+    //    job => job.ExecuteAsync(),
+    //    Cron.Monthly(1, 0)); // 1st of month, midnight UTC
 
-    RecurringJob.AddOrUpdate<DueReminderJob>(
-        "due-reminder-daily",
-        job => job.ExecuteAsync(),
-        Cron.Daily(8)); // every day at 08:00 UTC
+    //RecurringJob.AddOrUpdate<DueReminderJob>(
+    //    "due-reminder-daily",
+    //    job => job.ExecuteAsync(),
+    //    Cron.Daily(8)); // every day at 08:00 UTC
 
     app.Run();
 }

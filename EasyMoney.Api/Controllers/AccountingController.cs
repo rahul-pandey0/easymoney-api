@@ -127,4 +127,6 @@ public class AccountingController : ControllerBase
         if (_ctx.IsSifin) return queryTenantId;
         return _ctx.TenantId;
     }
+
+  
 }

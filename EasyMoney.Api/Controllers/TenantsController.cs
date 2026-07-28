@@ -24,8 +24,8 @@ public class TenantsController : ControllerBase
         t.TenantId, t.Name,
         t.RegistrationNumber, t.Address, t.Phone,
         t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone, t.StartDate, t.EffectiveDate,
-        t.Status.ToString(), t.CreatedAt,
-        t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt);
+        t.Status.ToString(), t.CreatedAt,t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt
+        ,t.SmsNotification, t.AuthorisationRequired, t.EmailNotification);
 
     // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
     [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator )]
@@ -37,7 +37,9 @@ public class TenantsController : ControllerBase
             var t = await _tenants.CreateTenantAsync(req, _ctx.UserId,isSuperAdmin ? _ctx.UserId : null,isSuperAdmin);
             return CreatedAtAction(nameof(Get), new { tenantId = t.TenantId }, ToDto(t));
         }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (DomainException ex) { 
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     // GET /api/v1/tenants
@@ -171,5 +173,60 @@ public class TenantsController : ControllerBase
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
+    
+
+    [HttpGet("general_ledger")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<ActionResult<IReadOnlyList<GeneralLedgerDto>>> GetAllGlata() 
+    {
+        var result = await _tenants.GetAllGLSummariesAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("general_ledger/{glId:int}"),
+    Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
+    public async Task<ActionResult<GeneralLedgerDto>> GetById(int glId)
+    {
+        try
+        {
+            var result = await _tenants.GetGLSummaryByIdAsync(glId);
+            return Ok(new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message });
+        }
+    }
+
+    [HttpPost("general_ledger")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
+    public async Task<IActionResult> CreateProduct([FromBody] GeneralLedgerDto req)
+    {
+        try
+        {
+            await _tenants.CreateGl(req, _ctx.UserId);
+             
+            var gl = await _tenants.GetGlAsync();
+
+            return Ok(gl);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("general_ledger/{glId:int}"),
+     Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
+    public async Task<IActionResult> UpdateGlProdutConfig(int glId, [FromBody] GeneralLedgerDto req)
+    {
+        try
+        {
+            await _tenants.UpdateProductAsync(glId, req, _ctx.UserId);
+            return Ok(await _tenants.GetGlAsync(glId));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
 
 }
