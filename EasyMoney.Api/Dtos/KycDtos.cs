@@ -266,7 +266,6 @@ public record UpsertIndividualKycRequest(
 //    string? AuthorizedSignatoryAadhaarLast4);
 
 public record UpsertCorporateKycRequest(
-
     // Company Details
     string? EntityName,
     CorporateEntityType? EntityType,
@@ -278,40 +277,60 @@ public record UpsertCorporateKycRequest(
     string? CountryOfIncorporation,
 
     // Registered Office
-    string? RegisteredAddressLine,
-    string? RegisteredCity,
-    string? RegisteredState,
-    string? RegisteredPincode,
+    RegisteredOfficeRequest? RegisteredOffice,
 
     // Contact Details
+    List<CorporateContactDetailRequest> ContactDetails,
+
+    // Directors
+    List<CorporateDirectorRequest> Directors,
+
+    // Beneficial Owners
+    List<CorporateBeneficialOwnerRequest> BeneficialOwners,
+
+    // Authorized Signatories
+    List<CorporateAuthorizedSignatoryRequest> AuthorizedSignatories
+);
+public record RegisteredOfficeRequest(
+    string? AddressLine1,
+    string? AddressLine2,
+    string? AddressLine3,
+    string? City,
+    string? State,
+    string? Pincode,
+    string? Country
+);
+public record CorporateContactDetailRequest(
     string? PhoneNumber,
     string? Email,
-    string? Website,
-
-    // Director
-    string? DirectorName,
-    string? DirectorDesignation,
-    string? DirectorDin,
-    string? DirectorPan,
-    DateOnly? DirectorDateOfBirth,
-
-    // Beneficial Owner
-    string? BeneficialOwnerName,
-    decimal? OwnershipPercentage,
-    string? BeneficialOwnerPan,
-    string? BeneficialOwnerDin,
-    string? Nationality,
-    string? BeneficialOwnerAddress,
-
-    // Authorized Signatory
-    string? AuthorizedSignatoryName,
-    string? AuthorizedSignatoryDesignation,
-    string? AuthorizedSignatoryPan,
-    string? AuthorizedSignatoryDin,
-    string? AuthorizedSignatoryEmail,
-    string? AuthorizedSignatoryPhoneNumber,
-    string? AuthorizedSignatoryAadhaarLast4
+    string? Website
 );
+public record CorporateDirectorRequest(
+    string? Name,
+    string? Designation,
+    string? Din,
+    string? Pan,
+    DateOnly? DateOfBirth
+);
+public record CorporateBeneficialOwnerRequest(
+    string? Name,
+    decimal? OwnershipPercentage,
+    string? Pan,
+    string? Din,
+    string? Nationality,
+    string? Address
+);
+public record CorporateAuthorizedSignatoryRequest(
+    string? Name,
+    string? Designation,
+    string? Pan,
+    string? Din,
+    string? Email,
+    string? PhoneNumber,
+    string? AadhaarLast4
+);
+
+
 // ============================================================
 // KYC documents
 // ============================================================
@@ -353,4 +372,5 @@ public record KycReviewDto(
 // Tier promotion (MINIMAL -> FULL)
 // ============================================================
 public record PromoteToFullKycRequest(); // no body; presence of detail row + docs is the condition  it is correct 
+
 

@@ -202,72 +202,106 @@ public class KycService : IKycService
             ?? throw new DomainException($"Member {memberId} not found");
         if (m.MemberType != MemberType.CORPORATE)
             throw new DomainException("Corporate KYC detail only applies to CORPORATE members");
+        var detail = await _db.CorporateKycDetails
+    .Include(x => x.RegisteredOffice)
+    .Include(x => x.ContactDetails)
+    .Include(x => x.Directors)
+    .Include(x => x.BeneficialOwners)
+    .Include(x => x.AuthorizedSignatories)
+    .FirstOrDefaultAsync(x => x.MemberId == memberId);
 
-        var detail = await _db.CorporateKycDetails.FirstOrDefaultAsync(x => x.MemberId == memberId);
-        if (detail is null)
+        if (detail == null)
         {
-            detail = new CorporateKycDetail { MemberId = memberId };
+            detail = new CorporateKycDetail
+            {
+                MemberId = memberId
+            };
+
             _db.CorporateKycDetails.Add(detail);
         }
-        //detail.EntityType = req.EntityType ?? detail.EntityType;
-        //detail.CinOrRegistrationNo = req.CinOrRegistrationNo ?? detail.CinOrRegistrationNo;
-        //detail.PanNumber = req.PanNumber ?? detail.PanNumber;
-        //detail.Gstin = req.Gstin ?? detail.Gstin;
-        //detail.DateOfIncorporation = req.DateOfIncorporation ?? detail.DateOfIncorporation;
-        //detail.RegisteredAddressLine = req.RegisteredAddressLine ?? detail.RegisteredAddressLine;
-        //detail.RegisteredCity = req.RegisteredCity ?? detail.RegisteredCity;
-        //detail.RegisteredState = req.RegisteredState ?? detail.RegisteredState;
-        //detail.RegisteredPincode = req.RegisteredPincode ?? detail.RegisteredPincode;
-        //detail.AuthorizedSignatoryName = req.AuthorizedSignatoryName ?? detail.AuthorizedSignatoryName;
-        //detail.AuthorizedSignatoryDesignation = req.AuthorizedSignatoryDesignation ?? detail.AuthorizedSignatoryDesignation;
-        //detail.AuthorizedSignatoryPan = req.AuthorizedSignatoryPan ?? detail.AuthorizedSignatoryPan;
-        //detail.AuthorizedSignatoryAadhaarLast4 = req.AuthorizedSignatoryAadhaarLast4 ?? detail.AuthorizedSignatoryAadhaarLast4;
-
-        // Company Details
-        detail.EntityName = req.EntityName ?? detail.EntityName;
-        detail.EntityType = req.EntityType ?? detail.EntityType;
-        detail.CinOrRegistrationNo = req.CinOrRegistrationNo ?? detail.CinOrRegistrationNo;
-        detail.PanNumber = req.PanNumber ?? detail.PanNumber;
-        detail.Gstin = req.Gstin ?? detail.Gstin;
-        detail.DateOfIncorporation = req.DateOfIncorporation ?? detail.DateOfIncorporation;
-        detail.PlaceOfIncorporation = req.PlaceOfIncorporation ?? detail.PlaceOfIncorporation;
-        detail.CountryOfIncorporation = req.CountryOfIncorporation ?? detail.CountryOfIncorporation;
-
-        // Registered Address
-        detail.RegisteredAddressLine = req.RegisteredAddressLine ?? detail.RegisteredAddressLine;
-        detail.RegisteredCity = req.RegisteredCity ?? detail.RegisteredCity;
-        detail.RegisteredState = req.RegisteredState ?? detail.RegisteredState;
-        detail.RegisteredPincode = req.RegisteredPincode ?? detail.RegisteredPincode;
-
-        // Contact Details
-        detail.PhoneNumber = req.PhoneNumber ?? detail.PhoneNumber;
-        detail.Email = req.Email ?? detail.Email;
-        detail.Website = req.Website ?? detail.Website;
-
-        // Director
-        detail.DirectorName = req.DirectorName ?? detail.DirectorName;
-        detail.DirectorDesignation = req.DirectorDesignation ?? detail.DirectorDesignation;
-        detail.DirectorDin = req.DirectorDin ?? detail.DirectorDin;
-        detail.DirectorPan = req.DirectorPan ?? detail.DirectorPan;
-        detail.DirectorDateOfBirth = req.DirectorDateOfBirth ?? detail.DirectorDateOfBirth;
-
-        // Beneficial Owner
-        detail.BeneficialOwnerName = req.BeneficialOwnerName ?? detail.BeneficialOwnerName;
-        detail.OwnershipPercentage = req.OwnershipPercentage ?? detail.OwnershipPercentage;
-        detail.BeneficialOwnerPan = req.BeneficialOwnerPan ?? detail.BeneficialOwnerPan;
-        detail.BeneficialOwnerDin = req.BeneficialOwnerDin ?? detail.BeneficialOwnerDin;
-        detail.Nationality = req.Nationality ?? detail.Nationality;
-        detail.BeneficialOwnerAddress = req.BeneficialOwnerAddress ?? detail.BeneficialOwnerAddress;
-
-        // Authorized Signatory
-        detail.AuthorizedSignatoryName = req.AuthorizedSignatoryName ?? detail.AuthorizedSignatoryName;
-        detail.AuthorizedSignatoryDesignation = req.AuthorizedSignatoryDesignation ?? detail.AuthorizedSignatoryDesignation;
-        detail.AuthorizedSignatoryPan = req.AuthorizedSignatoryPan ?? detail.AuthorizedSignatoryPan;
-        detail.AuthorizedSignatoryDin = req.AuthorizedSignatoryDin ?? detail.AuthorizedSignatoryDin;
-        detail.AuthorizedSignatoryEmail = req.AuthorizedSignatoryEmail ?? detail.AuthorizedSignatoryEmail;
-        detail.AuthorizedSignatoryPhoneNumber = req.AuthorizedSignatoryPhoneNumber ?? detail.AuthorizedSignatoryPhoneNumber;
-        detail.AuthorizedSignatoryAadhaarLast4 = req.AuthorizedSignatoryAadhaarLast4 ?? detail.AuthorizedSignatoryAadhaarLast4;
+        detail.EntityName = req.EntityName;
+        detail.EntityType = req.EntityType;
+        detail.CinOrRegistrationNo = req.CinOrRegistrationNo;
+        detail.PanNumber = req.PanNumber;
+        detail.Gstin = req.Gstin;
+        detail.DateOfIncorporation = req.DateOfIncorporation;
+        detail.PlaceOfIncorporation = req.PlaceOfIncorporation;
+        detail.CountryOfIncorporation = req.CountryOfIncorporation;
         detail.UpdatedAt = DateTime.UtcNow;
+
+        if (detail.RegisteredOffice == null)
+        {
+            detail.RegisteredOffice = new RegisteredOffice
+            {
+                MemberId = memberId
+            };
+
+            _db.RegisteredOffices.Add(detail.RegisteredOffice);
+        }
+
+        detail.RegisteredOffice.AddressLine1 = req.RegisteredOffice?.AddressLine1;
+        detail.RegisteredOffice.AddressLine2 = req.RegisteredOffice?.AddressLine2;
+        detail.RegisteredOffice.AddressLine3 = req.RegisteredOffice?.AddressLine3;
+        detail.RegisteredOffice.City = req.RegisteredOffice?.City;
+        detail.RegisteredOffice.State = req.RegisteredOffice?.State;
+        detail.RegisteredOffice.Pincode = req.RegisteredOffice?.Pincode;
+        detail.RegisteredOffice.Country = req.RegisteredOffice?.Country;
+
+        _db.CorporateContactDetails.RemoveRange(detail.ContactDetails);
+
+        detail.ContactDetails = req.ContactDetails
+            .Select(x => new CorporateContactDetail
+            {
+                MemberId = memberId,
+                PhoneNumber = x.PhoneNumber,
+                Email = x.Email,
+                Website = x.Website
+            })
+            .ToList();
+
+        _db.CorporateDirectors.RemoveRange(detail.Directors);
+
+        detail.Directors = (req.Directors ?? new List<CorporateDirectorRequest>())
+            .Select(x => new CorporateDirector
+            {
+                MemberId = memberId,
+                Name = x.Name,
+                Designation = x.Designation,
+                Din = x.Din,
+                Pan = x.Pan,
+                DateOfBirth = x.DateOfBirth
+            })
+            .ToList();
+        _db.CorporateBeneficialOwners.RemoveRange(detail.BeneficialOwners);
+
+        detail.BeneficialOwners = (req.BeneficialOwners ?? new List<CorporateBeneficialOwnerRequest>())
+             .Select(x => new CorporateBeneficialOwner
+            {
+                MemberId = memberId,
+                Name = x.Name,
+                OwnershipPercentage = x.OwnershipPercentage,
+                Pan = x.Pan,
+                Din = x.Din,
+                Nationality = x.Nationality,
+                Address = x.Address
+            })
+            .ToList();
+        _db.CorporateAuthorizedSignatories.RemoveRange(detail.AuthorizedSignatories);
+
+        detail.AuthorizedSignatories = (req.AuthorizedSignatories ?? new List<CorporateAuthorizedSignatoryRequest>())
+            .Select(x => new CorporateAuthorizedSignatory
+            {
+                MemberId = memberId,
+                Name = x.Name,
+                Designation = x.Designation,
+                Pan = x.Pan,
+                Din = x.Din,
+                Email = x.Email,
+                PhoneNumber = x.PhoneNumber,
+                AadhaarLast4 = x.AadhaarLast4
+            })
+            .ToList();
+
 
         await _db.SaveChangesAsync();
     }
@@ -276,7 +310,13 @@ public class KycService : IKycService
         _db.IndividualKycDetails.FirstOrDefaultAsync(x => x.MemberId == memberId);
 
     public Task<CorporateKycDetail?> GetCorporateDetailAsync(long memberId) =>
-        _db.CorporateKycDetails.FirstOrDefaultAsync(x => x.MemberId == memberId);
+     _db.CorporateKycDetails
+         .Include(x => x.RegisteredOffice)
+         .Include(x => x.ContactDetails)
+         .Include(x => x.Directors)
+         .Include(x => x.BeneficialOwners)
+         .Include(x => x.AuthorizedSignatories)
+         .FirstOrDefaultAsync(x => x.MemberId == memberId);
 
     // ============================================================
     // Tier promotion: MINIMAL -> FULL
