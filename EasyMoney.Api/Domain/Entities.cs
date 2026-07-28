@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
-
+using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -364,44 +364,96 @@ public class CorporateKycDetail
     public string? PlaceOfIncorporation { get; set; }
     public string? CountryOfIncorporation { get; set; }
 
-    // Registered Office
-    public string? RegisteredAddressLine { get; set; }
-    public string? RegisteredCity { get; set; }
-    public string? RegisteredState { get; set; }
-    public string? RegisteredPincode { get; set; }
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    // Contact Details
+    // Navigation Properties
+    public RegisteredOffice? RegisteredOffice { get; set; }
+
+    public ICollection<CorporateContactDetail> ContactDetails { get; set; } = new List<CorporateContactDetail>();
+
+    public ICollection<CorporateDirector> Directors { get; set; } = new List<CorporateDirector>();
+
+    public ICollection<CorporateBeneficialOwner> BeneficialOwners { get; set; } = new List<CorporateBeneficialOwner>();
+
+    public ICollection<CorporateAuthorizedSignatory> AuthorizedSignatories { get; set; } = new List<CorporateAuthorizedSignatory>();
+}
+
+public class RegisteredOffice
+{
+    public long Id { get; set; }
+
+    public long MemberId { get; set; }
+
+    public string? AddressLine1 { get; set; }
+    public string? AddressLine2 { get; set; }
+    public string? AddressLine3 { get; set; }
+
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Pincode { get; set; }
+    public string? Country { get; set; }
+    [JsonIgnore]
+    public CorporateKycDetail? CorporateKycDetail { get; set; }
+}
+public class CorporateContactDetail
+{
+    public long Id { get; set; }
+
+    public long MemberId { get; set; }
+
     public string? PhoneNumber { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
-
-    // Director
-    public string? DirectorName { get; set; }
-    public string? DirectorDesignation { get; set; }
-    public string? DirectorDin { get; set; }
-    public string? DirectorPan { get; set; }
-    public DateOnly? DirectorDateOfBirth { get; set; }
-
-    // Beneficial Owner
-    public string? BeneficialOwnerName { get; set; }
-    public decimal? OwnershipPercentage { get; set; }
-    public string? BeneficialOwnerPan { get; set; }
-    public string? BeneficialOwnerDin { get; set; }
-    public string? Nationality { get; set; }
-    public string? BeneficialOwnerAddress { get; set; }
-
-    // Authorized Signatory
-    public string? AuthorizedSignatoryName { get; set; }
-    public string? AuthorizedSignatoryDesignation { get; set; }
-    public string? AuthorizedSignatoryPan { get; set; }
-    public string? AuthorizedSignatoryDin { get; set; }
-    public string? AuthorizedSignatoryEmail { get; set; }
-    public string? AuthorizedSignatoryPhoneNumber { get; set; }
-
-    public string? AuthorizedSignatoryAadhaarLast4 { get; set; }
-
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [JsonIgnore]
+    public CorporateKycDetail? CorporateKycDetail { get; set; }
 }
+public class CorporateDirector
+{
+    public long Id { get; set; }
+
+    public long MemberId { get; set; }
+
+    public string? Name { get; set; }
+    public string? Designation { get; set; }
+    public string? Din { get; set; }
+    public string? Pan { get; set; }
+    public DateOnly? DateOfBirth { get; set; }
+    [JsonIgnore]
+    public CorporateKycDetail? CorporateKycDetail { get; set; }
+}
+public class CorporateBeneficialOwner
+{
+    public long Id { get; set; }
+
+    public long MemberId { get; set; }
+
+    public string? Name { get; set; }
+    public decimal? OwnershipPercentage { get; set; }
+    public string? Pan { get; set; }
+    public string? Din { get; set; }
+    public string? Nationality { get; set; }
+    public string? Address { get; set; }
+    [JsonIgnore]
+    public CorporateKycDetail? CorporateKycDetail { get; set; }
+}
+public class CorporateAuthorizedSignatory
+{
+    public long Id { get; set; }
+
+    public long MemberId { get; set; }
+
+    public string? Name { get; set; }
+    public string? Designation { get; set; }
+    public string? Pan { get; set; }
+    public string? Din { get; set; }
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? AadhaarLast4 { get; set; }
+    [JsonIgnore]
+    public CorporateKycDetail? CorporateKycDetail { get; set; }
+}
+
+
 
 public class KycDocument
 {
@@ -645,18 +697,18 @@ public class ApprovalRequest
     public DateTime? DecidedAt { get; set; }
     public string? DecisionRemarks { get; set; }
 }
-public class UserBranch
-{
-    public long UserBranchId { get; set; }
+//public class UserBranch
+//{
+//    public long UserBranchId { get; set; }
 
-    public long UserId { get; set; }
+//    public long UserId { get; set; }
 
-    public long BranchId { get; set; }
+//    public long BranchId { get; set; }
 
-    public bool IsActive { get; set; } = true;
+//    public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
+//    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+//}
 
 public class IndividualDetail
 {
@@ -756,4 +808,70 @@ public class IndividualDetail
     public string? OrganizationNature { get; set; }
     public string? Department { get; set; }
     public string? OfficeAddress { get; set; }
+}
+public class Branch
+{
+    public long BranchId { get; set; }
+
+    public string BranchCode { get; set; } = default!;
+
+    public string BranchName { get; set; } = default!;
+
+    public long TenantId { get; set; }
+
+    public long? BankId { get; set; }
+
+    public string? RegistrationNo { get; set; }
+
+    public DateOnly RegistrationDate { get; set; }
+
+    public DateOnly BranchRegistrationDate { get; set; }
+
+    public string? Address { get; set; }
+
+    public string? PhoneNumber { get; set; }
+
+    //public string? Fax { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? ReferenceNo { get; set; }
+
+    public long? CashGlId { get; set; }
+
+    public DateOnly CutoffDate { get; set; }
+
+    public DateOnly BiddingDate { get; set; }
+
+    public DateOnly? BonusPaymentDate { get; set; }
+
+    public BranchStatus Status { get; set; } 
+
+    public decimal MinimumRate { get; set; }
+
+    public decimal MaximumRate { get; set; }
+
+    public decimal Penalty { get; set; }
+
+    public bool DoublePaymentAllowed { get; set; }
+
+    public decimal MinimumInstallmentAmount { get; set; }
+
+    public decimal MaximumInstallmentAmount { get; set; }
+
+    public decimal MinimumIncrementAmount { get; set; }
+
+    public string? OtherBank1 { get; set; }
+
+    public string? OtherBank2 { get; set; }
+
+    public long? AdjustmentGlId { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public long CreatedBy { get; set; }
+
+    public DateTime? ModifiedAt { get; set; }
+
+    public long? ModifiedBy { get; set; }
 }
