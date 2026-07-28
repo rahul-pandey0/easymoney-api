@@ -180,7 +180,7 @@ public class TenantService : ITenantService
             TenantPin = p.TenantPin,
             LoanAssetGL = p.LoanAssetGL,
             SifinPayable = p.SifinPayable,
-
+            GstGl   =p.GstGl,
             // Time Change
             TimeChPass = p.TimeChPass ?? 0m,
 
@@ -279,6 +279,7 @@ public class TenantService : ITenantService
             // Tax  
             TdsAc = p.TdsAc,
             ServicesTax = p.ServicesTax,
+            GstGl=p.GstGl,
 
             // Audit  
             UpdatedBy = authorizedBy,
@@ -624,7 +625,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             scheme.AuthorizedBy,
             scheme.AuthorizedAt,
             scheme.FixedRate, 
-            scheme.Email
+            scheme.Email,
+            scheme.GstGl
 
         );
     }
@@ -677,7 +679,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
                         s.AuthorizedBy,
                         s.AuthorizedAt,
                         s.FixedRate,
-                        s.Email
+                        s.Email,
+                        s.GstGl
                     );
 
         var schemes = await query.ToListAsync();
