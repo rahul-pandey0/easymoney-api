@@ -122,6 +122,10 @@ try
     builder.Services.AddScoped<IExitService, ExitService>();
     builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<DashboardService>();
+    builder.Services.AddScoped<IBranchService, BranchService>();
+
+
+
     // ==== CORS ====
     var allowedOrigins = builder.Configuration
         .GetSection("Cors:AllowedOrigins")

@@ -55,6 +55,11 @@ public enum ApprovalActionType
     MANUAL_JOURNAL_ADJUSTMENT, EXIT_PROCESS, MEMBER_KYC_APPROVAL
 }
 public enum ApprovalStatus { PENDING, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED }
+public enum BranchStatus
+{
+    ACTIVE,
+    INACTIVE
+}
 
 public static class SystemGl
 {

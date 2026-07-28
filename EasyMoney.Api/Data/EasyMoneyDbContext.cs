@@ -24,6 +24,11 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<Member> Members => Set<Member>();
     public DbSet<IndividualKycDetail> IndividualKycDetails => Set<IndividualKycDetail>();
     public DbSet<CorporateKycDetail> CorporateKycDetails => Set<CorporateKycDetail>();
+    public DbSet<RegisteredOffice> RegisteredOffices => Set<RegisteredOffice>();
+    public DbSet<CorporateContactDetail> CorporateContactDetails => Set<CorporateContactDetail>();
+    public DbSet<CorporateDirector> CorporateDirectors => Set<CorporateDirector>();
+    public DbSet<CorporateBeneficialOwner> CorporateBeneficialOwners => Set<CorporateBeneficialOwner>();
+    public DbSet<CorporateAuthorizedSignatory> CorporateAuthorizedSignatories => Set<CorporateAuthorizedSignatory>();
     public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
     public DbSet<KycReview> KycReviews => Set<KycReview>();
     public DbSet<Account> Accounts => Set<Account>();
@@ -41,7 +46,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
-    public DbSet<UserBranch> UserBranches => Set<UserBranch>();
+    public DbSet<Branch> Branches => Set<Branch>();
 
 
 
@@ -487,70 +492,151 @@ public class EasyMoneyDbContext : DbContext
         b.Entity<CorporateKycDetail>(e =>
         {
             e.ToTable("corporate_kyc_detail");
+
             e.HasKey(x => x.MemberId);
+
             e.Property(x => x.MemberId).HasColumnName("member_id");
-            //e.Property(x => x.EntityType).HasColumnName("entity_type").HasConversion<string>();
-            //e.Property(x => x.CinOrRegistrationNo).HasColumnName("cin_or_registration_no");
-            //e.Property(x => x.PanNumber).HasColumnName("pan_number");
-            //e.Property(x => x.Gstin).HasColumnName("gstin");
-            //e.Property(x => x.DateOfIncorporation).HasColumnName("date_of_incorporation");
-            //e.Property(x => x.RegisteredAddressLine).HasColumnName("registered_address_line");
-            //e.Property(x => x.RegisteredCity).HasColumnName("registered_city");
-            //e.Property(x => x.RegisteredState).HasColumnName("registered_state");
-            //e.Property(x => x.RegisteredPincode).HasColumnName("registered_pincode");
-            //e.Property(x => x.AuthorizedSignatoryName).HasColumnName("authorized_signatory_name");
-            //e.Property(x => x.AuthorizedSignatoryDesignation).HasColumnName("authorized_signatory_designation");
-            //e.Property(x => x.AuthorizedSignatoryPan).HasColumnName("authorized_signatory_pan");
-            //e.Property(x => x.AuthorizedSignatoryAadhaarLast4).HasColumnName("authorized_signatory_aadhaar_last4");
-            //e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
 
-            // Company Details
-            e.Property(x => x.EntityName).HasColumnName("entity_name");
-            e.Property(x => x.EntityType).HasColumnName("entity_type").HasConversion<string>();
-            e.Property(x => x.CinOrRegistrationNo).HasColumnName("cin_or_registration_no");
-            e.Property(x => x.PanNumber).HasColumnName("pan_number");
-            e.Property(x => x.Gstin).HasColumnName("gstin");
-            e.Property(x => x.DateOfIncorporation).HasColumnName("date_of_incorporation");
-            e.Property(x => x.PlaceOfIncorporation).HasColumnName("place_of_incorporation");
-            e.Property(x => x.CountryOfIncorporation).HasColumnName("country_of_incorporation");
+            e.Property(x => x.EntityName).HasColumnName("entity_name").HasMaxLength(200);
 
-            // Registered Office
-            e.Property(x => x.RegisteredAddressLine).HasColumnName("registered_address_line");
-            e.Property(x => x.RegisteredCity).HasColumnName("registered_city");
-            e.Property(x => x.RegisteredState).HasColumnName("registered_state");
-            e.Property(x => x.RegisteredPincode).HasColumnName("registered_pincode");
+            e.Property(x => x.EntityType)
+                .HasColumnName("entity_type")
+                .HasConversion<string>();
 
-            // Contact Details
+            e.Property(x => x.CinOrRegistrationNo)
+                .HasColumnName("cin_or_registration_no")
+                .HasMaxLength(100);
+
+            e.Property(x => x.PanNumber)
+                .HasColumnName("pan_number")
+                .HasMaxLength(20);
+
+            e.Property(x => x.Gstin)
+                .HasColumnName("gstin")
+                .HasMaxLength(20);
+
+            e.Property(x => x.DateOfIncorporation)
+                .HasColumnName("date_of_incorporation");
+
+            e.Property(x => x.PlaceOfIncorporation)
+                .HasColumnName("place_of_incorporation")
+                .HasMaxLength(100);
+
+            e.Property(x => x.CountryOfIncorporation)
+                .HasColumnName("country_of_incorporation")
+                .HasMaxLength(100);
+
+            e.Property(x => x.UpdatedAt)
+                .HasColumnName("updated_at");
+
+            e.HasOne(x => x.RegisteredOffice)
+                .WithOne(x => x.CorporateKycDetail)
+                .HasForeignKey<RegisteredOffice>(x => x.MemberId);
+
+            e.HasMany(x => x.ContactDetails)
+                .WithOne(x => x.CorporateKycDetail)
+                .HasForeignKey(x => x.MemberId);
+
+            e.HasMany(x => x.Directors)
+                .WithOne(x => x.CorporateKycDetail)
+                .HasForeignKey(x => x.MemberId);
+
+            e.HasMany(x => x.BeneficialOwners)
+                .WithOne(x => x.CorporateKycDetail)
+                .HasForeignKey(x => x.MemberId);
+
+            e.HasMany(x => x.AuthorizedSignatories)
+                .WithOne(x => x.CorporateKycDetail)
+                .HasForeignKey(x => x.MemberId);
+        });
+
+        b.Entity<RegisteredOffice>(e =>
+        {
+            e.ToTable("corporate_registered_office");
+
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id");
+
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+
+            e.Property(x => x.AddressLine1).HasColumnName("address_line1");
+            e.Property(x => x.AddressLine2).HasColumnName("address_line2");
+            e.Property(x => x.AddressLine3).HasColumnName("address_line3");
+
+            e.Property(x => x.City).HasColumnName("city");
+            e.Property(x => x.State).HasColumnName("state");
+            e.Property(x => x.Pincode).HasColumnName("pincode");
+            e.Property(x => x.Country).HasColumnName("country");
+        });
+        b.Entity<CorporateContactDetail>(e =>
+        {
+            e.ToTable("corporate_contact_detail");
+
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id");
+
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+
             e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
             e.Property(x => x.Email).HasColumnName("email");
             e.Property(x => x.Website).HasColumnName("website");
-
-            // Director
-            e.Property(x => x.DirectorName).HasColumnName("director_name");
-            e.Property(x => x.DirectorDesignation).HasColumnName("director_designation");
-            e.Property(x => x.DirectorDin).HasColumnName("director_din");
-            e.Property(x => x.DirectorPan).HasColumnName("director_pan");
-            e.Property(x => x.DirectorDateOfBirth).HasColumnName("director_date_of_birth");
-
-            // Beneficial Owner
-            e.Property(x => x.BeneficialOwnerName).HasColumnName("beneficial_owner_name");
-            e.Property(x => x.OwnershipPercentage).HasColumnName("ownership_percentage");
-            e.Property(x => x.BeneficialOwnerPan).HasColumnName("beneficial_owner_pan");
-            e.Property(x => x.BeneficialOwnerDin).HasColumnName("beneficial_owner_din");
-            e.Property(x => x.Nationality).HasColumnName("nationality");
-            e.Property(x => x.BeneficialOwnerAddress).HasColumnName("beneficial_owner_address");
-
-            // Authorized Signatory
-            e.Property(x => x.AuthorizedSignatoryName).HasColumnName("authorized_signatory_name");
-            e.Property(x => x.AuthorizedSignatoryDesignation).HasColumnName("authorized_signatory_designation");
-            e.Property(x => x.AuthorizedSignatoryPan).HasColumnName("authorized_signatory_pan");
-            e.Property(x => x.AuthorizedSignatoryDin).HasColumnName("authorized_signatory_din");
-            e.Property(x => x.AuthorizedSignatoryEmail).HasColumnName("authorized_signatory_email");
-            e.Property(x => x.AuthorizedSignatoryPhoneNumber).HasColumnName("authorized_signatory_phone_number");
-            e.Property(x => x.AuthorizedSignatoryAadhaarLast4).HasColumnName("authorized_signatory_aadhaar_last4");
-
-            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
         });
+        b.Entity<CorporateDirector>(e =>
+        {
+            e.ToTable("corporate_director");
+
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id");
+
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.Designation).HasColumnName("designation");
+            e.Property(x => x.Din).HasColumnName("din");
+            e.Property(x => x.Pan).HasColumnName("pan");
+            e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
+        });
+        b.Entity<CorporateBeneficialOwner>(e =>
+        {
+            e.ToTable("corporate_beneficial_owner");
+
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id");
+
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.OwnershipPercentage).HasColumnName("ownership_percentage");
+            e.Property(x => x.Pan).HasColumnName("pan");
+            e.Property(x => x.Din).HasColumnName("din");
+            e.Property(x => x.Nationality).HasColumnName("nationality");
+            e.Property(x => x.Address).HasColumnName("address");
+        });
+        b.Entity<CorporateAuthorizedSignatory>(e =>
+        {
+            e.ToTable("corporate_authorized_signatory");
+
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id).HasColumnName("id");
+
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.Designation).HasColumnName("designation");
+            e.Property(x => x.Pan).HasColumnName("pan");
+            e.Property(x => x.Din).HasColumnName("din");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
+            e.Property(x => x.AadhaarLast4).HasColumnName("aadhaar_last4");
+        });
+
+
+
 
         b.Entity<KycDocument>(e =>
         {
@@ -840,39 +926,109 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.DecisionRemarks).HasColumnName("decision_remarks");
         });
 
-        b.Entity<UserBranch>(e =>
+        b.Entity<Branch>(e =>
         {
-            e.ToTable("user_branch");
+            e.ToTable("branch");
 
-            e.HasKey(x => x.UserBranchId);
+            e.HasKey(x => x.BranchId);
 
-            e.Property(x => x.UserBranchId)
-                .HasColumnName("user_branch_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
 
-            e.Property(x => x.UserId)
-                .HasColumnName("user_id");
+            e.Property(x => x.BranchCode)
+                .HasColumnName("branch_code")
+                .HasMaxLength(20);
 
-            e.Property(x => x.BranchId)
-                .HasColumnName("branch_id");
+            e.Property(x => x.BranchName)
+                .HasColumnName("branch_name")
+                .HasMaxLength(100);
 
-            e.Property(x => x.IsActive)
-                .HasColumnName("is_active");
+            e.Property(x => x.BankId).HasColumnName("bank_id");
+
+            e.Property(x => x.RegistrationNo)
+                .HasColumnName("registration_no");
+
+            e.Property(x => x.RegistrationDate)
+                .HasColumnName("registration_date");
+
+            e.Property(x => x.BranchRegistrationDate)
+                .HasColumnName("branch_registration_date");
+
+            e.Property(x => x.Address)
+                .HasColumnName("address");
+
+            e.Property(x => x.PhoneNumber)
+                .HasColumnName("phone_number");
+
+            //e.Property(x => x.Fax)
+            //    .HasColumnName("fax");
+
+            e.Property(x => x.Email)
+                .HasColumnName("email");
+
+            e.Property(x => x.ReferenceNo)
+                .HasColumnName("reference_no");
+
+            e.Property(x => x.CashGlId)
+                .HasColumnName("cash_gl_id");
+
+            e.Property(x => x.AdjustmentGlId)
+                .HasColumnName("adjustment_gl_id");
+
+            e.Property(x => x.BiddingDate)
+                .HasColumnName("bidding_date");
+
+            e.Property(x => x.CutoffDate)
+                .HasColumnName("cutoff_date");
+
+            e.Property(x => x.BonusPaymentDate)
+                .HasColumnName("bonus_payment_date");
+
+            e.Property(x => x.Status)
+                 .HasColumnName("status")
+                 .HasConversion<string>();
+
+            e.Property(x => x.MinimumRate)
+                .HasColumnName("minimum_rate");
+
+            e.Property(x => x.MaximumRate)
+                .HasColumnName("maximum_rate");
+
+            e.Property(x => x.Penalty)
+                .HasColumnName("penalty");
+
+            e.Property(x => x.DoublePaymentAllowed)
+                .HasColumnName("double_payment_allowed");
+
+            e.Property(x => x.MinimumInstallmentAmount)
+                .HasColumnName("minimum_installment_amount");
+
+            e.Property(x => x.MaximumInstallmentAmount)
+                .HasColumnName("maximum_installment_amount");
+
+            e.Property(x => x.MinimumIncrementAmount)
+                .HasColumnName("minimum_increment_amount");
+
+            e.Property(x => x.OtherBank1)
+                .HasColumnName("other_bank1");
+
+            e.Property(x => x.OtherBank2)
+                .HasColumnName("other_bank2");
 
             e.Property(x => x.CreatedAt)
                 .HasColumnName("created_at");
 
-            // Uncomment these if your entity contains these fields
-            //e.Property(x => x.CreatedBy).HasColumnName("created_by");
-            //e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
-            //e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.CreatedBy)
+                .HasColumnName("created_by");
 
-            // If User belongs to a tenant, apply tenant filter
-            // e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+            e.Property(x => x.ModifiedAt)
+                .HasColumnName("modified_at");
 
-            // Relationships (if applicable)
-            // e.HasOne(x => x.User)
-            //     .WithMany()
-            //     .HasForeignKey(x => x.UserId);
+            e.Property(x => x.ModifiedBy)
+                .HasColumnName("modified_by");
+
+            e.HasIndex(x => new { x.TenantId, x.BranchCode })
+                .IsUnique();
         });
         //b.Entity<IndividualDetail>(e =>
         //{

@@ -51,19 +51,112 @@ public class UpsertIndividualKycRequestValidator : AbstractValidator<UpsertIndiv
 
 public class UpsertCorporateKycRequestValidator : AbstractValidator<UpsertCorporateKycRequest>
 {
+    //public UpsertCorporateKycRequestValidator()
+    //{
+    //    RuleFor(x => x.PanNumber).Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+    //        .When(x => !string.IsNullOrEmpty(x.PanNumber));
+    //    RuleFor(x => x.Gstin).Matches(@"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9][A-Z][A-Z0-9]$")
+    //        .When(x => !string.IsNullOrEmpty(x.Gstin))
+    //        .WithMessage("Invalid GSTIN format");
+    //    RuleFor(x => x.AuthorizedSignatoryPan).Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+    //        .When(x => !string.IsNullOrEmpty(x.AuthorizedSignatoryPan));
+    //    RuleFor(x => x.AuthorizedSignatoryAadhaarLast4).Matches(@"^[0-9]{4}$")
+    //        .When(x => !string.IsNullOrEmpty(x.AuthorizedSignatoryAadhaarLast4));
+    //    RuleFor(x => x.RegisteredPincode).Matches(@"^[0-9]{6}$")
+    //        .When(x => !string.IsNullOrEmpty(x.RegisteredPincode));
+    //}
     public UpsertCorporateKycRequestValidator()
     {
-        RuleFor(x => x.PanNumber).Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
-            .When(x => !string.IsNullOrEmpty(x.PanNumber));
-        RuleFor(x => x.Gstin).Matches(@"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9][A-Z][A-Z0-9]$")
-            .When(x => !string.IsNullOrEmpty(x.Gstin))
+        RuleFor(x => x.PanNumber)
+            .Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+            .When(x => !string.IsNullOrWhiteSpace(x.PanNumber));
+
+        RuleFor(x => x.Gstin)
+            .Matches(@"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9][A-Z][A-Z0-9]$")
+            .When(x => !string.IsNullOrWhiteSpace(x.Gstin))
             .WithMessage("Invalid GSTIN format");
-        RuleFor(x => x.AuthorizedSignatoryPan).Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
-            .When(x => !string.IsNullOrEmpty(x.AuthorizedSignatoryPan));
-        RuleFor(x => x.AuthorizedSignatoryAadhaarLast4).Matches(@"^[0-9]{4}$")
-            .When(x => !string.IsNullOrEmpty(x.AuthorizedSignatoryAadhaarLast4));
-        RuleFor(x => x.RegisteredPincode).Matches(@"^[0-9]{6}$")
-            .When(x => !string.IsNullOrEmpty(x.RegisteredPincode));
+
+        // Registered Office
+        When(x => x.RegisteredOffice != null, () =>
+        {
+            RuleFor(x => x.RegisteredOffice!.Pincode)
+                .Matches(@"^[0-9]{6}$")
+                .When(x => !string.IsNullOrWhiteSpace(x.RegisteredOffice!.Pincode));
+        });
+
+        // Contact Details
+        RuleForEach(x => x.ContactDetails)
+            .SetValidator(new CorporateContactDetailRequestValidator());
+
+        // Directors
+        RuleForEach(x => x.Directors)
+            .SetValidator(new CorporateDirectorRequestValidator());
+
+        // Beneficial Owners
+        RuleForEach(x => x.BeneficialOwners)
+            .SetValidator(new CorporateBeneficialOwnerRequestValidator());
+
+        // Authorized Signatories
+        RuleForEach(x => x.AuthorizedSignatories)
+            .SetValidator(new CorporateAuthorizedSignatoryRequestValidator());
+    }
+    public class CorporateAuthorizedSignatoryRequestValidator
+    : AbstractValidator<CorporateAuthorizedSignatoryRequest>
+    {
+        public CorporateAuthorizedSignatoryRequestValidator()
+        {
+            RuleFor(x => x.Pan)
+                .Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+                .When(x => !string.IsNullOrWhiteSpace(x.Pan));
+
+            RuleFor(x => x.AadhaarLast4)
+                .Matches(@"^[0-9]{4}$")
+                .When(x => !string.IsNullOrWhiteSpace(x.AadhaarLast4));
+
+            RuleFor(x => x.Email)
+                .EmailAddress()
+                .When(x => !string.IsNullOrWhiteSpace(x.Email));
+        }
+    }
+    public class CorporateContactDetailRequestValidator
+    : AbstractValidator<CorporateContactDetailRequest>
+    {
+        public CorporateContactDetailRequestValidator()
+        {
+            RuleFor(x => x.Email)
+                .EmailAddress()
+                .When(x => !string.IsNullOrWhiteSpace(x.Email));
+        }
+    }
+    public class CorporateDirectorRequestValidator
+    : AbstractValidator<CorporateDirectorRequest>
+    {
+        public CorporateDirectorRequestValidator()
+        {
+            RuleFor(x => x.Pan)
+                .Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+                .When(x => !string.IsNullOrWhiteSpace(x.Pan));
+        }
+    }
+    public class CorporateBeneficialOwnerRequestValidator
+    : AbstractValidator<CorporateBeneficialOwnerRequest>
+    {
+        public CorporateBeneficialOwnerRequestValidator()
+        {
+            RuleFor(x => x.Pan)
+                .Matches(@"^[A-Z]{5}[0-9]{4}[A-Z]$")
+                .When(x => !string.IsNullOrWhiteSpace(x.Pan));
+        }
+    }
+    public class RegisteredOfficeRequestValidator
+    : AbstractValidator<RegisteredOfficeRequest>
+    {
+        public RegisteredOfficeRequestValidator()
+        {
+            RuleFor(x => x.Pincode)
+                .Matches(@"^[0-9]{6}$")
+                .When(x => !string.IsNullOrWhiteSpace(x.Pincode));
+        }
     }
 }
 

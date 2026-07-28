@@ -1,0 +1,98 @@
+﻿using EasyMoney.Api.Domain;
+
+namespace EasyMoney.Api.Dtos;
+
+// ============================================================
+// Branch
+// ============================================================
+
+public record CreateBranchRequest(
+    long TenantId,
+    string BranchCode,
+    string BranchName,
+    long BankId,
+    string? RegistrationNo,
+    DateOnly RegistrationDate,
+    DateOnly BranchRegistrationDate,
+    string Address,
+    string? PhoneNumber,
+    //string? Fax,
+    string? Email,
+    string? ReferenceNo,
+    long? CashGlId,
+    long? AdjustmentGlId,
+    DateOnly BiddingDate,
+    DateOnly CutoffDate,
+    DateOnly? BonusPaymentDate,
+    BranchStatus Status,
+    decimal MinimumRate,
+    decimal MaximumRate,
+    decimal Penalty,
+    bool DoublePaymentAllowed,
+    decimal MinimumIncrementAmount,
+    decimal MinimumInstallmentAmount,
+    decimal MaximumInstallmentAmount,
+    string? OtherBank1,
+    string? OtherBank2
+);
+
+public record UpdateBranchRequest(
+    string BranchCode,
+    string BranchName,
+    long BankId,
+    string? RegistrationNo,
+    DateOnly RegistrationDate,
+    DateOnly BranchRegistrationDate,
+    string Address,
+    string? PhoneNumber,
+    //string? Fax,
+    string? Email,
+    string? ReferenceNo,
+    long? CashGlId,
+    long? AdjustmentGlId,
+    DateOnly BiddingDate,
+    DateOnly CutoffDate,
+    DateOnly? BonusPaymentDate,
+    BranchStatus Status, 
+    decimal MinimumRate,
+    decimal MaximumRate,
+    decimal Penalty,
+    bool DoublePaymentAllowed,
+    decimal MinimumIncrementAmount,
+    decimal MinimumInstallmentAmount,
+    decimal MaximumInstallmentAmount,
+    string? OtherBank1,
+    string? OtherBank2
+);
+
+public record BranchDto(
+    long BranchId,
+    long TenantId,
+    string BranchCode,
+    string BranchName,
+    long? BankId,
+    string? RegistrationNo,
+    DateOnly RegistrationDate,
+    DateOnly BranchRegistrationDate,
+    string? Address,
+    string? PhoneNumber,
+    //string? Fax,
+    string? Email,
+    string? ReferenceNo,
+    long? CashGlId,
+    long? AdjustmentGlId,
+    DateOnly BiddingDate,
+    DateOnly CutoffDate,
+    DateOnly? BonusPaymentDate,
+    BranchStatus Status,
+    decimal MinimumRate,
+    decimal MaximumRate,
+    decimal Penalty,
+    bool DoublePaymentAllowed,
+    decimal MinimumIncrementAmount,
+    decimal MinimumInstallmentAmount,
+    decimal MaximumInstallmentAmount,
+    string? OtherBank1,
+    string? OtherBank2,
+    DateTime CreatedAt
+);
