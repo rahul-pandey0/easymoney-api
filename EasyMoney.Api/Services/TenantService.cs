@@ -131,12 +131,12 @@ public class TenantService : ITenantService
             throw new DomainException($"Tenant '{tenantId}' does not exist.");
 
         // Check whether a scheme configuration already exists
-        bool schemeExists = await _db.SchemeConfigs
-            .IgnoreQueryFilters()
-            .AnyAsync(s => s.TenantId == tenantId);
+        //bool schemeExists = await _db.SchemeConfigs
+        //    .IgnoreQueryFilters()
+        //    .AnyAsync(s => s.TenantId == tenantId && s.SchemeName==p.SchemeName);
 
-        if (schemeExists)
-            throw new DomainException($"Scheme configuration already exists for tenant '{tenantId}'.");
+        //if (schemeExists)
+        //    throw new DomainException($"Scheme configuration already exists for tenant '{p.SchemeName}'.");
 
         var schemeConfig = new SchemeConfig
         {
@@ -765,6 +765,9 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         if (!string.IsNullOrWhiteSpace(p.SifinPayable))
             sc.SifinPayable = p.SifinPayable;
 
+        if (!string.IsNullOrWhiteSpace(p.GstGl))
+            sc.GstGl = p.GstGl;
+
         // Time Change
         if (p.TimeChPass.HasValue)
             sc.TimeChPass = p.TimeChPass.Value;
@@ -856,9 +859,9 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             UpdatedAt = DateTime.UtcNow,
             AuthorizedBy = authorizedBy,
             AuthorizedAt = DateTime.UtcNow,
-            ParentGl = p.ParentGl ?? null,
-            Type = p.Type ?? null,
-            status =p.Status ?? null,
+            ParentGl = p.ParentGl,
+            Type = p.Type,
+            status =p.Status,
 
         };
 
@@ -889,7 +892,9 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         if (p.IsReported.HasValue) sc.IsReported = p.IsReported.Value;
         if (p.HasTransactions.HasValue) sc.IsReported = p.HasTransactions.Value;
         if (p.HasGst.HasValue) sc.HasGst = p.HasGst.Value;
-
+        if (!string.IsNullOrWhiteSpace(p.Type)) sc.Type = p.Type;
+        if (!string.IsNullOrWhiteSpace(p.Status)) sc.status = p.Status;
+        if (p.ParentGl.HasValue)sc.ParentGl = p.ParentGl ?? 0;
         sc.UpdatedBy = authorizedBy;
         sc.UpdatedAt = DateTime.UtcNow;
 
