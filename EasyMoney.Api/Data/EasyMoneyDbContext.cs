@@ -88,6 +88,8 @@ public class EasyMoneyDbContext : DbContext
         {
             e.ToTable("scheme_config");
             e.HasKey(x => x.TenantId);
+            e.Property(x => x.SchemeId).HasColumnName("scheme_id");
+
             e.Property(x => x.SchemeName).HasColumnName("scheme_name");
             e.Property(x => x.FixedRate).HasColumnName("fixed_rate").HasColumnType("decimal(18,2)");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
@@ -166,6 +168,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.TdsAc).HasColumnName("tds_ac");
             e.Property(x => x.GstGl).HasColumnName("gst_gl");
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
+            e.Property(x => x.SchemeCode).HasColumnName("scheme_code");
+
 
         });
 
@@ -250,6 +254,8 @@ public class EasyMoneyDbContext : DbContext
             // Tax
             e.Property(x => x.TdsAc).HasColumnName("tds_ac");
             e.Property(x => x.GstGl).HasColumnName("gst_gl");
+            e.Property(x => x.SchemeCode).HasColumnName("scheme_code"); 
+
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
 
         });
@@ -702,6 +708,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasDefaultValue(0m); 
             e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasDefaultValue(0m); 
             e.Property(x => x.Remarks).HasColumnName("remarks");
+            e.Property(x => x.SchemeId).HasColumnName("scheme_id");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
@@ -804,6 +811,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.Property(x => x.Forbank).HasColumnName("for_bank");
+            e.Property(x => x.IsReported).HasColumnName("is_reported");
+            e.Property(x => x.HasTransactions).HasColumnName("has_transactions");
+            e.Property(x => x.HasGst).HasColumnName("has_gst");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 

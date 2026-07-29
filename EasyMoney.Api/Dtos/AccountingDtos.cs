@@ -33,7 +33,15 @@ public record GlAccountDto(
     string AccountClass,
     string? ParentCode,
     bool IsActive,
-    decimal Balance);
+    decimal Balance,
+    bool? Forbank,
+    bool? IsReported,
+    bool? HasTransactions,
+    bool? HasGst,
+    long TenantId
+      );
+
+
     //string? AccountNumber,
     //string? Phone);
 

@@ -289,7 +289,7 @@ public class AccountingService : IAccountingService
             orderby g.Code
             select new GlAccountDto(
                 g.GlAccountId, g.Code, g.Name, g.AccountClass.ToString(),
-                g.ParentCode, g.IsActive, b == null ? 0m : b.Balance)
+                g.ParentCode, g.IsActive, b == null ? 0m : b.Balance,true,true,true,true, tenantId)
         ).ToListAsync();
         return rows;
     }

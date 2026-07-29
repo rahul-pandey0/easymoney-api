@@ -51,7 +51,10 @@ public class AccountService : IAccountService
         // Account number: EM-{tenantId}-{6-digit-seq}
         var seq = await _db.Accounts.IgnoreQueryFilters()
             .Where(a => a.TenantId == member.TenantId).CountAsync() + 1;
-        var accountNumber = $"EM-{member.TenantId}-{seq:D6}";
+        //var accountNumber = $"EM-{member.TenantId}-{seq:D6}";
+
+        var accountNumber = $"{member.TenantId}{scheme.SchemeCode}{seq:D6}";
+
         var tenureEnd = openDate.AddMonths(scheme.TenureMonths);
 
         var acct = new Account
@@ -81,7 +84,8 @@ public class AccountService : IAccountService
             BonusAmount = req.BonusAmount,
             InterestAmount = req.InterestAmount,
             TotalAmount = req.TotalAmount,
-            Remarks = req.Remarks
+            Remarks = req.Remarks,
+            SchemeId = req.SchemeId
 
         };
         _db.Accounts.Add(acct);
@@ -150,6 +154,6 @@ public class AccountService : IAccountService
             eligibleToBid, eligibleForDividend,
             corpus, loan?.CycleId,a.CreatedAt, a.OldAccountNo, a.PhoneNo, a.CustomerName, a.InterestRate, a.TargetAmount,
             a.PaymentDate, a.PaidAmount,a.LoanAmount,a.BonusAmount, a.InterestAmount,
-            a.TotalAmount, a.Remarks);
+            a.TotalAmount, a.Remarks ,a.SchemeId);   
     }
 }

@@ -100,7 +100,8 @@ public record SchemeConfigUpdatePayload(
     string? ServicesTax,
     string? SchemeName,
 decimal? FixedRate,
-string? GstGl
+string? GstGl,
+string? SchemeCode
 );
 
 
@@ -133,9 +134,10 @@ public record AccountOpenPayload(
     decimal BonusAmount,
     decimal InterestAmount,
     decimal TotalAmount,
-    string? Remarks
+    string? Remarks,
+    int SchemeId
     );
-
+ 
 public record MemberKycApprovalPayload(
     long MemberId,
     string ToStatus,    // APPROVED | REJECTED | RE_KYC_REQUIRED

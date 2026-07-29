@@ -177,11 +177,26 @@ public class TenantsController : ControllerBase
 
     [HttpGet("general_ledger")]
     [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
-    public async Task<ActionResult<IReadOnlyList<GeneralLedgerDto>>> GetAllGlata() 
+    public async Task<ActionResult<IReadOnlyList<GlAccountDto>>> GetAllGlata() 
     {
         var result = await _tenants.GetAllGLSummariesAsync();
         return Ok(result);
     }
+
+
+    [HttpGet("{tenantId:long}/general_ledger")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<ActionResult<GlAccountDto>> GetTenantGLAccount(long tenantId)
+    {
+        var result = await _tenants.GetTenantGLAccountsAsync(tenantId);
+
+        if (result == null)
+            return NotFound($"General ledger with TenantId {tenantId} not found");
+
+        return Ok(result);
+    }
+
+
 
     [HttpGet("general_ledger/{glId:int}"),
     Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
@@ -200,13 +215,13 @@ public class TenantsController : ControllerBase
 
     [HttpPost("general_ledger")]
     [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
-    public async Task<IActionResult> CreateProduct([FromBody] GeneralLedgerDto req)
+    public async Task<IActionResult> CreateProduct([FromBody] GlAccountDto req)
     {
         try
         {
             await _tenants.CreateGl(req, _ctx.UserId);
              
-            var gl = await _tenants.GetGlAsync();
+            var gl = await _tenants.GetGlcreateAsync();
 
             return Ok(gl);
         }
@@ -218,12 +233,12 @@ public class TenantsController : ControllerBase
 
     [HttpPut("general_ledger/{glId:int}"),
      Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
-    public async Task<IActionResult> UpdateGlProdutConfig(int glId, [FromBody] GeneralLedgerDto req)
+    public async Task<IActionResult> UpdateGlProdutConfig(int glId, [FromBody] GlAccountDto req)
     {
         try
         {
             await _tenants.UpdateProductAsync(glId, req, _ctx.UserId);
-            return Ok(await _tenants.GetGlAsync(glId));
+            return Ok(await _tenants.GetGldata(glId));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }

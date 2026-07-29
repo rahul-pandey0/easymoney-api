@@ -39,6 +39,9 @@ public class AccountsController : ControllerBase
     [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
     public async Task<ActionResult<AccountSummaryDto>> OpenAccount( long memberId,[FromBody] OpenAccountRequest req)
     {
+        
+
+
         try
         {
             // Create the payload from the request
@@ -57,7 +60,8 @@ public class AccountsController : ControllerBase
                 BonusAmount: req.BonusAmount,
                 InterestAmount: req.InterestAmount,
                 TotalAmount: req.TotalAmount,
-                Remarks: req.Remarks
+                Remarks: req.Remarks,
+                SchemeId:req.SchemeId
             );
 
             var a = await _accounts.OpenAccountAsync(
