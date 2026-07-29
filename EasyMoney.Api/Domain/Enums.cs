@@ -57,8 +57,8 @@ public enum ApprovalActionType
 public enum ApprovalStatus { PENDING, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED }
 public enum BranchStatus
 {
-    ACTIVE,
-    INACTIVE
+    ACTIVE=1,
+    INACTIVE=2
 }
 
 public static class SystemGl

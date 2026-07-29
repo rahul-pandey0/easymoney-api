@@ -96,3 +96,4 @@ public record BranchDto(
     string? OtherBank2,
     DateTime CreatedAt
 );
+
