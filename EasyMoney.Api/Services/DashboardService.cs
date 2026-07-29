@@ -55,10 +55,10 @@ public class DashboardService
         dto.PendingApprovals =
             await _db.ApprovalRequests.CountAsync(a => a.Status == ApprovalStatus.PENDING);
 
-        dto.TotalCollections =
-            await _db.LedgerEntries
-                .IgnoreQueryFilters()
-                .SumAsync(x => (decimal?)x.Amount) ?? 0;
+        dto.TotalCollections = await _db.LedgerEntries
+           .IgnoreQueryFilters()
+           .Where(x => x.EntryType == LedgerEntryType.PAYMENT_RECEIVED)
+           .SumAsync(x => (decimal?)x.Amount) ?? 0;
 
         dto.TotalLoanAmount =
             await loans.SumAsync(x => (decimal?)x.PrincipalAmount) ?? 0;
@@ -68,7 +68,7 @@ public class DashboardService
         : Math.Round((dto.TotalCollections / dto.TotalLoanAmount) * 100, 2);
 
         dto.ApprovedKyc =
-    await members.CountAsync(m => m.KycStatus == KycStatus.APPROVED);
+            await members.CountAsync(m => m.KycStatus == KycStatus.APPROVED);
 
         return dto;
     }
