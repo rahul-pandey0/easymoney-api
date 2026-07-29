@@ -52,4 +52,24 @@ public class BranchController : ControllerBase
     {
         return Ok(await _branches.GetAllAsync());
     }
+
+    // ========================================================
+    // PUT /api/v1/branches/{branchId} 
+    // ========================================================
+    [HttpPut("{branchId:long}")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator)]
+    public async Task<ActionResult<BranchDto>> Update(
+    long branchId,
+    [FromBody] UpdateBranchRequest request)
+    {
+        try
+        {
+            var branch = await _branches.UpdateAsync(branchId, request);
+            return Ok(branch);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
