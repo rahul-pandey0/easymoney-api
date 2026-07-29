@@ -878,7 +878,8 @@ public class Branch
 
     public DateOnly? BonusPaymentDate { get; set; }
 
-    public BranchStatus Status { get; set; } 
+    //public BranchStatus Status { get; set; } 
+    public BranchStatus Status { get; set; } = BranchStatus.ACTIVE; // Default to Active}
 
     public decimal MinimumRate { get; set; }
 

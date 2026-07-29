@@ -39,6 +39,7 @@ public record CreateMemberRequest(
     string? CustomerImage,
     string? IdImage,
     string? DocumentImage,
+    
 
     // Member Details
     //string? MembershipNumber,
@@ -57,6 +58,7 @@ public record CreateMemberRequest(
     string? AdditionalPersonalDetails,
     string? Remarks,
     string? Remarks1,
+
 
     // Vehicle Details
     string? BikeModel,
