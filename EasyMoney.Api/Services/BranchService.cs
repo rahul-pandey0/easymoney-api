@@ -33,9 +33,17 @@ public class BranchService : IBranchService
     }
     public async Task<BranchDto> CreateAsync(CreateBranchRequest request)
     {
-        var tenantId = _ctx.TenantId
-    ?? throw new DomainException("Tenant not found");
+        long tenantId;
 
+        if (_ctx.IsSifin)
+        {
+            tenantId = request.TenantId;
+        }
+        else
+        {
+            tenantId = _ctx.TenantId
+                ?? throw new DomainException("Tenant not found");
+        }
 
         var exists = await _db.Branches
             .AnyAsync(x =>
@@ -52,50 +60,35 @@ public class BranchService : IBranchService
             BranchCode = request.BranchCode,
             BranchName = request.BranchName,
             BankId = request.BankId,
-
             RegistrationNo = request.RegistrationNo,
             RegistrationDate = request.RegistrationDate,
             BranchRegistrationDate = request.BranchRegistrationDate,
-
             Address = request.Address,
             PhoneNumber = request.PhoneNumber,
             Email = request.Email,
             ReferenceNo = request.ReferenceNo,
-
             CashGlId = request.CashGlId,
             AdjustmentGlId = request.AdjustmentGlId,
-
             BiddingDate = request.BiddingDate,
             CutoffDate = request.CutoffDate,
             BonusPaymentDate = request.BonusPaymentDate,
-
             Status = request.Status,
-
             MinimumRate = request.MinimumRate,
             MaximumRate = request.MaximumRate,
             Penalty = request.Penalty,
-
             DoublePaymentAllowed = request.DoublePaymentAllowed,
-
             MinimumInstallmentAmount = request.MinimumInstallmentAmount,
             MaximumInstallmentAmount = request.MaximumInstallmentAmount,
             MinimumIncrementAmount = request.MinimumIncrementAmount,
-
             OtherBank1 = request.OtherBank1,
             OtherBank2 = request.OtherBank2,
-
             CreatedAt = DateTime.UtcNow,
             CreatedBy = _ctx.UserId
-            ?? throw new DomainException("User is not authenticated")
+                ?? throw new DomainException("User is not authenticated")
         };
 
         _db.Branches.Add(branch);
         await _db.SaveChangesAsync();
-
-        _log.LogInformation(
-            "Branch {BranchCode} created for tenant {TenantId}",
-            branch.BranchCode,
-            branch.TenantId);
 
         return ToDto(branch);
     }
