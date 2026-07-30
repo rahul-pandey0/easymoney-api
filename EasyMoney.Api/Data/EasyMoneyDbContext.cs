@@ -694,6 +694,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.IsPrized).HasColumnName("is_prized");
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
             e.Property(x => x.PhoneNo).HasColumnName("phone_no");

@@ -525,6 +525,9 @@ public class Account
     public bool IsPrized { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public long? UpdatedBy { get; set; } 
+
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     //new columns
@@ -540,7 +543,7 @@ public class Account
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
-    public int  SchemeId { get; set; }  
+    public int?  SchemeId { get; set; }  
 }
 
 public class BiddingCycle
