@@ -229,6 +229,7 @@ public class Member
     public string FullName { get; set; } = null!;
     public string Phone { get; set; } = null!;
     public string? Email { get; set; }
+    public string? PanNumber { get; set; }
     public string? AddressLine { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }

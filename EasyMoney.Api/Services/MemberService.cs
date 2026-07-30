@@ -59,6 +59,7 @@ public class MemberService : IMemberService
             FullName = req.FullName,
             Phone = req.Phone,
             Email = req.Email,
+            PanNumber = req.PanNumber,
             AddressLine = req.AddressLine,
             City = req.City,
             State = req.State,
@@ -155,7 +156,7 @@ public class MemberService : IMemberService
 
     public static MemberDto ToDto(Member m) => new(
         m.MemberId, m.TenantId, m.MemberType.ToString(),
-        m.FullName, m.Phone, m.Email,
+        m.FullName, m.Phone, m.Email,m.PanNumber,
         m.AddressLine, m.City, m.State, m.Pincode,
         m.KycTier.ToString(), m.KycStatus.ToString(),
         m.KycApprovedAt, m.KycApprovedBy,
