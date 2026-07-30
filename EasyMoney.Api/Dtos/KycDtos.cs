@@ -10,6 +10,7 @@ public record CreateMemberRequest(
     string FullName,
     string Phone,
     string? Email,
+    string? PanNumber,
     string? AddressLine,
     string? City,
     string? State,
@@ -39,6 +40,7 @@ public record CreateMemberRequest(
     string? CustomerImage,
     string? IdImage,
     string? DocumentImage,
+    
 
     // Member Details
     //string? MembershipNumber,
@@ -57,6 +59,7 @@ public record CreateMemberRequest(
     string? AdditionalPersonalDetails,
     string? Remarks,
     string? Remarks1,
+
 
     // Vehicle Details
     string? BikeModel,
@@ -102,6 +105,7 @@ public record UpdateMemberRequest(
     string? FullName,
     string? Phone,
     string? Email,
+    string? PanNumber,
     string? AddressLine,
     string? City,
     string? State,
@@ -117,6 +121,7 @@ public record MemberDto(
     string FullName,
     string Phone,
     string? Email,
+    string? PanNumber,
     string? AddressLine,
     string? City,
     string? State,
