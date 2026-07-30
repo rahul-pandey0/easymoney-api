@@ -11,7 +11,11 @@ public interface IBranchService
     Task<BranchDto> CreateAsync(CreateBranchRequest request);
     Task<BranchDto?> GetByIdAsync(long branchId);
     Task<IReadOnlyList<BranchDto>> GetAllAsync();
+    Task<BranchDto> UpdateAsync(
+        long branchId,
+        UpdateBranchRequest request);
 }
+
 public class BranchService : IBranchService
 {
     private readonly EasyMoneyDbContext _db;
@@ -29,17 +33,21 @@ public class BranchService : IBranchService
     }
     public async Task<BranchDto> CreateAsync(CreateBranchRequest request)
     {
+        var tenantId = _ctx.TenantId
+    ?? throw new DomainException("Tenant not found");
+
+
         var exists = await _db.Branches
             .AnyAsync(x =>
-            x.TenantId == request.TenantId &&
-            x.BranchCode == request.BranchCode);
+                x.TenantId == tenantId &&
+                x.BranchCode == request.BranchCode);
 
         if (exists)
             throw new DomainException($"Branch code '{request.BranchCode}' already exists");
 
         var branch = new Branch
         {
-            TenantId = request.TenantId,
+            TenantId = tenantId,
 
             BranchCode = request.BranchCode,
             BranchName = request.BranchName,
@@ -151,6 +159,95 @@ public class BranchService : IBranchService
             x.OtherBank1,
             x.OtherBank2,
             x.CreatedAt
+        );
+    }
+    public async Task<BranchDto> UpdateAsync(
+    long branchId,
+    UpdateBranchRequest request)
+    {
+        var branch = await _db.Branches
+            .FirstOrDefaultAsync(x => x.BranchId == branchId);
+
+        if (branch == null)
+            throw new DomainException("Branch not found");
+
+
+        if (!_ctx.IsSifin && branch.TenantId != _ctx.TenantId)
+            throw new DomainException("Unauthorized access");
+
+
+        branch.BranchCode = request.BranchCode;
+        branch.BranchName = request.BranchName;
+        branch.BankId = request.BankId;
+
+        branch.RegistrationNo = request.RegistrationNo;
+        branch.RegistrationDate = request.RegistrationDate;
+        branch.BranchRegistrationDate = request.BranchRegistrationDate;
+
+        branch.Address = request.Address;
+        branch.PhoneNumber = request.PhoneNumber;
+        branch.Email = request.Email;
+
+        branch.ReferenceNo = request.ReferenceNo;
+
+        branch.CashGlId = request.CashGlId;
+        branch.AdjustmentGlId = request.AdjustmentGlId;
+
+        branch.BiddingDate = request.BiddingDate;
+        branch.CutoffDate = request.CutoffDate;
+        branch.BonusPaymentDate = request.BonusPaymentDate;
+
+        branch.Status = request.Status;
+
+        branch.MinimumRate = request.MinimumRate;
+        branch.MaximumRate = request.MaximumRate;
+        branch.Penalty = request.Penalty;
+
+        branch.DoublePaymentAllowed = request.DoublePaymentAllowed;
+
+        branch.MinimumIncrementAmount = request.MinimumIncrementAmount;
+        branch.MinimumInstallmentAmount = request.MinimumInstallmentAmount;
+        branch.MaximumInstallmentAmount = request.MaximumInstallmentAmount;
+
+        branch.OtherBank1 = request.OtherBank1;
+        branch.OtherBank2 = request.OtherBank2;
+
+        //branch.UpdatedAt = DateTime.UtcNow;
+        //branch.UpdatedBy = _ctx.UserId;
+
+
+        await _db.SaveChangesAsync();
+
+
+        return new BranchDto(
+            branch.BranchId,
+            branch.TenantId,
+            branch.BranchCode,
+            branch.BranchName,
+            branch.BankId,
+            branch.RegistrationNo,
+            branch.RegistrationDate,
+            branch.BranchRegistrationDate,
+            branch.Address,
+            branch.PhoneNumber,
+            branch.Email,
+            branch.ReferenceNo,
+            branch.CashGlId,
+            branch.AdjustmentGlId,
+            branch.BiddingDate,
+            branch.CutoffDate,
+            branch.BonusPaymentDate,
+            branch.Status,
+            branch.MinimumRate,
+            branch.MaximumRate,
+            branch.Penalty,
+            branch.DoublePaymentAllowed,
+            branch.MinimumIncrementAmount,
+            branch.MinimumInstallmentAmount,
+            branch.MaximumInstallmentAmount,
+            branch.OtherBank1,
+            branch.OtherBank2,
+            branch.CreatedAt
         );
     }
 }
