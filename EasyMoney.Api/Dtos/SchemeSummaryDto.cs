@@ -115,5 +115,6 @@ public record ProductSummaryDto(
     DateTime? AuthorizedAt,
    decimal? FixedRate,
    string? Email,
-   string? GstGl
+   string? GstGl,
+    string?SchemeCode
 );

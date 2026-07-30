@@ -8,7 +8,41 @@ namespace EasyMoney.Api.Dtos;
 public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate ,  long MemberId,
     string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount,
     DateOnly? PaymentDate,decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
-    decimal TotalAmount, string? Remarks);
+    decimal TotalAmount, string? Remarks,int  SchemeId);
+ 
+//public record UpdateAccountRequest(string accountNumber,decimal MonthlyContribution, DateOnly AccountOpenDate, long MemberId,
+//    string? OldAccountNo, string? PhoneNo, string? CustomerName, decimal InterestRate, decimal TargetAmount,
+//    DateOnly? PaymentDate, decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
+//    decimal TotalAmount, string? Remarks, int SchemeId, DateOnly TenureEndDate);
+
+
+public record UpdateAccountRequest(
+    string AccountNumber,
+    decimal MonthlyContribution,
+    DateOnly AccountOpenDate,
+     long MemberId,
+    string? OldAccountNo,
+    string? PhoneNo,
+    string? CustomerName,
+    decimal InterestRate,
+    decimal TargetAmount,
+    DateOnly? PaymentDate,
+    decimal PaidAmount,
+    decimal LoanAmount,
+    decimal BonusAmount,
+    decimal InterestAmount,
+    decimal TotalAmount,
+    string? Remarks,
+    int SchemeId,
+    DateOnly TenureEndDate,
+    string? Status,
+    int? InstallmentsPaid,
+    bool? IsPrized,
+    DateOnly? ClosureDate,
+    DateOnly ? UpdateDate,
+    int ? updtaeBy 
+);
+
 public record AccountSummaryDto(
     long AccountId, string AccountNumber, long MemberId, long TenantId,
     decimal MonthlyContribution, DateOnly AccountOpenDate, DateOnly TenureEndDate,
@@ -17,7 +51,7 @@ public record AccountSummaryDto(
     decimal CorpusBalance, long? PrizeWonInCycleId,
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
     DateOnly? PaymentDate, decimal PaidAmount, decimal LoanAmount,decimal bonusAmount, decimal InterestAmount,
-        decimal TotalAmount, string Remarks);
+        decimal TotalAmount, string Remarks, int? SchemeId);
 
 // ============================================================
 // Payment / Ledger
@@ -30,20 +64,29 @@ public record DueLineDto(
     decimal Balance,
     string Status);   // PAID | UPCOMING | OVERDUE
 
+
 public record RecordPaymentRequest(
-    decimal InstallmentAmount,
+    decimal Amount,
     DateOnly PaidDate,
     string Method,     // CASH / BANK_TRANSFER / UPI / etc
-    long? DueId,
-    decimal PenaltyAmount,
-    decimal OtherCharges,
-    decimal TotalAmount,
-    bool ClosurePayment,
-    long? GlAccountId,
-    string? GlAccountName,
-    string? PhoneNumber,
-    string? VoucherNo,
-    string? Remarks);      // optional: pay against a specific due line
+    long? DueId);
+
+//public record RecordPaymentRequest(
+//        decimal Amount,
+
+//    decimal InstallmentAmount,
+//    DateOnly PaidDate,
+//    string Method,     // CASH / BANK_TRANSFER / UPI / etc
+//    long? DueId,
+//    decimal PenaltyAmount,
+//    decimal OtherCharges,
+//    decimal TotalAmount,
+//    bool ClosurePayment,
+//    long? GlAccountId,
+//    string? GlAccountName,
+//    string? PhoneNumber,
+//    string? VoucherNo,
+//    string? Remarks);      // optional: pay against a specific due line
 
 public record PaymentResultDto(
     long AccountId, decimal AmountPaid, int InstallmentsPaid,
