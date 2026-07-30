@@ -100,7 +100,8 @@ public record SchemeConfigUpdatePayload(
     string? ServicesTax,
     string? SchemeName,
 decimal? FixedRate,
-string? GstGl
+string? GstGl,
+string? SchemeCode
 );
 
 
@@ -133,8 +134,36 @@ public record AccountOpenPayload(
     decimal BonusAmount,
     decimal InterestAmount,
     decimal TotalAmount,
-    string? Remarks
+    string? Remarks,
+    int SchemeId
     );
+
+public record AccountUpdatePayload(
+    long MemberId,
+    decimal MonthlyContribution,
+    DateOnly AccountOpenDate,
+    string AccountNumber,
+    string? OldAccountNo,
+    string? PhoneNo,
+    string? CustomerName,
+    decimal InterestRate,
+    decimal TargetAmount,
+    DateOnly? PaymentDate,
+    decimal PaidAmount,
+    decimal LoanAmount,
+    decimal BonusAmount,
+    decimal InterestAmount,
+    decimal TotalAmount,
+    string? Remarks,
+    int? SchemeId,
+    DateOnly TenureEndDate,
+    string? Status,
+    int? InstallmentsPaid,
+    bool? IsPrized,
+    DateOnly? ClosureDate
+
+);
+
 
 public record MemberKycApprovalPayload(
     long MemberId,

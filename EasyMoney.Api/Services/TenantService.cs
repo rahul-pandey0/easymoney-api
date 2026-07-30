@@ -1,8 +1,9 @@
-using EasyMoney.Api.Data;
+﻿using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace EasyMoney.Api.Services;
 
@@ -33,14 +34,20 @@ public interface ITenantService
     //gl creation  
     //Task<GeneralLedgerMaster> GetByIdAsync(int glId);
     //Task<GeneralLedgerMaster> GetGlAsync();
-    Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync();
-    Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId);  
+    Task<IReadOnlyList<GlAccount>> GetAllGLSummariesAsync();
       Task<GeneralLedgerMaster> GetGlAsync();
     Task<GeneralLedgerMaster> GetGlAsync(int glId);
 
-    Task CreateGl(GeneralLedgerDto req, long? authorizedBy);  
-    Task UpdateProductAsync(int glId, GeneralLedgerDto p, long? authorizedBy);  
+    Task CreateGl(GlAccountDto req, long? authorizedBy);  
+    Task UpdateProductAsync(int glId, GlAccountDto p, long? authorizedBy);
 
+
+    //Task<GlAccount> GetTenantGLAccountAsync(long tenantId);
+    Task<IReadOnlyList<GlAccount>> GetTenantGLAccountsAsync(long tenantId);
+    Task<GlAccount> GetGLSummaryByIdAsync(int glId);
+
+    Task<GlAccount> GetGldata(long glId);
+    Task<GlAccount> GetGlcreateAsync(); 
 
 
 
@@ -141,7 +148,7 @@ public class TenantService : ITenantService
         var schemeConfig = new SchemeConfig
         {
             TenantId = tenantId,
-            SchemeName  =p.SchemeName,
+            SchemeName = p.SchemeName,
             TenureMonths = p.TenureMonths ?? 20,
             OrgFeePct = p.OrgFeePct ?? 5.00m,
             SifinCommissionPct = p.SifinCommissionPct ?? 1.00m,
@@ -180,7 +187,10 @@ public class TenantService : ITenantService
             TenantPin = p.TenantPin,
             LoanAssetGL = p.LoanAssetGL,
             SifinPayable = p.SifinPayable,
-            GstGl   =p.GstGl,
+            GstGl = p.GstGl,
+            SchemeCode = p.SchemeCode,
+            SchemeId = 0,
+
             // Time Change
             TimeChPass = p.TimeChPass ?? 0m,
 
@@ -193,8 +203,6 @@ public class TenantService : ITenantService
             MaximumRate = p.MaximumRate ?? 0m,
             MinimumPeriod = p.MinimumPeriod ?? 0,
             MaximumPeriod = p.MaximumPeriod ?? 0,
-
-            // Tax
             TdsAc = p.TdsAc,
             ServicesTax = p.ServicesTax,
 
@@ -280,6 +288,7 @@ public class TenantService : ITenantService
             TdsAc = p.TdsAc,
             ServicesTax = p.ServicesTax,
             GstGl=p.GstGl,
+            SchemeCode = p.SchemeCode,
 
             // Audit  
             UpdatedBy = authorizedBy,
@@ -575,9 +584,18 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             ?? throw new DomainException($"Tenant no scheme_config");
 
+    public async Task<GlAccount> GetGlcreateAsync() =>
+        await _db.GlAccounts.IgnoreQueryFilters().FirstOrDefaultAsync()
+            ?? throw new DomainException($"Tenant no scheme_config");
+
+
     public async Task<GeneralLedgerMaster> GetGlAsync(int glId) =>
     await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == glId)
     ?? throw new DomainException($"SCheme No Found");
+
+    public async Task<GlAccount> GetGldata(long glId) =>
+            await _db.GlAccounts.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlAccountId == glId)
+            ?? throw new DomainException($"SCheme No Found");
 
     private ProductSummaryDto MapToDto(SchemeMaster scheme)
     {
@@ -626,7 +644,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             scheme.AuthorizedAt,
             scheme.FixedRate, 
             scheme.Email,
-            scheme.GstGl
+            scheme.GstGl,
+            scheme.SchemeCode
 
         );
     }
@@ -680,7 +699,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
                         s.AuthorizedAt,
                         s.FixedRate,
                         s.Email,
-                        s.GstGl
+                        s.GstGl,
+                        s.SchemeCode
                     );
 
         var schemes = await query.ToListAsync();
@@ -771,6 +791,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         if (!string.IsNullOrWhiteSpace(p.GstGl))
             sc.GstGl = p.GstGl;
 
+        if (!string.IsNullOrWhiteSpace(p.SchemeCode)) 
+            sc.SchemeCode = p.SchemeCode;
         // Time Change
         if (p.TimeChPass.HasValue)
             sc.TimeChPass = p.TimeChPass.Value;
@@ -822,18 +844,29 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         await _db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync()
+    public async Task<IReadOnlyList<GlAccount>> GetAllGLSummariesAsync()
     {
-        var gl = await _db.GeneralLedgerMaster  
+        var gl = await _db.GlAccounts  
             .AsNoTracking()
             .ToListAsync();
 
-        return gl;
+        return gl; 
     }
-    public async Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId)
+    public async Task<IReadOnlyList<GlAccount>> GetTenantGLAccountsAsync(long tenantId)
     {
-        var gl = await _db.GeneralLedgerMaster.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.GlId == glId);
+        var glAccounts = await _db.GlAccounts.AsNoTracking()
+            .Where(s => s.TenantId == tenantId)
+            .ToListAsync();
+
+        if (glAccounts == null || !glAccounts.Any())
+            throw new DomainException($"No general ledger accounts found for TenantId {tenantId}");
+
+        return glAccounts;
+    }
+    public async Task<GlAccount> GetGLSummaryByIdAsync(int glId)
+    {
+        var gl = await _db.GlAccounts.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.GlAccountId == glId);
 
         if (gl == null)
             throw new DomainException($"General_ledger with ID {glId} not found");
@@ -841,34 +874,29 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         return gl; // Corrected to return the GeneralLedgerMaster entity directly  
     }
 
-    public async Task CreateGl(GeneralLedgerDto p, long? authorizedBy) 
+    public async Task CreateGl(GlAccountDto p, long? authorizedBy) 
     {
-        var schemedata = new GeneralLedgerMaster
+        var schemedata = new GlAccount
         {
-            //TenantId = 0,
-            //GlId=0,
-            GlCode = p.GlCode,
-            GlName = p.GlName,
-            GlDescription = p.GlDescription,
-            Category = p.Category ?? null,
+            Code = p.Code,
+            Name = p.Name,
+            ParentCode = p.ParentCode,
+            //AccountClass = GlAccountClass.LIABILITY??"",
+            //AccountClass = p.AccountClass ?? GlAccountClass.LIABILITY.ToString(),
+            AccountClass = Enum.TryParse<GlAccountClass>(p.AccountClass, true, out var accountClass) ? accountClass : GlAccountClass.ASSET,
             Forbank = p.Forbank ?? false,
             IsReported = p.IsReported ?? false,
             HasTransactions = p.HasTransactions ?? false,
-            HasGst = p.HasGst ?? false,           
-            // Audit  
-            CreatedAt= DateTime.UtcNow,
-            CreatedBy= authorizedBy,
-            UpdatedBy = authorizedBy,
-            UpdatedAt = DateTime.UtcNow,
+            HasGst = p.HasGst ?? false,
             AuthorizedBy = authorizedBy,
             AuthorizedAt = DateTime.UtcNow,
-            ParentGl = p.ParentGl,
-            Type = p.Type,
-            status =p.Status,
+            CreatedBy = authorizedBy,
+            
+            TenantId = p.TenantId,
 
         };
 
-        _db.GeneralLedgerMaster.Add(schemedata);
+        _db.GlAccounts.Add(schemedata);
 
         try
         {
@@ -880,32 +908,28 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         }
     }
 
-    public async Task UpdateProductAsync(int GlId, GeneralLedgerDto p, long? authorizedBy)
+    public async Task UpdateProductAsync(int glId, GlAccountDto p, long? authorizedBy)
     {
-        var sc = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == GlId)
-            ?? throw new DomainException($"General Ledger {GlId} has no Gl_config");
+        
+    var sc = await _db.GlAccounts.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlAccountId == glId)
+            ?? throw new DomainException($"General Ledger {glId} has no Gl_config");
 
-
-        if (p.GlId.HasValue)sc.GlId = p.GlId.Value;
-        if (!string.IsNullOrWhiteSpace(p.GlCode))sc.GlCode = p.GlCode;
-        if (!string.IsNullOrWhiteSpace(p.GlName))sc.GlName = p.GlName;
-        if (!string.IsNullOrWhiteSpace(p.GlDescription)) sc.GlDescription = p.GlDescription;
-
+        if (!string.IsNullOrWhiteSpace(p.Code)) sc.Code = p.Code;
+        if (!string.IsNullOrWhiteSpace(p.Name)) sc.Name = p.Name;
         if (p.Forbank.HasValue) sc.Forbank = p.Forbank.Value;
         if (p.IsReported.HasValue) sc.IsReported = p.IsReported.Value;
-        if (p.HasTransactions.HasValue) sc.IsReported = p.HasTransactions.Value;
+        if (p.HasTransactions.HasValue) sc.HasTransactions = p.HasTransactions.Value;
         if (p.HasGst.HasValue) sc.HasGst = p.HasGst.Value;
-        if (!string.IsNullOrWhiteSpace(p.Type)) sc.Type = p.Type;
-        if (!string.IsNullOrWhiteSpace(p.Status)) sc.status = p.Status;
-        if (p.ParentGl.HasValue)sc.ParentGl = p.ParentGl ?? 0;
-        sc.UpdatedBy = authorizedBy;
-        sc.UpdatedAt = DateTime.UtcNow;
+        sc.IsActive = p.IsActive ;
+        sc.ParentCode = p.ParentCode;
+
+        sc.AccountClass = Enum.TryParse<GlAccountClass>(p.AccountClass.ToString(), true, out var accountClass)
+            ? accountClass
+            : sc.AccountClass;
+
 
         sc.AuthorizedBy = authorizedBy;
         sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
     }
-
-
-
 }

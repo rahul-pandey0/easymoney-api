@@ -1,4 +1,5 @@
 using EasyMoney.Api.Auth;
+using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using EasyMoney.Api.Services;
@@ -16,10 +17,11 @@ public class AccountsController : ControllerBase
     private readonly ILedgerService _ledger;
     private readonly IExitService _exit;
     private readonly ITenantContext _ctx;
+    private readonly EasyMoneyDbContext _db;
 
-    public AccountsController(IAccountService accounts, ILedgerService ledger, IExitService exit, ITenantContext ctx)
+    public AccountsController(EasyMoneyDbContext db, IAccountService accounts, ILedgerService ledger, IExitService exit, ITenantContext ctx)
     {
-        _accounts = accounts; _ledger = ledger; _exit = exit; _ctx = ctx;
+        _accounts = accounts; _ledger = ledger; _exit = exit; _ctx = ctx; _db = db;
     }
 
     //[HttpPost("members/{memberId:long}/accounts"),
@@ -41,6 +43,19 @@ public class AccountsController : ControllerBase
     {
         try
         {
+
+            var existingAccount = await _accounts.GetMemberAsync(req.SchemeId, req.MemberId);
+
+            // If we get here, account exists - return error
+            if (existingAccount != null)
+            {
+                return BadRequest(new
+                {
+                   message = $"Account already exists,Please Select Other Member ID "
+                    //existingAccount = existingAccount
+                });
+            }
+
             // Create the payload from the request
             var payload = new AccountOpenPayload(
                 MemberId: memberId,
@@ -57,7 +72,8 @@ public class AccountsController : ControllerBase
                 BonusAmount: req.BonusAmount,
                 InterestAmount: req.InterestAmount,
                 TotalAmount: req.TotalAmount,
-                Remarks: req.Remarks
+                Remarks: req.Remarks,
+                SchemeId:req.SchemeId
             );
 
             var a = await _accounts.OpenAccountAsync(
@@ -106,7 +122,7 @@ public class AccountsController : ControllerBase
     {
         if (!Enum.TryParse<PaymentMethod>(req.Method, true, out var method))
             return BadRequest(new { error = "Invalid payment method" });
-        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req, method)); }
+        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId)); }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
@@ -121,5 +137,64 @@ public class AccountsController : ControllerBase
             return BadRequest(new { error = "Invalid refundMethod" });
         try { return Ok(await _exit.ProcessExitAsync(accountId, d, m)); }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    // In your controller, don't include AccountNumber in the update
+    [HttpPut("members/{memberId:long}/accounts/{accountId:long}")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    public async Task<IActionResult> UpdateAccount(
+       long memberId,
+       long accountId,
+       [FromBody] UpdateAccountRequest req)
+    {
+        try
+        {
+            // Get the existing account to use its account number
+            var existingAccount = await _accounts.GetSummaryAsync(accountId);
+
+            var payload = new AccountUpdatePayload(
+                MemberId: memberId,
+                MonthlyContribution: req.MonthlyContribution,
+                AccountOpenDate: req.AccountOpenDate,
+                AccountNumber: existingAccount.AccountNumber, // Use existing account number
+                OldAccountNo: req.OldAccountNo,
+                PhoneNo: req.PhoneNo,
+                CustomerName: req.CustomerName,
+                InterestRate: req.InterestRate,
+                TargetAmount: req.TargetAmount,
+                PaymentDate: req.PaymentDate,
+                PaidAmount: req.PaidAmount,
+                LoanAmount: req.LoanAmount,
+                BonusAmount: req.BonusAmount,
+                InterestAmount: req.InterestAmount,
+                TotalAmount: req.TotalAmount,
+                Remarks: req.Remarks,
+                //SchemeId: req.SchemeId,
+                TenureEndDate: req.TenureEndDate,
+                Status: req.Status,
+                InstallmentsPaid: req.InstallmentsPaid,
+                IsPrized: req.IsPrized,
+                ClosureDate: req.ClosureDate,
+                SchemeId:existingAccount.SchemeId
+
+
+            );
+
+            var updatedAccount = await _accounts.UpdateAccountAsync(
+                accountId: accountId,
+                memberId: memberId,
+                monthlyContribution: req.MonthlyContribution,
+                openDate: req.AccountOpenDate,
+                updateBy: _ctx.UserId,
+                authorizedBy: _ctx.UserId, // Fix: Added the missing 'authorizedBy' argument
+                payload: payload
+            );
+
+            return Ok(await _accounts.GetSummaryAsync(updatedAccount.AccountId));
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

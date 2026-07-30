@@ -139,6 +139,8 @@ public class SchemeConfig
     public decimal FixedRate { get; set; }
 
     public string? GstGl { get; set; }
+    public string? SchemeCode { get; set; }
+    public int? SchemeId  { get; set; }
 }
 
 
@@ -191,7 +193,9 @@ public class SchemeMaster
     //public string Tenant { get; set; } = null!;
     public string? SchemeName { get; set; }
     public decimal FixedRate { get; set; }
-    public string? GstGl { get; set; }
+    public string? GstGl { get; set; } 
+    public string? SchemeCode { get; set; } 
+
 }
 
 public class AppUser
@@ -522,6 +526,9 @@ public class Account
     public bool IsPrized { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public long? UpdatedBy { get; set; } 
+
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     //new columns
@@ -537,6 +544,7 @@ public class Account
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
+    public int?  SchemeId { get; set; }  
 }
 
 public class BiddingCycle
@@ -623,6 +631,10 @@ public class GlAccount
     public long? CreatedBy { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+    public bool Forbank { get; set; }
+    public bool IsReported { get; set; }
+    public bool HasTransactions { get; set; }
+    public bool HasGst { get; set; }
 }
 
 public class JournalEntry
