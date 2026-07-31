@@ -36,6 +36,13 @@ public interface IAccountingService
     // ---- Ledger / report reads ----
     Task<GlLedgerDto> GetGlLedgerAsync(long tenantId, string code, DateOnly? fromDate, DateOnly? toDate);
     Task<MemberAccountLedgerDto> GetMemberAccountLedgerAsync(long accountId, DateOnly? fromDate, DateOnly? toDate);
+
+     
+
+    Task<List<MemberAccountLedgerDto>> GetMemberAccountLedgerDetailsAsync(long accountId, DateOnly? fromDate, DateOnly? toDate);
+    Task<MemberAccountLedgerDto> GetMemberAccountLedgerDetailsAsync(long JournalId); 
+
+
     Task<TrialBalanceDto> GetTrialBalanceAsync(long tenantId, DateOnly asOf);
     Task<BalanceSheetDto> GetBalanceSheetAsync(long tenantId, DateOnly asOf);
     Task<IncomeStatementDto> GetIncomeStatementAsync(long tenantId, DateOnly from, DateOnly to);
@@ -456,6 +463,182 @@ public class AccountingService : IAccountingService
         }
         return new MemberAccountLedgerDto(acct.AccountId, acct.AccountNumber,
             fromDate, toDate, opening, running, totD, totC, lines);
+    }
+
+
+
+    public async Task<List<MemberAccountLedgerDto>> GetMemberAccountLedgerDetailsAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var accounts = await _db.Accounts.IgnoreQueryFilters()
+            .Where(a => a.TenantId == tenantId)
+            .ToListAsync();
+
+        if (!accounts.Any())
+            throw new DomainException($"No accounts found for tenant {tenantId}");
+
+        var result = new List<MemberAccountLedgerDto>();
+        var jl = _db.JournalLines.IgnoreQueryFilters();
+        var je = _db.JournalEntries.IgnoreQueryFilters();
+
+        foreach (var acct in accounts)
+        {
+            decimal opening = 0m;
+
+            // Opening balance for this account
+            if (fromDate.HasValue)
+            {
+                var fd = fromDate.Value;
+                var prior = await (
+                    from l in jl
+                    join j in je on l.JournalId equals j.JournalId
+                    where j.TenantId == tenantId && l.MemberAccountId == acct.AccountId && j.EntryDate < fd
+                    select new { l.Debit, l.Credit }
+                ).ToListAsync();
+                opening = Math.Round(prior.Sum(x => x.Credit - x.Debit), 2);
+            }
+
+            // Get transactions for this account
+            var q =
+                from l in jl
+                join j in je on l.JournalId equals j.JournalId
+                where j.TenantId == tenantId && l.MemberAccountId == acct.AccountId
+                select new { l, j };
+
+            if (fromDate.HasValue) q = q.Where(x => x.j.EntryDate >= fromDate.Value);
+            if (toDate.HasValue) q = q.Where(x => x.j.EntryDate <= toDate.Value);
+
+            var rows = await q.OrderBy(x => x.j.EntryDate).ThenBy(x => x.l.LineId).ToListAsync();
+
+            decimal running = opening;
+            decimal totD = 0m, totC = 0m;
+            var lines = new List<MemberAccountLedgerLineDto>();
+
+            foreach (var r in rows)
+            {
+                running += r.l.Credit - r.l.Debit;
+                running = Math.Round(running, 2);
+                totD += r.l.Debit; totC += r.l.Credit;
+                lines.Add(new MemberAccountLedgerLineDto(
+                    r.j.JournalId, r.j.EntryDate, r.j.SourceType.ToString(),
+                    (r.j.PaymentMethod ?? PaymentMethod.SYSTEM).ToString(),
+                    r.j.Description, r.l.Debit, r.l.Credit, running));
+            }
+
+            result.Add(new MemberAccountLedgerDto(
+                acct.AccountId, acct.AccountNumber,
+                fromDate, toDate, opening, running, totD, totC, lines));
+        }
+
+        return result;
+    }
+    public async Task<MemberAccountLedgerDto> GetMemberAccountLedgerDetailsAsync(long journalId)
+    {
+        // Get the journal entry first
+        var journalEntry = await _db.JournalEntries
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(j => j.JournalId == journalId);
+
+        if (journalEntry == null)
+            throw new DomainException($"Journal entry with ID {journalId} not found");
+
+        // Get all journal lines for this journal entry with MemberAccountId
+        var journalLines = await _db.JournalLines
+            .IgnoreQueryFilters()
+            .Where(l => l.JournalId == journalId && l.MemberAccountId.HasValue)
+            .ToListAsync();
+
+        if (!journalLines.Any())
+            throw new DomainException($"No member account lines found for journal ID {journalId}");
+
+        // Get all unique member account IDs from journal lines
+        var memberAccountIds = journalLines
+            .Select(l => l.MemberAccountId.Value)
+            .Distinct()
+            .ToList();
+
+        // Get account details for these member IDs
+        var accounts = await _db.Accounts
+            .IgnoreQueryFilters()
+            .Where(a => memberAccountIds.Contains(a.AccountId))
+            .ToDictionaryAsync(a => a.AccountId);
+
+        // Get all journal lines and entries for running balance calculation
+        var allJl = _db.JournalLines.IgnoreQueryFilters();
+        var allJe = _db.JournalEntries.IgnoreQueryFilters();
+
+        // Get the first account (assuming one account per journal)
+        var accountId = memberAccountIds.FirstOrDefault();
+        if (accountId == 0 || !accounts.TryGetValue(accountId, out var account))
+            throw new DomainException($"Account not found for journal ID {journalId}");
+
+        // Get all transactions for this account up to the journal entry date
+        var allTransactions = await (
+            from l in allJl
+            join j in allJe on l.JournalId equals j.JournalId
+            where j.TenantId == journalEntry.TenantId
+                && l.MemberAccountId == accountId
+                && j.EntryDate <= journalEntry.EntryDate
+            orderby j.EntryDate, l.LineId
+            select new
+            {
+                j.JournalId,
+                j.EntryDate,
+                j.SourceType,
+                j.PaymentMethod,
+                j.Description,
+                l.Debit,
+                l.Credit,
+                l.LineId
+            }
+        ).ToListAsync();
+
+        // Calculate opening balance (before this journal entry)
+        var openingBalance = allTransactions
+            .Where(t => t.EntryDate < journalEntry.EntryDate)
+            .Sum(t => t.Credit - t.Debit);
+        openingBalance = Math.Round(openingBalance, 2);
+
+        // Process transactions and calculate running balance
+        decimal runningBalance = openingBalance;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+        var lines = new List<MemberAccountLedgerLineDto>();
+
+        foreach (var transaction in allTransactions)
+        {
+            runningBalance += transaction.Credit - transaction.Debit;
+            runningBalance = Math.Round(runningBalance, 2);
+
+            // Only include lines from the requested journal
+            if (transaction.JournalId == journalId)
+            {
+                totalDebit += transaction.Debit;
+                totalCredit += transaction.Credit;
+
+                lines.Add(new MemberAccountLedgerLineDto(
+                    transaction.JournalId,
+                    transaction.EntryDate,
+                    transaction.SourceType.ToString(),
+                    (transaction.PaymentMethod ?? PaymentMethod.SYSTEM).ToString(),
+                    transaction.Description,
+                    transaction.Debit,
+                    transaction.Credit,
+                    runningBalance
+                ));
+            }
+        }
+
+        return new MemberAccountLedgerDto(
+            account.AccountId,
+            account.AccountNumber,
+            null, // fromDate not applicable
+            null, // toDate not applicable
+            openingBalance,
+            runningBalance,
+            Math.Round(totalDebit, 2),
+            Math.Round(totalCredit, 2),
+            lines
+        );
     }
 
     // ===========================================================
