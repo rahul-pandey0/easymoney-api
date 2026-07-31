@@ -22,9 +22,9 @@ public class Tenant
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     public SchemeConfig SchemeConfig { get; set; } = null!;
-    public bool? AuthorisationRequired { get; set; }
-    public bool? SmsNotification { get; set; }
-    public bool? EmailNotification { get; set; }
+    public bool AuthorisationRequired { get; set; }
+    public bool SmsNotification { get; set; }
+    public bool EmailNotification { get; set; }
 }
 public class GeneralLedgerMaster
 {

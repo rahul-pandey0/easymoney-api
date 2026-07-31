@@ -58,6 +58,37 @@ public class AccountingController : ControllerBase
         catch (DomainException ex) { return NotFound(new { error = ex.Message }); }
     }
 
+
+    // ============================================================
+    [HttpGet("accounts/{tenantId:long}/general-ledger")]
+    [Authorize(Roles = Roles.AnySifin + "," + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.OrgOperator + "," + Roles.Auditor + "," + Roles.Member)]
+    public async Task<ActionResult<List<MemberAccountLedgerDto>>> GetMemberAccountLedgerDetails( long tenantId,[FromQuery] DateOnly? from,[FromQuery] DateOnly? to)
+    {
+        try
+        {
+            // This returns List<MemberAccountLedgerDto>
+            var result = await _acc.GetMemberAccountLedgerDetailsAsync(tenantId, from, to);
+            return Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "An error occurred processing your request" });
+        }
+    }
+
+
+    [HttpGet("accounts/{journalId:long}/journal"),
+    Authorize(Roles = Roles.AnySifin + "," + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.OrgOperator + "," + Roles.Auditor + "," + Roles.Member)]
+    public async Task<ActionResult<MemberAccountLedgerDto>> GetJournalAccountData(long journalId) 
+    {
+        try { return Ok(await _acc.GetMemberAccountLedgerDetailsAsync(journalId)); }
+        catch (DomainException ex) { return NotFound(new { error = ex.Message }); }
+    }
+
     // ============================================================
     // Trial balance, balance sheet, income statement
     // ============================================================
