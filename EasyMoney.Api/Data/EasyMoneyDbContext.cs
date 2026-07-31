@@ -986,6 +986,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CashGlId)
                 .HasColumnName("cash_gl_id");
 
+            e.Property(x => x.TransferGlId)
+               .HasColumnName("transfer_gl_id");
+
+
             e.Property(x => x.AdjustmentGlId)
                 .HasColumnName("adjustment_gl_id");
 

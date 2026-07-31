@@ -876,6 +876,8 @@ public class Branch
 
     public long? CashGlId { get; set; }
 
+    public long? TransferGlId { get; set; }
+
     public DateOnly CutoffDate { get; set; }
 
     public DateOnly BiddingDate { get; set; }

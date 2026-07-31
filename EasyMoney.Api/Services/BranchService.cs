@@ -45,19 +45,40 @@ public class BranchService : IBranchService
                 ?? throw new DomainException("Tenant not found");
         }
 
+
+        // Generate Branch Code
+        var lastBranch = await _db.Branches
+            .IgnoreQueryFilters()
+            .Where(b => b.TenantId == tenantId)
+            .OrderByDescending(b => b.BranchId)
+            .FirstOrDefaultAsync();
+
+        int sequence = 1;
+
+        if (lastBranch != null)
+        {
+            sequence = int.Parse(lastBranch.BranchCode.Substring(3)) + 1;
+        }
+
+        var branchCode = $"{tenantId}{sequence:D3}";
+
+
+        // Check duplicate
         var exists = await _db.Branches
             .AnyAsync(x =>
                 x.TenantId == tenantId &&
-                x.BranchCode == request.BranchCode);
+                x.BranchCode == branchCode);
 
         if (exists)
-            throw new DomainException($"Branch code '{request.BranchCode}' already exists");
+            throw new DomainException($"Branch code '{branchCode}' already exists");
+
 
         var branch = new Branch
         {
             TenantId = tenantId,
 
-            BranchCode = request.BranchCode,
+            BranchCode = branchCode,   // <-- use generated code here
+
             BranchName = request.BranchName,
             BankId = request.BankId,
             RegistrationNo = request.RegistrationNo,
@@ -67,21 +88,29 @@ public class BranchService : IBranchService
             PhoneNumber = request.PhoneNumber,
             Email = request.Email,
             ReferenceNo = request.ReferenceNo,
+
             CashGlId = request.CashGlId,
             AdjustmentGlId = request.AdjustmentGlId,
+            TransferGlId = request.TransferGlId,
+
             BiddingDate = request.BiddingDate,
             CutoffDate = request.CutoffDate,
             BonusPaymentDate = request.BonusPaymentDate,
+
             Status = request.Status,
             MinimumRate = request.MinimumRate,
             MaximumRate = request.MaximumRate,
             Penalty = request.Penalty,
+
             DoublePaymentAllowed = request.DoublePaymentAllowed,
+
             MinimumInstallmentAmount = request.MinimumInstallmentAmount,
             MaximumInstallmentAmount = request.MaximumInstallmentAmount,
             MinimumIncrementAmount = request.MinimumIncrementAmount,
+
             OtherBank1 = request.OtherBank1,
             OtherBank2 = request.OtherBank2,
+
             CreatedAt = DateTime.UtcNow,
             CreatedBy = _ctx.UserId
                 ?? throw new DomainException("User is not authenticated")
@@ -138,6 +167,7 @@ public class BranchService : IBranchService
             x.ReferenceNo,
             x.CashGlId,
             x.AdjustmentGlId,
+            x.TransferGlId,
             x.BiddingDate,
             x.CutoffDate,
             x.BonusPaymentDate,
@@ -185,6 +215,7 @@ public class BranchService : IBranchService
 
         branch.CashGlId = request.CashGlId;
         branch.AdjustmentGlId = request.AdjustmentGlId;
+        branch. TransferGlId = request.TransferGlId;
 
         branch.BiddingDate = request.BiddingDate;
         branch.CutoffDate = request.CutoffDate;
@@ -227,6 +258,7 @@ public class BranchService : IBranchService
             branch.ReferenceNo,
             branch.CashGlId,
             branch.AdjustmentGlId,
+            branch.TransferGlId,
             branch.BiddingDate,
             branch.CutoffDate,
             branch.BonusPaymentDate,
