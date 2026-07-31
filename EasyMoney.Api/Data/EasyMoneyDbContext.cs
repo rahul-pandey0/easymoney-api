@@ -335,6 +335,9 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.Phone).HasColumnName("phone");
             e.Property(x => x.Email).HasColumnName("email");
             e.Property(x => x.PanNumber).HasColumnName("pan_number").HasMaxLength(10);
+            e.Property(x => x.IdType).HasColumnName("id_type");
+            e.Property(x => x.IdNumber).HasColumnName("id_number");
+            e.Property(x => x.AddressProof).HasColumnName("address_proof");
             e.Property(x => x.AddressLine).HasColumnName("address_line");
             e.Property(x => x.City).HasColumnName("city");
             e.Property(x => x.State).HasColumnName("state");
