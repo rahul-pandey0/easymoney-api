@@ -52,9 +52,32 @@ public class MemberService : IMemberService
         if (_ctx.TenantId is null)
             throw new DomainException("Tenant context required to create member");
 
+        var tenantId = _ctx.TenantId.Value;
+
+        // Generate Customer Identifier Code
+        var lastMember = await _db.Members
+            .IgnoreQueryFilters()
+            .Where(x => x.TenantId == tenantId)
+            .OrderByDescending(x => x.MemberId)
+            .FirstOrDefaultAsync();
+
+        int sequence = 1;
+
+        if (lastMember != null &&
+            !string.IsNullOrEmpty(lastMember.CustomerIdentifierCode))
+        {
+            sequence = int.Parse(lastMember.CustomerIdentifierCode[^5..]) + 1;
+        }
+
+        var customerIdentifierCode = $"{tenantId}{sequence:D5}";
+
+
         var m = new Member
         {
-            TenantId = _ctx.TenantId.Value,
+            TenantId = tenantId,
+
+            CustomerIdentifierCode = customerIdentifierCode,
+
             MemberType = req.MemberType,
             FullName = req.FullName,
             Phone = req.Phone,
@@ -67,14 +90,22 @@ public class MemberService : IMemberService
             BankAccountNo = req.BankAccountNo,
             BankIfsc = req.BankIfsc,
             BankHolderName = req.BankHolderName,
+
             KycTier = KycTier.MINIMAL,
             KycStatus = KycStatus.PENDING,
-           
         };
+
         _db.Members.Add(m);
+
         await _db.SaveChangesAsync();
-        _log.LogInformation("Created member {Mid} (tenant {Tid}, type {Type})",
-            m.MemberId, m.TenantId, m.MemberType);
+
+        _log.LogInformation(
+            "Created member {Mid} with code {Code} (tenant {Tid}, type {Type})",
+            m.MemberId,
+            m.CustomerIdentifierCode,
+            m.TenantId,
+            m.MemberType);
+
         return m;
     }
 
@@ -155,7 +186,7 @@ public class MemberService : IMemberService
     }
 
     public static MemberDto ToDto(Member m) => new(
-        m.MemberId, m.TenantId, m.MemberType.ToString(),
+        m.MemberId, m.TenantId, m.CustomerIdentifierCode,m.MemberType.ToString(),
         m.FullName, m.Phone, m.Email,m.PanNumber,
         m.AddressLine, m.City, m.State, m.Pincode,
         m.KycTier.ToString(), m.KycStatus.ToString(),

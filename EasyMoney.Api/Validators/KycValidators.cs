@@ -92,13 +92,13 @@ public class UpsertCorporateKycRequestValidator : AbstractValidator<UpsertCorpor
         RuleForEach(x => x.Directors)
             .SetValidator(new CorporateDirectorRequestValidator());
 
-        // Beneficial Owners
-        RuleForEach(x => x.BeneficialOwners)
-            .SetValidator(new CorporateBeneficialOwnerRequestValidator());
+        //// Beneficial Owners
+        //RuleForEach(x => x.BeneficialOwners)
+        //    .SetValidator(new CorporateBeneficialOwnerRequestValidator());
 
-        // Authorized Signatories
-        RuleForEach(x => x.AuthorizedSignatories)
-            .SetValidator(new CorporateAuthorizedSignatoryRequestValidator());
+        //// Authorized Signatories
+        //RuleForEach(x => x.AuthorizedSignatories)
+        //    .SetValidator(new CorporateAuthorizedSignatoryRequestValidator());
     }
     public class CorporateAuthorizedSignatoryRequestValidator
     : AbstractValidator<CorporateAuthorizedSignatoryRequest>
