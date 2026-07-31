@@ -117,6 +117,7 @@ public record UpdateMemberRequest(
 public record MemberDto(
     long MemberId,
     long TenantId,
+    string CustomerIdentiferCode,
     string MemberType,
     string FullName,
     string Phone,
