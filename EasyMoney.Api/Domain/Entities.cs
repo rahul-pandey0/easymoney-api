@@ -229,6 +229,7 @@ public class Member
 {
     public long MemberId { get; set; }
     public long TenantId { get; set; }
+    public string CustomerIdentifierCode { get; set; } = string.Empty;
     public MemberType MemberType { get; set; }
     public string FullName { get; set; } = null!;
     public string Phone { get; set; } = null!;

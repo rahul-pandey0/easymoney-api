@@ -329,6 +329,7 @@ public class EasyMoneyDbContext : DbContext
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.CustomerIdentifierCode).HasColumnName("customer_identifier_code").HasMaxLength(20).IsRequired();
             e.Property(x => x.MemberType).HasColumnName("member_type").HasConversion<string>();
             e.Property(x => x.FullName).HasColumnName("full_name");
             e.Property(x => x.Phone).HasColumnName("phone");
