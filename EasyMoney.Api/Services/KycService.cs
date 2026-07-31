@@ -274,33 +274,33 @@ public class KycService : IKycService
             .ToList();
         _db.CorporateBeneficialOwners.RemoveRange(detail.BeneficialOwners);
 
-        detail.BeneficialOwners = (req.BeneficialOwners ?? new List<CorporateBeneficialOwnerRequest>())
-             .Select(x => new CorporateBeneficialOwner
-            {
-                MemberId = memberId,
-                Name = x.Name,
-                OwnershipPercentage = x.OwnershipPercentage,
-                Pan = x.Pan,
-                Din = x.Din,
-                Nationality = x.Nationality,
-                Address = x.Address
-            })
-            .ToList();
-        _db.CorporateAuthorizedSignatories.RemoveRange(detail.AuthorizedSignatories);
+        //detail.BeneficialOwners = (req.BeneficialOwners ?? new List<CorporateBeneficialOwnerRequest>())
+        //     .Select(x => new CorporateBeneficialOwner
+        //    {
+        //        MemberId = memberId,
+        //        Name = x.Name,
+        //        OwnershipPercentage = x.OwnershipPercentage,
+        //        Pan = x.Pan,
+        //        Din = x.Din,
+        //        Nationality = x.Nationality,
+        //        Address = x.Address
+        //    })
+        //    .ToList();
+        //_db.CorporateAuthorizedSignatories.RemoveRange(detail.AuthorizedSignatories);
 
-        detail.AuthorizedSignatories = (req.AuthorizedSignatories ?? new List<CorporateAuthorizedSignatoryRequest>())
-            .Select(x => new CorporateAuthorizedSignatory
-            {
-                MemberId = memberId,
-                Name = x.Name,
-                Designation = x.Designation,
-                Pan = x.Pan,
-                Din = x.Din,
-                Email = x.Email,
-                PhoneNumber = x.PhoneNumber,
-                AadhaarLast4 = x.AadhaarLast4
-            })
-            .ToList();
+        //detail.AuthorizedSignatories = (req.AuthorizedSignatories ?? new List<CorporateAuthorizedSignatoryRequest>())
+        //    .Select(x => new CorporateAuthorizedSignatory
+        //    {
+        //        MemberId = memberId,
+        //        Name = x.Name,
+        //        Designation = x.Designation,
+        //        Pan = x.Pan,
+        //        Din = x.Din,
+        //        Email = x.Email,
+        //        PhoneNumber = x.PhoneNumber,
+        //        AadhaarLast4 = x.AadhaarLast4
+        //    })
+        //    .ToList();
 
 
         await _db.SaveChangesAsync();
