@@ -17,7 +17,7 @@ public interface IAccountService
 
     /// <summary>Transition account.status to COMPLETED. Called by MonthlyCycleJob on tenure end.</summary>
     Task CompleteTenureAsync(long accountId);
-    Task<AccountSummaryDto> GetMemberAsync(int schemeId, long memberId);
+    Task<Account> GetMemberAsync(int schemeId, long memberId);
 
 
 }
@@ -144,6 +144,8 @@ public class AccountService : IAccountService
 
         if (scheme.KycMode == KycMode.FULL_ONLY && member.KycTier != KycTier.FULL)
             throw new DomainException("Tenant policy (FULL_ONLY) requires kyc_tier=FULL");
+
+
 
         // Store old values for audit
         var oldValues = new
@@ -308,16 +310,23 @@ public class AccountService : IAccountService
         return await BuildSummaryAsync(a);
     }
 
-
-    public async Task<AccountSummaryDto> GetMemberAsync(int schemeId, long memberId)
+    public async Task<Account> GetMemberAsync(int schemeId, long memberId)
     {
         var account = await _db.Accounts
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(x => x.SchemeId == schemeId && x.MemberId == memberId)
-            ?? throw new DomainException($"Member with ID {memberId} not found in scheme {schemeId}");
+            .FirstOrDefaultAsync(x => x.SchemeId == schemeId && x.MemberId == memberId);
 
-        return await BuildSummaryAsync(account);
+        return account; // Returns null or the entity
     }
+    //public async Task<AccountSummaryDto> GetMemberAsync(int schemeId, long memberId)
+    //{
+    //    var account = await _db.Accounts
+    //        .IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(x => x.SchemeId == schemeId && x.MemberId == memberId);
+    //        //?? throw new DomainException($"Member with ID {memberId} not found in scheme {schemeId}");
+
+    //    return(account);
+    //}
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByMemberAsync(long memberId)
     {
         var accts = await _db.Accounts.IgnoreQueryFilters()
