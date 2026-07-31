@@ -8,7 +8,7 @@ namespace EasyMoney.Api.Dtos;
 
 public record CreateBranchRequest(
     long TenantId,
-    string BranchCode,
+    string? BranchCode,
     string BranchName,
     long BankId,
     string? RegistrationNo,
@@ -20,6 +20,7 @@ public record CreateBranchRequest(
     string? Email,
     string? ReferenceNo,
     long? CashGlId,
+    long? TransferGlId,
     long? AdjustmentGlId,
     DateOnly BiddingDate,
     DateOnly CutoffDate,
@@ -37,7 +38,7 @@ public record CreateBranchRequest(
 );
 
 public record UpdateBranchRequest(
-    string BranchCode,
+    string? BranchCode,
     string BranchName,
     long BankId,
     string? RegistrationNo,
@@ -49,6 +50,7 @@ public record UpdateBranchRequest(
     string? Email,
     string? ReferenceNo,
     long? CashGlId,
+    long? TransferGlId,
     long? AdjustmentGlId,
     DateOnly BiddingDate,
     DateOnly CutoffDate,
@@ -68,7 +70,7 @@ public record UpdateBranchRequest(
 public record BranchDto(
     long BranchId,
     long TenantId,
-    string BranchCode,
+    string? BranchCode,
     string BranchName,
     long? BankId,
     string? RegistrationNo,
@@ -81,6 +83,7 @@ public record BranchDto(
     string? ReferenceNo,
     long? CashGlId,
     long? AdjustmentGlId,
+    long? TransferGlId,
     DateOnly BiddingDate,
     DateOnly CutoffDate,
     DateOnly? BonusPaymentDate,
