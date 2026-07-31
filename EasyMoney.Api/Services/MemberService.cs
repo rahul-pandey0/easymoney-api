@@ -83,6 +83,9 @@ public class MemberService : IMemberService
             Phone = req.Phone,
             Email = req.Email,
             PanNumber = req.PanNumber,
+            IdType=req.IdType,
+            IdNumber=req.IdNumber,
+            AddressProof=req.AddressProof,
             AddressLine = req.AddressLine,
             City = req.City,
             State = req.State,
@@ -90,7 +93,6 @@ public class MemberService : IMemberService
             BankAccountNo = req.BankAccountNo,
             BankIfsc = req.BankIfsc,
             BankHolderName = req.BankHolderName,
-
             KycTier = KycTier.MINIMAL,
             KycStatus = KycStatus.PENDING,
         };
@@ -187,7 +189,7 @@ public class MemberService : IMemberService
 
     public static MemberDto ToDto(Member m) => new(
         m.MemberId, m.TenantId, m.CustomerIdentifierCode,m.MemberType.ToString(),
-        m.FullName, m.Phone, m.Email,m.PanNumber,
+        m.FullName, m.Phone, m.Email,m.PanNumber,m.IdType,m.IdNumber,m.AddressProof,
         m.AddressLine, m.City, m.State, m.Pincode,
         m.KycTier.ToString(), m.KycStatus.ToString(),
         m.KycApprovedAt, m.KycApprovedBy,

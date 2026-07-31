@@ -235,7 +235,10 @@ public class Member
     public string Phone { get; set; } = null!;
     public string? Email { get; set; }
     public string? PanNumber { get; set; }
+    public string? IdType { get; set; }
+    public string? IdNumber { get; set; }
     public string? AddressLine { get; set; }
+    public string? AddressProof { get; set; }
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Pincode { get; set; }
