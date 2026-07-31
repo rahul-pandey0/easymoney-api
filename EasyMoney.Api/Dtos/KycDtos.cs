@@ -288,13 +288,13 @@ public record UpsertCorporateKycRequest(
     List<CorporateContactDetailRequest> ContactDetails,
 
     // Directors
-    List<CorporateDirectorRequest> Directors,
+    List<CorporateDirectorRequest> Directors
 
     // Beneficial Owners
-    List<CorporateBeneficialOwnerRequest> BeneficialOwners,
+    //List<CorporateBeneficialOwnerRequest> BeneficialOwners,
 
-    // Authorized Signatories
-    List<CorporateAuthorizedSignatoryRequest> AuthorizedSignatories
+    //// Authorized Signatories
+    //List<CorporateAuthorizedSignatoryRequest> AuthorizedSignatories
 );
 public record RegisteredOfficeRequest(
     string? AddressLine1,
