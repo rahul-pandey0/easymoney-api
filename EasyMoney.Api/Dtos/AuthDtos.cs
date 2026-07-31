@@ -60,14 +60,9 @@ public record CreateTenantRequest(
     string? ContactPersonPhone,
     DateOnly? StartDate,
     DateOnly? EffectiveDate, 
-    bool? AuthorisationRequired,
-    bool? SmsNotification,
-    bool? EmailNotification
-
-
-
-
-
+    bool AuthorisationRequired,
+    bool SmsNotification,
+    bool EmailNotification
     );
 
 public record TenantDto(
@@ -86,9 +81,9 @@ public record TenantDto(
     long? CreatedBy,
     long? AuthorizedBy,
     DateTime? AuthorizedAt,
-    bool? AuthorisationRequired,
-    bool? SmsNotification,
-    bool? EmailNotification
+    bool AuthorisationRequired,
+    bool SmsNotification,
+    bool EmailNotification
 );
 
 

@@ -86,9 +86,9 @@ public class TenantService : ITenantService
             CreatedBy = createdBy,
             AuthorizedBy = isSuperAdmin ? createdBy : null,
             AuthorizedAt = isSuperAdmin ? DateTime.UtcNow  : null,
-            AuthorisationRequired = req.AuthorisationRequired ?? false,
-            SmsNotification = req.SmsNotification ?? false,
-            EmailNotification = req.EmailNotification ?? false
+            AuthorisationRequired = req.AuthorisationRequired ,
+            SmsNotification = req.SmsNotification ,
+            EmailNotification = req.EmailNotification,
         };
         _db.Tenants.Add(t);
         await _db.SaveChangesAsync();
