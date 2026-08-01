@@ -90,9 +90,9 @@ public record TenantDto(
 
 public record GeneralLedgerDto(
     int ? GlId,
-    string? GlCode,
-    string? GlName,  
-    string? GlDescription,
+    string? Code, 
+    string? Name,  
+    string? Description,
     bool? Forbank,
     string? Category,
     bool? IsReported,
