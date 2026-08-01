@@ -111,7 +111,8 @@ public record UserCreatePayload(
     string Email,
     string Password,
     string Role,
-    long? MemberId);
+    long? MemberId,
+    long? BranchId);
 
 public record UserRoleChangePayload(string NewRole);
 
