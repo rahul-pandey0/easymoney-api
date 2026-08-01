@@ -548,7 +548,9 @@ public class Account
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
-    public int?  SchemeId { get; set; }  
+    public int?  SchemeId { get; set; }
+    public int? BranchId { get; set; }
+
 }
 
 public class BiddingCycle

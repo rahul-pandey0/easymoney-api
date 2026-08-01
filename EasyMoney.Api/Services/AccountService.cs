@@ -375,6 +375,6 @@ public class AccountService : IAccountService
             eligibleToBid, eligibleForDividend,
             corpus, loan?.CycleId,a.CreatedAt, a.OldAccountNo, a.PhoneNo, a.CustomerName, a.InterestRate, a.TargetAmount,
             a.PaymentDate, a.PaidAmount,a.LoanAmount,a.BonusAmount, a.InterestAmount,
-            a.TotalAmount, a.Remarks ,a.SchemeId);   
+            a.TotalAmount, a.Remarks ,a.SchemeId,a.BranchId);   
     }
 }

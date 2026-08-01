@@ -10,7 +10,9 @@ namespace EasyMoney.Api.Services;
 public interface IMemberService
 {
     Task<Member> CreateAsync(CreateMemberRequest req);
-    Task<Member?> GetAsync(long memberId);     
+    Task<Member?> GetAsync(long memberId);
+    Task<Member?> GetByAsync(string customerId);
+
     //Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<PagedResult<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
@@ -113,6 +115,26 @@ public class MemberService : IMemberService
 
     public Task<Member?> GetAsync(long memberId) =>
         _db.Members.FirstOrDefaultAsync(m => m.MemberId == memberId);
+
+    public async Task<Member?> GetByAsync(string customerId)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+            return null;
+
+        try
+        {
+            // Use SingleOrDefaultAsync for better error detection
+            var member = await _db.Members.SingleOrDefaultAsync(m =>
+                m.CustomerIdentifierCode == customerId);
+
+            return member;
+        }
+        catch (InvalidOperationException ex)
+        {
+          
+            throw;
+        }
+    }
 
     //public async Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take)
     //{
