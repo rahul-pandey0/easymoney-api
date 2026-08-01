@@ -266,9 +266,9 @@ public class EasyMoneyDbContext : DbContext
             e.ToTable("general_ledger_master");
             e.HasKey(x => x.GlId);
             e.Property(x => x.GlId).HasColumnName("gl_id");
-            e.Property(x => x.GlCode).HasColumnName("gl_code");
-            e.Property(x => x.GlName).HasColumnName("gl_name");
-            e.Property(x => x.GlDescription).HasColumnName("gl_description"); 
+            e.Property(x => x.Code).HasColumnName("code");
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.Description).HasColumnName("description"); 
             e.Property(x => x.Forbank).HasColumnName("for_bank");
             e.Property(x => x.Category).HasColumnName("category").HasConversion<string>();
             e.Property(x => x.IsReported).HasColumnName("is_reported");

@@ -34,17 +34,17 @@ public interface ITenantService
     //gl creation  
     //Task<GeneralLedgerMaster> GetByIdAsync(int glId);
     //Task<GeneralLedgerMaster> GetGlAsync();
-    Task<IReadOnlyList<GlAccount>> GetAllGLSummariesAsync();
+    Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync();
       Task<GeneralLedgerMaster> GetGlAsync();
     Task<GeneralLedgerMaster> GetGlAsync(int glId);
 
-    Task CreateGl(GlAccountDto req, long? authorizedBy);  
-    Task UpdateProductAsync(int glId, GlAccountDto p, long? authorizedBy);
+    Task CreateGl(GeneralLedgerDto req, long? authorizedBy);  
+    Task UpdateProductAsync(int glId, GeneralLedgerMaster p, long? authorizedBy);
 
 
     //Task<GlAccount> GetTenantGLAccountAsync(long tenantId);
     Task<IReadOnlyList<GlAccount>> GetTenantGLAccountsAsync(long tenantId);
-    Task<GlAccount> GetGLSummaryByIdAsync(int glId);
+    Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId);
 
     Task<GlAccount> GetGldata(long glId);
     Task<GlAccount> GetGlcreateAsync(); 
@@ -844,13 +844,33 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         await _db.SaveChangesAsync();
     }
 
-    public async Task<IReadOnlyList<GlAccount>> GetAllGLSummariesAsync()
+    public async Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync()
     {
-        var gl = await _db.GlAccounts  
-            .AsNoTracking()
-            .ToListAsync();
+        var gl = await _db.GeneralLedgerMaster.AsNoTracking().ToListAsync();
 
-        return gl; 
+        var glDtos = gl.Select(g => new GeneralLedgerMaster
+        {
+            //GlId = g.GlId,
+            Code = g.Code,
+            Name = g.Name,
+            Description = g.Description,
+            Forbank = g.Forbank,
+            Category = g.Category,
+            IsReported = g.IsReported,
+            HasTransactions = g.HasTransactions,
+            HasGst = g.HasGst,
+            CreatedAt = g.CreatedAt,
+            CreatedBy = g.CreatedBy,
+            UpdatedAt = g.UpdatedAt,
+            UpdatedBy = g.UpdatedBy,
+            AuthorizedAt = g.AuthorizedAt,
+            AuthorizedBy = g.AuthorizedBy,
+            status = g.status,
+            ParentGl = g.ParentGl,
+            Type = g.Type
+        }).ToList();
+
+        return (IReadOnlyList<GeneralLedgerMaster>)gl;
     }
     public async Task<IReadOnlyList<GlAccount>> GetTenantGLAccountsAsync(long tenantId)
     {
@@ -863,10 +883,10 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
 
         return glAccounts;
     }
-    public async Task<GlAccount> GetGLSummaryByIdAsync(int glId)
+    public async Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId)
     {
-        var gl = await _db.GlAccounts.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.GlAccountId == glId);
+        var gl = await _db.GeneralLedgerMaster.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.GlId == glId);
 
         if (gl == null)
             throw new DomainException($"General_ledger with ID {glId} not found");
@@ -874,16 +894,18 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         return gl; // Corrected to return the GeneralLedgerMaster entity directly  
     }
 
-    public async Task CreateGl(GlAccountDto p, long? authorizedBy) 
+    public async Task CreateGl(GeneralLedgerDto p, long? authorizedBy) 
     {
-        var schemedata = new GlAccount
+        var schemedata = new GeneralLedgerMaster
         {
             Code = p.Code,
             Name = p.Name,
-            ParentCode = p.ParentCode,
+            ParentGl = p.ParentGl,
+            Description= p.Description,
             //AccountClass = GlAccountClass.LIABILITY??"",
             //AccountClass = p.AccountClass ?? GlAccountClass.LIABILITY.ToString(),
-            AccountClass = Enum.TryParse<GlAccountClass>(p.AccountClass, true, out var accountClass) ? accountClass : GlAccountClass.ASSET,
+            //AccountClass = Enum.TryParse<GlAccountClass>(p.AccountClass, true, out var accountClass) ? accountClass : GlAccountClass.ASSET,
+            Category = p.Category,
             Forbank = p.Forbank ?? false,
             IsReported = p.IsReported ?? false,
             HasTransactions = p.HasTransactions ?? false,
@@ -891,12 +913,12 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             AuthorizedBy = authorizedBy,
             AuthorizedAt = DateTime.UtcNow,
             CreatedBy = authorizedBy,
-            
-            TenantId = p.TenantId,
+            status=p.Status,
+            //TenantId = p.TenantId,
 
         };
 
-        _db.GlAccounts.Add(schemedata);
+        _db.GeneralLedgerMaster.Add(schemedata);
 
         try
         {
@@ -908,10 +930,10 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         }
     }
 
-    public async Task UpdateProductAsync(int glId, GlAccountDto p, long? authorizedBy)
+    public async Task UpdateProductAsync(int glId, GeneralLedgerMaster p, long? authorizedBy)
     {
         
-    var sc = await _db.GlAccounts.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlAccountId == glId)
+    var sc = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == glId)
             ?? throw new DomainException($"General Ledger {glId} has no Gl_config");
 
         if (!string.IsNullOrWhiteSpace(p.Code)) sc.Code = p.Code;
@@ -920,12 +942,13 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         if (p.IsReported.HasValue) sc.IsReported = p.IsReported.Value;
         if (p.HasTransactions.HasValue) sc.HasTransactions = p.HasTransactions.Value;
         if (p.HasGst.HasValue) sc.HasGst = p.HasGst.Value;
-        sc.IsActive = p.IsActive ;
-        sc.ParentCode = p.ParentCode;
-
-        sc.AccountClass = Enum.TryParse<GlAccountClass>(p.AccountClass.ToString(), true, out var accountClass)
-            ? accountClass
-            : sc.AccountClass;
+        sc.status = p.status ;
+        sc.ParentGl = p.ParentGl;
+        sc.Category = p.Category;
+        sc.Description = p.Description;
+        //sc.Category = Enum.TryParse<GlAccountClass>(p.AccountClass.ToString(), true, out var accountClass)
+        //    ? accountClass
+        //    : sc.AccountClass;
 
 
         sc.AuthorizedBy = authorizedBy;

@@ -29,14 +29,14 @@ public class Tenant
 public class GeneralLedgerMaster
 {
     public int GlId { get; set; } 
-    public string? GlCode { get; set; } = null!;
-    public string? GlName { get; set; } = null!;  
-    public string? GlDescription { get; set; }
-    public bool Forbank { get; set; }
-    public string? Category { get; set; }
-    public bool IsReported { get; set; }
-    public bool HasTransactions { get; set; }
-    public bool HasGst { get; set; }
+    public string? Code { get; set; } = null!;
+    public string? Name { get; set; } = null!;  
+    public string? Description { get; set; }
+    public bool? Forbank { get; set; }
+    public string Category { get; set; }
+    public bool? IsReported { get; set; }
+    public bool? HasTransactions { get; set; }
+    public bool? HasGst { get; set; }
     public DateTime? CreatedAt { get; set; }
     public long? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
