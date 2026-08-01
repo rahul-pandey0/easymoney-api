@@ -46,7 +46,7 @@ public interface ITenantService
     Task<IReadOnlyList<GlAccount>> GetTenantGLAccountsAsync(long tenantId);
     Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId);
 
-    Task<GlAccount> GetGldata(long glId);
+    Task<GeneralLedgerMaster> GetGldata(long glId);
     Task<GlAccount> GetGlcreateAsync(); 
 
 
@@ -593,8 +593,8 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
     await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == glId)
     ?? throw new DomainException($"SCheme No Found");
 
-    public async Task<GlAccount> GetGldata(long glId) =>
-            await _db.GlAccounts.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlAccountId == glId)
+    public async Task<GeneralLedgerMaster> GetGldata(long glId) =>
+            await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.GlId == glId)
             ?? throw new DomainException($"SCheme No Found");
 
     private ProductSummaryDto MapToDto(SchemeMaster scheme)
@@ -896,9 +896,17 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
 
     public async Task CreateGl(GeneralLedgerDto p, long? authorizedBy) 
     {
+        string prefix = GetCategoryPrefix(p.Category);
+
+        // Get the next running number for this category
+        int nextNumber = await GetNextRunningNumber(p.Category);
+
+        // Generate the code (e.g., "1001", "2001", etc.)
+        string generatedCode = $"{prefix}{nextNumber:D3}";
+
         var schemedata = new GeneralLedgerMaster
         {
-            Code = p.Code,
+            Code = generatedCode,
             Name = p.Name,
             ParentGl = p.ParentGl,
             Description= p.Description,
@@ -954,5 +962,47 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
         sc.AuthorizedBy = authorizedBy;
         sc.AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
+    }
+
+    private string GetCategoryPrefix(string category)
+    {
+        return category?.ToUpper() switch
+        {
+            "ASSET" => "1",
+            "LIABILITY" => "2",
+            "INCOME" => "3",
+            "EXPENSE" => "4",
+            "EQUITY" => "5",
+            _ => throw new ArgumentException($"Invalid category: {category}")
+        };
+    }
+
+    private async Task<int> GetNextRunningNumber(string category)
+    {
+        // Get the prefix for this category
+        string prefix = GetCategoryPrefix(category);
+
+        // Find the maximum code for this category
+        var maxCode = await _db.GeneralLedgerMaster
+            .Where(g => g.Category == category && g.Code.StartsWith(prefix))
+            .Select(g => g.Code)
+            .OrderByDescending(c => c)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrEmpty(maxCode))
+        {
+            // No existing records for this category, start from 1
+            return 1;
+        }
+
+        // Extract the numeric part (after the prefix)
+        string numberPart = maxCode.Substring(prefix.Length);
+        if (int.TryParse(numberPart, out int currentMax))
+        {
+            return currentMax + 1;
+        }
+
+        // If parsing fails, start from 1
+        return 1;
     }
 }
