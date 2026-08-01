@@ -29,7 +29,8 @@ public record CreateUserRequest(
     string Password,
     string Role,
     long? TenantId,   // ignored when caller is ORG_ADMIN (forced to caller's tenant)
-    long? MemberId);
+    long? MemberId,
+    long? BranchId);
 
 public record UserDto(
     long UserId,
@@ -37,6 +38,9 @@ public record UserDto(
     long? MemberId,
     string Email,
     string? Name,
+    string? UserName,
+    long? BranchId,
+    string? BranchName,
     string? TenantName,
     string Role,
     bool IsActive,

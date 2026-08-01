@@ -201,8 +201,12 @@ public class SchemeMaster
 public class AppUser
 {
     public long UserId { get; set; }
+    public string? UserName { get; set; }
+ 
+    public Branch? Branch { get; set; }
     public long? TenantId { get; set; }
     public long? MemberId { get; set; }
+    public long? BranchId { get; set; }
     public string Email { get; set; } = null!;
     public string PasswordHash { get; set; } = null!;
     public UserRole Role { get; set; }
