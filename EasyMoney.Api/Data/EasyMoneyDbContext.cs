@@ -292,6 +292,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.UserId).HasColumnName("user_id");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
             e.Property(x => x.MemberId).HasColumnName("member_id");
+            e.Property(x => x.UserName).HasColumnName("user_name");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.Email).HasColumnName("email");
             e.Property(x => x.PasswordHash).HasColumnName("password_hash");
             e.Property(x => x.Role).HasColumnName("role").HasConversion<string>();
@@ -300,6 +302,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.HasOne(u => u.Branch).WithMany().HasForeignKey(u => u.BranchId).OnDelete(DeleteBehavior.Restrict);
             b.Entity<AppUser>()
     .HasOne(u => u.Member)
     .WithMany()
