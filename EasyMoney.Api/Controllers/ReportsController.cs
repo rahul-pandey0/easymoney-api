@@ -6,7 +6,7 @@ using EasyMoney.Api.Domain;
 namespace EasyMoney.Api.Controllers
 {
     [ApiController]
-    [Route("api/v1")]
+    [Route("api/v1/reports")]
     public class ReportsController : ControllerBase
     {
         private readonly IAccountingService _acc;
