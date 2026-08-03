@@ -48,8 +48,12 @@ public interface IAccountingService
     Task<IncomeStatementDto> GetIncomeStatementAsync(long tenantId, DateOnly from, DateOnly to);
 
     Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
-    long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
-
+            long? tenantId = null,    
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
 
     //Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
     //Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
@@ -835,38 +839,80 @@ public class AccountingService : IAccountingService
     }
 
     public async Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
-        long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate)
+        long? tenantId = null,
+        long? branchId = null,
+        string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
     {
-        var query = from je in _db.JournalEntries
-                    join jl in _db.JournalLines on je.JournalId equals jl.JournalId
-                    where je.TenantId == tenantId
-                    select new PaymentReportDto
-                    {
-                        JournalId = je.JournalId,
-                        EntryDate = je.EntryDate,
-                        SourceType = je.SourceType.ToString(),
-                        PaymentMethod = je.PaymentMethod.ToString(),
-                        Description = je.Description,
-                        Debit = jl.Debit,
-                        Credit = jl.Credit
-                    };
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
 
-        if (branchId.HasValue)
-            query = query.Where(x => x.BranchId == branchId.Value); // Add BranchId to DTO and query if needed
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            tenantId = _tenantCtx.TenantId;
+        }
 
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
+
+        // ✅ Start with query - use proper joins
+        var query = from je in _db.JournalEntries.IgnoreQueryFilters()
+                    join jl in _db.JournalLines.IgnoreQueryFilters()
+                        on je.JournalId equals jl.JournalId
+                    select new { je, jl };
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(x => x.je.TenantId == tenantId.Value);
+
+        // ✅ Apply branch filter on JournalEntry (not DTO)
+        //if (branchId.HasValue)
+        //    query = query.Where(x => x.je.BranchId == branchId.Value);
+
+        // Apply source type filter if provided
         if (!string.IsNullOrEmpty(type))
-            query = query.Where(x => x.SourceType == type);
+        {
+            if (Enum.TryParse<JournalSourceType>(type, true, out var sourceType))
+            {
+                query = query.Where(x => x.je.SourceType == sourceType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(JournalSourceType)));
+                throw new DomainException($"Invalid SourceType: '{type}'. Valid values: {validValues}");
+            }
+        }
 
+        // Apply date filters if provided
         if (fromDate.HasValue)
-            query = query.Where(x => x.EntryDate >= fromDate.Value);
+            query = query.Where(x => x.je.EntryDate >= fromDate.Value);
 
         if (toDate.HasValue)
-            query = query.Where(x => x.EntryDate <= toDate.Value);
+            query = query.Where(x => x.je.EntryDate <= toDate.Value);
 
-        return await query.ToListAsync();
+        // ✅ Project to DTO after all filters
+        return await query.Select(x => new PaymentReportDto
+        {
+            JournalId = x.je.JournalId,
+            TenantId = x.je.TenantId,
+            //BranchId = x.je.BranchId,        // ✅ Include BranchId
+            EntryDate = x.je.EntryDate,
+            SourceType = x.je.SourceType.ToString(),
+            PaymentMethod = x.je.PaymentMethod.ToString(),
+            Description = x.je.Description,
+            Debit = x.jl.Debit,
+            Credit = x.jl.Credit,
+            Amount = x.jl.RunningBalance
+            status
+        }).ToListAsync();
     }
 
- 
+
     public async Task<IEnumerable<KycReportDto>> GetKycReportAsync(
     long? tenantId = null,
     long? branchId = null,

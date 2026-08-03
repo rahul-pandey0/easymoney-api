@@ -17,13 +17,7 @@ namespace EasyMoney.Api.Controllers
             _acc = acc; _ctx = ctx;
         }
 
-        [HttpPost("payment-report")]
-        public async Task<IActionResult> GetPaymentReport([FromBody] ReportFilterPayload payload)
-        {
-            var report = await _acc.GetPaymentReportAsync(
-                payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
-            return Ok(report);
-        }
+
 
 
         [HttpPost("kyc-report")]
@@ -38,6 +32,14 @@ namespace EasyMoney.Api.Controllers
         public async Task<IActionResult> GetAccountOpenReport([FromBody] ReportFilterPayload payload)
         {
             var report = await _acc.GetAccountOpenReportAsync(payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
+            return Ok(report);
+        }
+
+        [HttpPost("payment-report")]
+        public async Task<IActionResult> GetPaymentReport([FromBody] ReportFilterPayload payload)
+        {
+            var report = await _acc.GetPaymentReportAsync(
+                payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
             return Ok(report);
         }
 

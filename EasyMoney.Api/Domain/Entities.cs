@@ -936,6 +936,9 @@ public class Branch
 public class PaymentReportDto
 {
     public long JournalId { get; set; }
+    public long TenantId { get; set; }
+    public decimal? Amount { get; set; } 
+
     public DateOnly EntryDate { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public string PaymentMethod { get; set; } = string.Empty;
