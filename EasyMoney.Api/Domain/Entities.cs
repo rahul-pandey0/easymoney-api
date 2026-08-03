@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
@@ -953,14 +953,25 @@ public class ReportFilterPayload
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
 }
+
 public class AccountOpenReportDto
 {
     public long AccountId { get; set; }
-    public string AccountNumber { get; set; } = string.Empty;
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string AccountNumber { get; set; }
     public DateOnly AccountOpenDate { get; set; }
-    public string Status { get; set; } = string.Empty;
-}
+    public string Status { get; set; }
+    public string AccountType { get; set; }  // ✅ String representation of enum
+    public string FullName { get; set; }
+    public string Phone { get; set; }
+    public string? Email { get; set; }
+    public decimal? Balance { get; set; }
+    public long MemberId { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public DateOnly TenureEndDate { get; set; }
 
+}
 public class KycReportDto
 {
     public long MemberId { get; set; }

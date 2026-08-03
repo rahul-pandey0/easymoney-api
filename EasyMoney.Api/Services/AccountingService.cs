@@ -51,8 +51,17 @@ public interface IAccountingService
     long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
 
 
-    Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
+    //Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
     //Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
+
+
+    Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+            long? tenantId = null,
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
 
     Task<IEnumerable<KycReportDto>> GetKycReportAsync(
           long? tenantId = null,     // Nullable - handles both scenarios
@@ -857,23 +866,7 @@ public class AccountingService : IAccountingService
         return await query.ToListAsync();
     }
 
-    public async Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate)
-    {
-        var query = _db.Accounts.Where(a => a.TenantId == tenantId);
-
-        if (fromDate.HasValue)
-            query = query.Where(a => a.AccountOpenDate >= fromDate.Value);
-        if (toDate.HasValue)
-            query = query.Where(a => a.AccountOpenDate <= toDate.Value);
-
-        return await query.Select(a => new AccountOpenReportDto
-        {
-            AccountId = a.AccountId,
-            AccountNumber = a.AccountNumber,
-            AccountOpenDate = a.AccountOpenDate,
-            Status = a.Status.ToString()
-        }).ToListAsync();
-    }
+ 
     public async Task<IEnumerable<KycReportDto>> GetKycReportAsync(
     long? tenantId = null,
     long? branchId = null,
@@ -932,57 +925,68 @@ public class AccountingService : IAccountingService
         }).ToListAsync();
     }
 
-    //public async Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId = null,    string? type = null, DateOnly? fromDate = null,  DateOnly? toDate = null)  
-    //{
-    //    // Start with query - filter by tenant (required)
-    //    var query = _db.Members
-    //        .IgnoreQueryFilters()   // Bypass global tenant filters
-    //        .Where(m => m.TenantId == tenantId);
 
-    //    // Apply branch filter if provided
-    //    if (branchId.HasValue)
-    //        query = query.Where(m => m.BranchId == branchId.Value);
 
-    //    // ✅ FIX: Parse string to enum for SQL translation
-    //    if (!string.IsNullOrEmpty(type))
-    //    {
-    //        if (Enum.TryParse<MemberType>(type, true, out var memberType))
-    //        {
-    //            query = query.Where(m => m.MemberType == memberType);
-    //        }
-    //        else
-    //        {
-    //            // Handle invalid enum
-    //            var validValues = string.Join(", ", Enum.GetNames(typeof(MemberType)));
-    //            throw new DomainException($"Invalid MemberType: '{type}'. Valid values: {validValues}");
-    //        }
-    //    }
+    public async Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+        long? tenantId = null,
+        long? branchId = null,
+         string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
+    {
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
 
-    //    // Apply date filters if provided
-    //    if (fromDate.HasValue)
-    //        query = query.Where(m => m.KycApprovedAt >= fromDate.Value.ToDateTime(TimeOnly.MinValue));
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            // Non-admin trying to access all tenants - restrict to their own tenant
+            tenantId = _tenantCtx.TenantId;
+        }
 
-    //    if (toDate.HasValue)
-    //        query = query.Where(m => m.KycApprovedAt <= toDate.Value.ToDateTime(TimeOnly.MaxValue));
+        // If tenantId is provided, check if user has access
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
 
-    //    // Project to DTO
-    //    return await query.Select(m => new KycReportDto
-    //    {
-    //        MemberId = m.MemberId,
-    //        TenantId = m.TenantId,
-    //        BranchId = m.BranchId,
-    //        MemberType = m.MemberType.ToString(),
-    //        KycStatus = m.KycStatus.ToString(),
-    //        KycTier = m.KycTier.ToString(),
-    //        KycApprovedAt = m.KycApprovedAt,
-    //        CustomerIdentifierCode=m.CustomerIdentifierCode,
-    //        FullName = m.FullName,
-    //        Phone = m.Phone,
-    //        Email = m.Email,
-    //        PanNumber = m.PanNumber,
-    //        IdType = m.IdType,
-    //        IdNumber = m.IdNumber
-    //    }).ToListAsync();
-    //}
+        var query = _db.Accounts.IgnoreQueryFilters().AsQueryable();
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(a => a.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided
+        if (branchId.HasValue)
+            query = query.Where(a => a.BranchId == branchId.Value);
+
+        // ✅ Apply account type filter if provided
+        //if (type.HasValue)
+        //    query = query.Where(a => a.AccountType == type.Value);
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate <= toDate.Value);
+
+        // Project to DTO
+        return await query.Select(a => new AccountOpenReportDto
+        {
+            AccountId = a.AccountId,
+            TenantId = a.TenantId,
+            BranchId = a.BranchId,
+            AccountNumber = a.AccountNumber,
+            AccountOpenDate = a.AccountOpenDate,
+            Status = a.Status.ToString(),
+            //AccountType = a.AccountType.ToString(),
+            FullName = a.CustomerName,
+            Phone = a.PhoneNo,
+            //Email = a.Email,
+            Balance = a.MonthlyContribution
+        }).ToListAsync();
+    }
 
 }

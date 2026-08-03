@@ -6,7 +6,7 @@ using EasyMoney.Api.Domain;
 namespace EasyMoney.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1")]
     public class ReportsController : ControllerBase
     {
         private readonly IAccountingService _acc;
@@ -33,13 +33,13 @@ namespace EasyMoney.Api.Controllers
             return Ok(report);
         }
 
-        //    // Example: Account Open Report
-        //    [HttpGet("account-open-report")]
-        //public async Task<IActionResult> GetAccountOpenReport(long tenantId, DateOnly? fromDate, DateOnly? toDate)
-        //{
-        //    var report = await _acc.GetAccountOpenReportAsync(tenantId, fromDate, toDate);
-        //    return Ok(report);
-        //}
+        // Example: Account Open Report
+        [HttpPost("account-report")]
+        public async Task<IActionResult> GetAccountOpenReport([FromBody] ReportFilterPayload payload)
+        {
+            var report = await _acc.GetAccountOpenReportAsync(payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
+            return Ok(report);
+        }
 
         //// Example: KYC Report
         //[HttpGet("kyc-report")]
