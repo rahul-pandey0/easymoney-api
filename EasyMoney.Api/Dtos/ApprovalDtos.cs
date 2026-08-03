@@ -137,7 +137,7 @@ public record AccountOpenPayload(
     decimal TotalAmount,
     string? Remarks,
     int SchemeId, 
-    int? BranchId
+    long ? BranchId
     );
 
 public record AccountUpdatePayload(

@@ -62,11 +62,12 @@ public interface IAuthService
             //var tenantName = tenant.Name;
 
             string tenantName = GetTenantNameForUser(user);
+            string branch = GetBranchForUser(user);
 
-            return new LoginResponse(
+        return new LoginResponse(
                 access, raw, DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
                 user.UserId, user.Email, user.Role.ToString(),
-                user.TenantId, user.MemberId, tenantName);
+                user.TenantId, user.MemberId, tenantName , user.BranchId, branch);
         }
 
         public async Task<LoginResponse> RefreshAsync(string refreshTokenRaw)
@@ -95,12 +96,13 @@ public interface IAuthService
             //var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == user.TenantId);
             //var tenantName = tenant.Name;
             string tenantName = GetTenantNameForUser(user);
+             string branch = GetBranchForUser(user);
 
 
-            return new LoginResponse(
+        return new LoginResponse(
                 access, raw, DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
                 user.UserId, user.Email, user.Role.ToString(),
-                user.TenantId, user.MemberId, tenantName);
+                user.TenantId, user.MemberId, tenantName , user.BranchId, branch);
         }
 
         public async Task LogoutAsync(string refreshTokenRaw)
@@ -190,6 +192,16 @@ public interface IAuthService
 
             return tenant?.Name ?? "Unknown Tenant";
         }
+        public string GetBranchForUser(AppUser user)
+        {
+            if (!user.TenantId.HasValue)
+                return "System";
 
+            var tenant = _db.Branches
+                .IgnoreQueryFilters()
+                .FirstOrDefault(t => t.BranchId == user.BranchId);
+
+            return tenant?.BranchName ?? "Unknown Tenant";
+        }
     }
 

@@ -73,8 +73,9 @@ public class AccountsController : ControllerBase
                 InterestAmount: req.InterestAmount,
                 TotalAmount: req.TotalAmount,
                 Remarks: req.Remarks,
-                SchemeId:req.SchemeId,
-                BranchId : req.BranchId 
+                SchemeId: req.SchemeId,
+                BranchId: _ctx.BranchId
+
             );
 
             var a = await _accounts.OpenAccountAsync(

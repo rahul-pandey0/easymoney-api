@@ -64,6 +64,7 @@ public class AccountService : IAccountService
         var acct = new Account
         {
             TenantId = member.TenantId,
+            BranchId =member.BranchId,
             MemberId = memberId,
             AccountNumber = accountNumber,
             MonthlyContribution = monthlyContribution,

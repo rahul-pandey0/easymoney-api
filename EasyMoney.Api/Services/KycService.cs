@@ -91,7 +91,7 @@ public class KycService : IKycService
 
             _db.IndividualKycDetails.Add(detail);
         }
-
+        detail.BranchId = _ctx.BranchId;
         // Personal Details
         detail.CustomerId = req.CustomerId ?? detail.CustomerId;
         detail.Name = req.Name ?? detail.Name;

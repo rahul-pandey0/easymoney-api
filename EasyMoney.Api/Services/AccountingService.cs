@@ -46,6 +46,23 @@ public interface IAccountingService
     Task<TrialBalanceDto> GetTrialBalanceAsync(long tenantId, DateOnly asOf);
     Task<BalanceSheetDto> GetBalanceSheetAsync(long tenantId, DateOnly asOf);
     Task<IncomeStatementDto> GetIncomeStatementAsync(long tenantId, DateOnly from, DateOnly to);
+
+    Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+    long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
+
+
+    Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
+    //Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
+
+    Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+          long? tenantId = null,     // Nullable - handles both scenarios
+          long? branchId = null,
+          string? type = null,
+          DateOnly? fromDate = null,
+          DateOnly? toDate = null
+      );
+
+
 }
 
 public class AccountingService : IAccountingService
@@ -807,4 +824,165 @@ public class AccountingService : IAccountingService
             .ToList();
         return grouped;
     }
+
+    public async Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+        long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var query = from je in _db.JournalEntries
+                    join jl in _db.JournalLines on je.JournalId equals jl.JournalId
+                    where je.TenantId == tenantId
+                    select new PaymentReportDto
+                    {
+                        JournalId = je.JournalId,
+                        EntryDate = je.EntryDate,
+                        SourceType = je.SourceType.ToString(),
+                        PaymentMethod = je.PaymentMethod.ToString(),
+                        Description = je.Description,
+                        Debit = jl.Debit,
+                        Credit = jl.Credit
+                    };
+
+        if (branchId.HasValue)
+            query = query.Where(x => x.BranchId == branchId.Value); // Add BranchId to DTO and query if needed
+
+        if (!string.IsNullOrEmpty(type))
+            query = query.Where(x => x.SourceType == type);
+
+        if (fromDate.HasValue)
+            query = query.Where(x => x.EntryDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(x => x.EntryDate <= toDate.Value);
+
+        return await query.ToListAsync();
+    }
+
+    public async Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate)
+    {
+        var query = _db.Accounts.Where(a => a.TenantId == tenantId);
+
+        if (fromDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate >= fromDate.Value);
+        if (toDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate <= toDate.Value);
+
+        return await query.Select(a => new AccountOpenReportDto
+        {
+            AccountId = a.AccountId,
+            AccountNumber = a.AccountNumber,
+            AccountOpenDate = a.AccountOpenDate,
+            Status = a.Status.ToString()
+        }).ToListAsync();
+    }
+    public async Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+    long? tenantId = null,
+    long? branchId = null,
+    string? type = null,
+    DateOnly? fromDate = null,
+    DateOnly? toDate = null)
+    {
+        // Start with base query - bypass global tenant filters
+        var query = _db.Members.IgnoreQueryFilters().AsQueryable();
+
+        if (tenantId.HasValue)
+            query = query.Where(m => m.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided (works for both scenarios)
+        if (branchId.HasValue)
+            query = query.Where(m => m.BranchId == branchId.Value);
+
+        // Apply member type filter if provided
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<MemberType>(type, true, out var memberType))
+            {
+                query = query.Where(m => m.MemberType == memberType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(MemberType)));
+                throw new DomainException($"Invalid MemberType: '{type}'. Valid values: {validValues}");
+            }
+        }
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt >= fromDate.Value.ToDateTime(TimeOnly.MinValue));
+
+        if (toDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt <= toDate.Value.ToDateTime(TimeOnly.MaxValue));
+
+        // Project to DTO
+        return await query.Select(m => new KycReportDto
+        {
+            MemberId = m.MemberId,
+            TenantId = m.TenantId,
+            BranchId = m.BranchId,
+            MemberType = m.MemberType.ToString(),
+            KycStatus = m.KycStatus.ToString(),
+            KycTier = m.KycTier.ToString(),
+            KycApprovedAt = m.KycApprovedAt,
+            CustomerIdentifierCode = m.CustomerIdentifierCode,
+            FullName = m.FullName,
+            Phone = m.Phone,
+            Email = m.Email,
+            PanNumber = m.PanNumber,
+            IdType = m.IdType,
+            IdNumber = m.IdNumber
+        }).ToListAsync();
+    }
+
+    //public async Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId = null,    string? type = null, DateOnly? fromDate = null,  DateOnly? toDate = null)  
+    //{
+    //    // Start with query - filter by tenant (required)
+    //    var query = _db.Members
+    //        .IgnoreQueryFilters()   // Bypass global tenant filters
+    //        .Where(m => m.TenantId == tenantId);
+
+    //    // Apply branch filter if provided
+    //    if (branchId.HasValue)
+    //        query = query.Where(m => m.BranchId == branchId.Value);
+
+    //    // ✅ FIX: Parse string to enum for SQL translation
+    //    if (!string.IsNullOrEmpty(type))
+    //    {
+    //        if (Enum.TryParse<MemberType>(type, true, out var memberType))
+    //        {
+    //            query = query.Where(m => m.MemberType == memberType);
+    //        }
+    //        else
+    //        {
+    //            // Handle invalid enum
+    //            var validValues = string.Join(", ", Enum.GetNames(typeof(MemberType)));
+    //            throw new DomainException($"Invalid MemberType: '{type}'. Valid values: {validValues}");
+    //        }
+    //    }
+
+    //    // Apply date filters if provided
+    //    if (fromDate.HasValue)
+    //        query = query.Where(m => m.KycApprovedAt >= fromDate.Value.ToDateTime(TimeOnly.MinValue));
+
+    //    if (toDate.HasValue)
+    //        query = query.Where(m => m.KycApprovedAt <= toDate.Value.ToDateTime(TimeOnly.MaxValue));
+
+    //    // Project to DTO
+    //    return await query.Select(m => new KycReportDto
+    //    {
+    //        MemberId = m.MemberId,
+    //        TenantId = m.TenantId,
+    //        BranchId = m.BranchId,
+    //        MemberType = m.MemberType.ToString(),
+    //        KycStatus = m.KycStatus.ToString(),
+    //        KycTier = m.KycTier.ToString(),
+    //        KycApprovedAt = m.KycApprovedAt,
+    //        CustomerIdentifierCode=m.CustomerIdentifierCode,
+    //        FullName = m.FullName,
+    //        Phone = m.Phone,
+    //        Email = m.Email,
+    //        PanNumber = m.PanNumber,
+    //        IdType = m.IdType,
+    //        IdNumber = m.IdNumber
+    //    }).ToListAsync();
+    //}
+
 }
