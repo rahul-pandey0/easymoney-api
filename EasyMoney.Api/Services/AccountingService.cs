@@ -907,8 +907,10 @@ public class AccountingService : IAccountingService
             Description = x.je.Description,
             Debit = x.jl.Debit,
             Credit = x.jl.Credit,
-            Amount = x.jl.RunningBalance
-            status
+            Amount = x.jl.RunningBalance,
+            AccountNo =x.jl.MemberAccount.AccountNumber,
+            CustomerName=x.jl.MemberAccount.CustomerName,
+
         }).ToListAsync();
     }
 

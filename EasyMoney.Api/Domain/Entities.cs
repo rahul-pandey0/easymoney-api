@@ -946,6 +946,8 @@ public class PaymentReportDto
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public long? BranchId { get; set; }
+    public string CustomerName { get; set; } 
+    public string? AccountNo { get; set; }
 
 }
 public class ReportFilterPayload
