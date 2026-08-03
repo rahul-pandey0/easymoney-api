@@ -135,7 +135,7 @@ public interface IAuthService
                 BranchId = branchId,
                 Email = email,
                 UserName= email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),                Role = role,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),Role = role,
                 CreatedBy = createdBy,
                 IsActive = true,
                 AuthorizedBy = preAuthorized ? createdBy : null,
