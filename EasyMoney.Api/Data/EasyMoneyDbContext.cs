@@ -327,11 +327,12 @@ public class EasyMoneyDbContext : DbContext
         });
 
         b.Entity<Member>(e =>
-        {
+        { 
             e.ToTable("member");
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.CustomerIdentifierCode).HasColumnName("customer_identifier_code").HasMaxLength(20).IsRequired();
             e.Property(x => x.MemberType).HasColumnName("member_type").HasConversion<string>();
             e.Property(x => x.FullName).HasColumnName("full_name");
@@ -391,6 +392,8 @@ public class EasyMoneyDbContext : DbContext
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
             // Personal Details
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+
             e.Property(x => x.CustomerId).HasColumnName("customer_id").HasMaxLength(45);
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
             e.Property(x => x.Address).HasColumnName("address");
@@ -508,6 +511,7 @@ public class EasyMoneyDbContext : DbContext
             e.ToTable("corporate_kyc_detail");
 
             e.HasKey(x => x.MemberId);
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
 
             e.Property(x => x.MemberId).HasColumnName("member_id");
 
@@ -692,6 +696,8 @@ public class EasyMoneyDbContext : DbContext
             e.HasKey(x => x.AccountId);
             e.Property(x => x.AccountId).HasColumnName("account_id");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+
             e.Property(x => x.MemberId).HasColumnName("member_id");
             e.Property(x => x.AccountNumber).HasColumnName("account_number");
             e.Property(x => x.MonthlyContribution).HasColumnName("monthly_contribution").HasColumnType("decimal(12,2)");
@@ -719,6 +725,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasDefaultValue(0m); 
             e.Property(x => x.Remarks).HasColumnName("remarks");
             e.Property(x => x.SchemeId).HasColumnName("scheme_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 

@@ -8,6 +8,8 @@ public interface ITenantContext
     bool IsSifin { get; }
     bool BypassTenantFilter { get; }
     void SetBypass(bool value);
+    long? BranchId { get; set; } 
+    string? BranchName { get; set; } 
 }
 
 public class TenantContext : ITenantContext
@@ -19,4 +21,6 @@ public class TenantContext : ITenantContext
         Role is "SIFIN_ADMIN" or "SIFIN_OPERATOR" or "SIFIN_AUTHORIZER";
     public bool BypassTenantFilter { get; private set; }
     public void SetBypass(bool value) => BypassTenantFilter = value;
+    public long? BranchId { get; set; } 
+    public string? BranchName { get; set; } 
 }

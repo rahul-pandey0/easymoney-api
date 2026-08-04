@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
@@ -232,7 +232,9 @@ public class RefreshToken
 public class Member
 {
     public long MemberId { get; set; }
-    public long TenantId { get; set; }
+    public long TenantId { get; set; } 
+    public long? BranchId { get; set; }
+
     public string CustomerIdentifierCode { get; set; } = string.Empty;
     public MemberType MemberType { get; set; }
     public string FullName { get; set; } = null!;
@@ -279,6 +281,8 @@ public class Member
 
 public class IndividualKycDetail
 {
+    public long? BranchId { get; set; }
+
     public long MemberId { get; set; }
     public string? CustomerId { get; set; }
     public string? Name { get; set; }
@@ -390,6 +394,7 @@ public class IndividualKycDetail
 public class CorporateKycDetail
 {
     public long MemberId { get; set; }
+    public long BranchId { get; set; }
 
     // Company Details
     public string? EntityName { get; set; }
@@ -524,6 +529,8 @@ public class Account
 {
     public long AccountId { get; set; }
     public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+
     public long MemberId { get; set; }
     public string AccountNumber { get; set; } = null!;
     public decimal MonthlyContribution { get; set; }
@@ -552,7 +559,8 @@ public class Account
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
-    public int?  SchemeId { get; set; }  
+    public int?  SchemeId { get; set; }
+
 }
 
 public class BiddingCycle
@@ -922,4 +930,67 @@ public class Branch
     public DateTime? ModifiedAt { get; set; }
 
     public long? ModifiedBy { get; set; }
+}
+
+
+public class PaymentReportDto
+{
+    public long JournalId { get; set; }
+    public long TenantId { get; set; }
+    public decimal? Amount { get; set; } 
+
+    public DateOnly EntryDate { get; set; }
+    public string SourceType { get; set; } = string.Empty;
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public long? BranchId { get; set; }
+    public string CustomerName { get; set; } 
+    public string? AccountNo { get; set; }
+
+}
+public class ReportFilterPayload
+{
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string? Type { get; set; }
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
+}
+
+public class AccountOpenReportDto
+{
+    public long AccountId { get; set; }
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string AccountNumber { get; set; }
+    public DateOnly AccountOpenDate { get; set; }
+    public string Status { get; set; }
+    public string AccountType { get; set; }  // ✅ String representation of enum
+    public string FullName { get; set; }
+    public string Phone { get; set; }
+    public string? Email { get; set; }
+    public decimal? Balance { get; set; }
+    public long MemberId { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public DateOnly TenureEndDate { get; set; }
+
+}
+public class KycReportDto
+{
+    public long MemberId { get; set; }
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string MemberType { get; set; }
+    public string KycStatus { get; set; }
+    public string KycTier { get; set; }
+    public DateTime? KycApprovedAt { get; set; }
+    public string CustomerIdentifierCode { get; set; } 
+    public string FullName { get; set; } = null!;
+    public string Phone { get; set; } = null!;
+    public string? Email { get; set; }
+    public string? PanNumber { get; set; }
+    public string? IdType { get; set; }
+    public string? IdNumber { get; set; }
 }

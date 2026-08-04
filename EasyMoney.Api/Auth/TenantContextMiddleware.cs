@@ -35,6 +35,7 @@ public class TenantContextMiddleware
             var tenantClaim = ctx.User.FindFirst("tenant_id")?.Value;
             var userClaim = ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleClaim = ctx.User.FindFirst(ClaimTypes.Role)?.Value;
+            var branchClaim = ctx.User.FindFirst("branch_id")?.Value; 
 
             // Debug
             Console.WriteLine($"Authenticated = {ctx.User.Identity?.IsAuthenticated}");
@@ -56,6 +57,9 @@ public class TenantContextMiddleware
             {
                 tc.SetBypass(true);
             }
+
+            if (long.TryParse(branchClaim, out var bId))
+                tc.BranchId = bId;  
         }
 
         await _next(ctx);

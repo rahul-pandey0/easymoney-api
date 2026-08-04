@@ -46,6 +46,36 @@ public interface IAccountingService
     Task<TrialBalanceDto> GetTrialBalanceAsync(long tenantId, DateOnly asOf);
     Task<BalanceSheetDto> GetBalanceSheetAsync(long tenantId, DateOnly asOf);
     Task<IncomeStatementDto> GetIncomeStatementAsync(long tenantId, DateOnly from, DateOnly to);
+
+    Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+            long? tenantId = null,    
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
+
+    //Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
+    //Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
+
+
+    Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+            long? tenantId = null,
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
+
+    Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+          long? tenantId = null,     // Nullable - handles both scenarios
+          long? branchId = null,
+          string? type = null,
+          DateOnly? fromDate = null,
+          DateOnly? toDate = null
+      );
+
+
 }
 
 public class AccountingService : IAccountingService
@@ -807,4 +837,204 @@ public class AccountingService : IAccountingService
             .ToList();
         return grouped;
     }
+
+    public async Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+        long? tenantId = null,
+        long? branchId = null,
+        string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
+    {
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
+
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            tenantId = _tenantCtx.TenantId;
+        }
+
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
+
+        // ✅ Start with query - use proper joins
+        var query = from je in _db.JournalEntries.IgnoreQueryFilters()
+                    join jl in _db.JournalLines.IgnoreQueryFilters()
+                        on je.JournalId equals jl.JournalId
+                    select new { je, jl };
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(x => x.je.TenantId == tenantId.Value);
+
+        // ✅ Apply branch filter on JournalEntry (not DTO)
+        //if (branchId.HasValue)
+        //    query = query.Where(x => x.je.BranchId == branchId.Value);
+
+        // Apply source type filter if provided
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<JournalSourceType>(type, true, out var sourceType))
+            {
+                query = query.Where(x => x.je.SourceType == sourceType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(JournalSourceType)));
+                throw new DomainException($"Invalid SourceType: '{type}'. Valid values: {validValues}");
+            }
+        }
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(x => x.je.EntryDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(x => x.je.EntryDate <= toDate.Value);
+
+        // ✅ Project to DTO after all filters
+        return await query.Select(x => new PaymentReportDto
+        {
+            JournalId = x.je.JournalId,
+            TenantId = x.je.TenantId,
+            //BranchId = x.je.BranchId,        // ✅ Include BranchId
+            EntryDate = x.je.EntryDate,
+            SourceType = x.je.SourceType.ToString(),
+            PaymentMethod = x.je.PaymentMethod.ToString(),
+            Description = x.je.Description,
+            Debit = x.jl.Debit,
+            Credit = x.jl.Credit,
+            Amount = x.jl.RunningBalance,
+            AccountNo =x.jl.MemberAccount.AccountNumber,
+            CustomerName=x.jl.MemberAccount.CustomerName,
+
+        }).ToListAsync();
+    }
+
+
+    public async Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+    long? tenantId = null,
+    long? branchId = null,
+    string? type = null,
+    DateOnly? fromDate = null,
+    DateOnly? toDate = null)
+    {
+        // Start with base query - bypass global tenant filters
+        var query = _db.Members.IgnoreQueryFilters().AsQueryable();
+
+        if (tenantId.HasValue)
+            query = query.Where(m => m.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided (works for both scenarios)
+        if (branchId.HasValue)
+            query = query.Where(m => m.BranchId == branchId.Value);
+
+        // Apply member type filter if provided
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<MemberType>(type, true, out var memberType))
+            {
+                query = query.Where(m => m.MemberType == memberType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(MemberType)));
+                throw new DomainException($"Invalid MemberType: '{type}'. Valid values: {validValues}");
+            }
+        }
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt >= fromDate.Value.ToDateTime(TimeOnly.MinValue));
+
+        if (toDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt <= toDate.Value.ToDateTime(TimeOnly.MaxValue));
+
+        // Project to DTO
+        return await query.Select(m => new KycReportDto
+        {
+            MemberId = m.MemberId,
+            TenantId = m.TenantId,
+            BranchId = m.BranchId,
+            MemberType = m.MemberType.ToString(),
+            KycStatus = m.KycStatus.ToString(),
+            KycTier = m.KycTier.ToString(),
+            KycApprovedAt = m.KycApprovedAt,
+            CustomerIdentifierCode = m.CustomerIdentifierCode,
+            FullName = m.FullName,
+            Phone = m.Phone,
+            Email = m.Email,
+            PanNumber = m.PanNumber,
+            IdType = m.IdType,
+            IdNumber = m.IdNumber
+        }).ToListAsync();
+    }
+
+
+
+    public async Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+        long? tenantId = null,
+        long? branchId = null,
+         string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
+    {
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
+
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            // Non-admin trying to access all tenants - restrict to their own tenant
+            tenantId = _tenantCtx.TenantId;
+        }
+
+        // If tenantId is provided, check if user has access
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
+
+        var query = _db.Accounts.IgnoreQueryFilters().AsQueryable();
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(a => a.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided
+        if (branchId.HasValue)
+            query = query.Where(a => a.BranchId == branchId.Value);
+
+        // ✅ Apply account type filter if provided
+        //if (type.HasValue)
+        //    query = query.Where(a => a.AccountType == type.Value);
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate <= toDate.Value);
+
+        // Project to DTO
+        return await query.Select(a => new AccountOpenReportDto
+        {
+            AccountId = a.AccountId,
+            TenantId = a.TenantId,
+            BranchId = a.BranchId,
+            AccountNumber = a.AccountNumber,
+            AccountOpenDate = a.AccountOpenDate,
+            Status = a.Status.ToString(),
+            //AccountType = a.AccountType.ToString(),
+            FullName = a.CustomerName,
+            Phone = a.PhoneNo,
+            //Email = a.Email,
+            Balance = a.MonthlyContribution
+        }).ToListAsync();
+    }
+
 }

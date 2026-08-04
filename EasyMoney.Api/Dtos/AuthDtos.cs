@@ -13,7 +13,10 @@ public record LoginResponse(
     string Role,
     long? TenantId, 
     long? MemberId, 
-    string? TenantName 
+    string? TenantName, 
+    long ? BranchId, 
+    string ? BranchName
+
     );
 
 public record MeResponse(

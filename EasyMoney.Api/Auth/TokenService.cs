@@ -26,10 +26,14 @@ public class TokenService : ITokenService
         {
             new(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Role, user.Role.ToString()),
+           //new Claim("branch_id", user.BranchId.ToString()) 
+
         };
         if (user.TenantId.HasValue) claims.Add(new Claim("tenant_id", user.TenantId.Value.ToString()));
         if (user.MemberId.HasValue) claims.Add(new Claim("member_id", user.MemberId.Value.ToString()));
+        if (user.BranchId.HasValue) claims.Add(new Claim("branch_id", user.BranchId.Value.ToString()));
+
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
