@@ -39,8 +39,10 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<Dividend> Dividends => Set<Dividend>();
     public DbSet<GlAccount> GlAccounts => Set<GlAccount>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
-    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>(); 
     public DbSet<GlAccountBalance> GlAccountBalances => Set<GlAccountBalance>();
+    public DbSet<GLAccountDailyBalance> GLAccountDailyBalance => Set<GLAccountDailyBalance>(); 
+
     public DbSet<MemberAccountBalance> MemberAccountBalances => Set<MemberAccountBalance>();
     public DbSet<IdempotencyLog> IdempotencyLogs => Set<IdempotencyLog>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -851,6 +853,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+            e.Property(x => x.GlId).HasColumnName("gl_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+
+
             e.HasMany(x => x.Lines).WithOne(x => x.Journal).HasForeignKey(x => x.JournalId);
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
@@ -882,7 +888,29 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.GlAccountId).HasColumnName("gl_account_id");
             e.Property(x => x.Balance).HasColumnName("balance").HasColumnType("decimal(16,2)");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.Tenantid).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+
         });
+
+        b.Entity<GLAccountDailyBalance>(e =>
+        {
+            e.ToTable("gl_account_daily_balance");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.GlId).HasColumnName("gl_id");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            //e.Property(x => x.TransactionDate).HasColumnName("transaction_date");
+            e.Property(x => x.Balance).HasColumnName("balance").HasColumnType("decimal(16,2)");
+            //e.Property(x => x.DebitAmount).HasColumnName("debit_amount").HasColumnType("decimal(16,2)");
+            //e.Property(x => x.CreditAmount).HasColumnName("credit_amount").HasColumnType("decimal(16,2)");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+
+        });
+
+
 
         b.Entity<MemberAccountBalance>(e =>
         {
@@ -891,6 +919,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AccountId).HasColumnName("account_id");
             e.Property(x => x.Balance).HasColumnName("balance").HasColumnType("decimal(16,2)");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.Tenantid).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
         });
 
         b.Entity<IdempotencyLog>(e =>

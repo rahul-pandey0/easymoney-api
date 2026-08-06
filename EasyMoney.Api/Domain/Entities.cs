@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -667,6 +666,9 @@ public class JournalEntry
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     public ICollection<JournalLine> Lines { get; set; } = new List<JournalLine>();
+    public long? BranchId { get; set; }
+    public long? GlId { get; set; } 
+
 }
 
 public class JournalLine
@@ -686,6 +688,8 @@ public class JournalLine
 
 public class GlAccountBalance
 {
+    public long?Tenantid { get; set; } 
+    public long? BranchId { get; set; }
     public long GlAccountId { get; set; }
     public decimal Balance { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -693,11 +697,27 @@ public class GlAccountBalance
 
 public class MemberAccountBalance
 {
+    public long? Tenantid { get; set; }
+    public long? BranchId { get; set; }
     public long AccountId { get; set; }
     public decimal Balance { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
+public class GLAccountDailyBalance
+{
+    public long Id { get; set; }
+    public long GlId { get; set; }
+    public long TenantId { get; set; }  
+    public long? BranchId { get; set; } 
+    //public DateTime TransactionDate { get; set; }
+    public decimal Balance { get; set; }
+    //public decimal DebitAmount { get; set; }
+    //public decimal CreditAmount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
+    //public virtual GeneralLedgerMaster GLAccount { get; set; }
+}
 public class IdempotencyLog
 {
     public string IdempotencyKey { get; set; } = null!;
@@ -952,13 +972,35 @@ public class PaymentReportDto
 }
 public class ReportFilterPayload
 {
-    public long TenantId { get; set; }
+    public long? TenantId { get; set; }
     public long? BranchId { get; set; }
+    public long? GlId { get; set; } 
+
     public string? Type { get; set; }
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
-}
+    public long JournalId { get; set; }
+    public decimal? Amount { get; set; }
 
+    public DateOnly EntryDate { get; set; }
+    public string? SourceType { get; set; } 
+    public string? PaymentMethod { get; set; } 
+    public string? Description { get; set; }
+    public decimal? Debit { get; set; }
+    public decimal? Credit { get; set; }
+    public string? CustomerName { get; set; }
+    public string? AccountNo { get; set; }
+    public ReportsType ReportType { get; set; }
+    //public string Filters { get; internal set; }
+}
+public class ReportResponse
+{
+    public bool Success { get; set; }
+    public ReportsType ReportType { get; set; }
+    public object Data { get; set; }
+    public string Message { get; set; }
+
+}
 public class AccountOpenReportDto
 {
     public long AccountId { get; set; }

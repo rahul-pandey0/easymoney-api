@@ -3,6 +3,8 @@ using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
+using System;
 
 namespace EasyMoney.Api.Services;
 
@@ -18,7 +20,7 @@ public interface ILedgerService
     //Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null);
     //Task<PaymentResultDto> RecordPaymentAsync(long accountId, RecordPaymentRequest request, PaymentMethod method);
 
-    Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null);
+    Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null);
 
     /// <summary>
     /// Called once when an account is opened. Writes all CONTRIBUTION_DUE entries upfront
@@ -147,7 +149,7 @@ public class LedgerService : ILedgerService
     //    return new PaymentResultDto(a.AccountId, totalAmount, a.InstallmentsPaid, corpus, journalId);
     //}
 
-    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null)
+    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null)
     {
         if (amount <= 0) throw new DomainException("Amount must be > 0");
 
@@ -173,15 +175,30 @@ public class LedgerService : ILedgerService
             if (alreadyPaid)
                 throw new DomainException($"Due line {dueId} already has a payment recorded");
         }
+        //string cashCode;
 
-        var cashCode = method switch
-        {
-            PaymentMethod.CASH => SystemGl.CashInHand,
-            PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => SystemGl.Bank,
-            PaymentMethod.EFT or PaymentMethod.UPI => SystemGl.EftClearing,
-            PaymentMethod.SYSTEM => throw new DomainException("SYSTEM payment method invalid for member payments"),
-            _ => throw new DomainException($"Unknown payment method {method}")
-        };
+        //var cashCode = method switch
+        //{
+        //    PaymentMethod.CASH => SystemGl.CashInHand,
+        //    PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => SystemGl.Bank,
+        //    PaymentMethod.EFT or PaymentMethod.UPI => SystemGl.EftClearing,
+        //    PaymentMethod.SYSTEM => throw new DomainException("SYSTEM payment method invalid for member payments"),
+        //    _ => throw new DomainException($"Unknown payment method {method}")
+        //};
+        //}
+        
+            // Fallback to automatic mapping
+           var cashCode = method switch
+            {
+                PaymentMethod.CASH => glCode,
+                PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => glCode,
+                PaymentMethod.EFT or PaymentMethod.UPI => glCode,
+                PaymentMethod.SYSTEM => throw new DomainException(
+                    "SYSTEM payment method invalid for member payments"),
+                _ => throw new DomainException($"Unknown payment method {method}")
+            };
+        
+
 
         // Post the balanced GL journal:
         //   Dr cashCode         amount

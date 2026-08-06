@@ -90,3 +90,13 @@ public static class NotificationTypes
 
 public class DomainException : Exception { public DomainException(string message) : base(message) { } }
 public class UnbalancedJournalException : DomainException { public UnbalancedJournalException(string message) : base(message) { } }
+
+
+public enum ReportsType
+{
+    KycReports = 1,  
+    CustomerAccountReport = 2,
+    AccountsTranactionReports = 3,
+    GetChartOfAccounts = 4,
+    GeneralLedegerReport =5,   
+}

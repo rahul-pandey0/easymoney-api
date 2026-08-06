@@ -124,7 +124,7 @@ public class AccountsController : ControllerBase
     {
         if (!Enum.TryParse<PaymentMethod>(req.Method, true, out var method))
             return BadRequest(new { error = "Invalid payment method" });
-        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId)); }
+        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId ,req.GlCode)); }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 

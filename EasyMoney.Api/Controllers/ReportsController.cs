@@ -6,15 +6,18 @@ using EasyMoney.Api.Domain;
 namespace EasyMoney.Api.Controllers
 {
     [ApiController]
-    [Route("api/v1/reports")]
+    [Route("api/v1")]
     public class ReportsController : ControllerBase
     {
         private readonly IAccountingService _acc;
         private readonly ITenantContext _ctx;
+        private readonly ILogger<ReportsController> _logger;
+        private readonly IReportService _rep; 
 
-        public ReportsController(IAccountingService acc, ITenantContext ctx)
+        public ReportsController(IAccountingService acc, ITenantContext ctx, ILogger<ReportsController> logger , IReportService rep)
         {
-            _acc = acc; _ctx = ctx;
+            _acc = acc; _ctx = ctx; _logger = logger; _rep = rep;
+
         }
 
 
@@ -42,13 +45,19 @@ namespace EasyMoney.Api.Controllers
                 payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
             return Ok(report);
         }
+        [HttpPost("/reports")]
+        public async Task<IActionResult> GenerateReport([FromBody] ReportFilterPayload request)
+        {
+            if (request == null)
+                return BadRequest("Request is required.");
 
-        //// Example: KYC Report
-        //[HttpGet("kyc-report")]
-        //public async Task<IActionResult> GetKycReport(long tenantId, string? status)
-        //{
-        //    var report = await _acc.GetKycReportAsync(tenantId, status);
-        //    return Ok(report);
-        //}
+            var response = await _rep.GenerateReportAsync(request);
+
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
+
     }
 }

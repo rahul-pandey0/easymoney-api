@@ -69,7 +69,10 @@ public record RecordPaymentRequest(
     decimal Amount,
     DateOnly PaidDate,
     string Method,     // CASH / BANK_TRANSFER / UPI / etc
-    long? DueId);
+    long? DueId,
+    string? GlCode 
+      
+    );
 
 //public record RecordPaymentRequest(
 //        decimal Amount,
