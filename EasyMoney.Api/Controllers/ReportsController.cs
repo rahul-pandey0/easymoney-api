@@ -23,29 +23,29 @@ namespace EasyMoney.Api.Controllers
 
 
 
-        [HttpPost("kyc-report")]
-        public async Task<IActionResult> GetKycReport([FromBody] ReportFilterPayload payload)
-        {
-            var report = await _acc.GetKycReportAsync  (payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
-            return Ok(report);
-        }
+        //[HttpPost("kyc-report")]
+        //public async Task<IActionResult> GetKycReport([FromBody] ReportFilterPayload payload)
+        //{
+        //    var report = await _acc.GetKycReportAsync  (payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
+        //    return Ok(report);
+        //}
 
-        // Example: Account Open Report
-        [HttpPost("account-report")]
-        public async Task<IActionResult> GetAccountOpenReport([FromBody] ReportFilterPayload payload)
-        {
-            var report = await _acc.GetAccountOpenReportAsync(payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
-            return Ok(report);
-        }
+        //// Example: Account Open Report
+        //[HttpPost("account-report")]
+        //public async Task<IActionResult> GetAccountOpenReport([FromBody] ReportFilterPayload payload)
+        //{
+        //    var report = await _acc.GetAccountOpenReportAsync(payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
+        //    return Ok(report);
+        //}
 
-        [HttpPost("payment-report")]
-        public async Task<IActionResult> GetPaymentReport([FromBody] ReportFilterPayload payload)
-        {
-            var report = await _acc.GetPaymentReportAsync(
-                payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
-            return Ok(report);
-        }
-        [HttpPost("/reports")]
+        //[HttpPost("payment-report")]
+        //public async Task<IActionResult> GetPaymentReport([FromBody] ReportFilterPayload payload)
+        //{
+        //    var report = await _acc.GetPaymentReportAsync(
+        //        payload.TenantId, payload.BranchId, payload.Type, payload.FromDate, payload.ToDate);
+        //    return Ok(report);
+        //}
+        [HttpPost("reports")]
         public async Task<IActionResult> GenerateReport([FromBody] ReportFilterPayload request)
         {
             if (request == null)
