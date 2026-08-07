@@ -11,7 +11,7 @@ namespace EasyMoney.Api.Controllers;
 [Route("api/v1/approval-requests")]
 [Authorize]
 public class ApprovalRequestsController : ControllerBase
-{
+{   
     private readonly IApprovalService _approvals;
     public ApprovalRequestsController(IApprovalService approvals) => _approvals = approvals;
 

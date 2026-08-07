@@ -153,10 +153,56 @@ public class LedgerService : ILedgerService
     {
         if (amount <= 0) throw new DomainException("Amount must be > 0");
 
-        var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
-            ?? throw new DomainException($"Account {accountId} not found");
-        if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
-            throw new DomainException($"Account is {a.Status}; cannot accept payment");
+        //   var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+        //       ?? throw new DomainException($"Account {accountId} not found");
+        //   if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
+        //       throw new DomainException($"Account is {a.Status}; cannot accept payment");
+
+        //   var tenantId = a.TenantId;
+
+        //   var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+        //?? throw new DomainException($"Account {accountId} not found");
+
+        //   if (data.MinInstallmentsForEligibility != 0)
+        //   { 
+        //      var data1 = await _db.MemberAccountBalances.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+        //       ?? throw new DomainException($"Account {accountId} not found");
+        //       if(a.MonthlyContribution != 0)
+        //       {
+        //           var account = await _db.MemberAccountBalances.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+        //            ?? throw new DomainException($"Account {accountId} not found"); 
+        //       }
+        //   }
+      var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+        ?? throw new DomainException($"Account {accountId} not found");
+    
+    if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
+        throw new DomainException($"Account is {a.Status}; cannot accept payment");
+
+    var tenantId = a.TenantId;
+
+    // Get scheme configuration
+    var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+        ?? throw new DomainException($"Scheme config not found for tenant {tenantId}");
+
+    // Check minimum installments for eligibility (should be 2)
+    if (data.MinInstallmentsForEligibility != 0)
+    {
+        var memberBalance = await _db.MemberAccountBalances.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.AccountId == accountId)
+            ?? throw new DomainException($"Member balance not found for account {accountId}");
+
+        // Calculate installments
+        int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
+        int currentInstallments = a.InstallmentsPaid;
+        int totalInstallmentsAfterPayment = currentInstallments + delta1;
+
+        // UPDATE FLAGS BASED ON PAYMENT CASES
+        await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
+    }
+
+
+
 
         // Validate the targeted due line belongs to this account and is not already paid
         if (dueId.HasValue)
@@ -242,7 +288,61 @@ public class LedgerService : ILedgerService
             amount, accountId, dueId, a.InstallmentsPaid, corpus);
         return new PaymentResultDto(a.AccountId, amount, a.InstallmentsPaid, corpus, journalId);
     }
+    private async Task UpdatePaymentFlagsAsync(Account account, int totalInstallmentsAfterPayment)
+    {
+        // CASE 1: Account Creation - IsBidding = N, IsFirstPayment = Y
+        // This should already be set when account is created, but we'll ensure it
+        if (account.InstallmentsPaid == 0 && totalInstallmentsAfterPayment == 0)
+        {
+            account.IsBidding = "N";
+            account.FirstPaymentFlag = "Y";
+            _log.LogInformation($"CASE 1 - Account Creation: AccountId={account.AccountId}, IsBidding=N, IsFirstPayment=Y");
+            return;
+        }
 
+        // CASE 2: 1st Installment - IsBidding = N, IsFirstPayment = N
+        if (account.InstallmentsPaid == 0 && totalInstallmentsAfterPayment == 1)
+        {
+            account.IsBidding = "N";
+            account.FirstPaymentFlag = "N";
+            _log.LogInformation($"CASE 2 - 1st Installment: AccountId={account.AccountId}, IsBidding=N, IsFirstPayment=N");
+            return;
+        }
+
+        // CASE 3: 2nd Installment - IsBidding = Y, IsFirstPayment = N
+        if (account.InstallmentsPaid == 1 && totalInstallmentsAfterPayment == 2)
+        {
+            account.IsBidding = "Y";
+            account.FirstPaymentFlag = "N";
+            _log.LogInformation($"CASE 3 - 2nd Installment: AccountId={account.AccountId}, IsBidding=Y, IsFirstPayment=N");
+            return;
+        }
+
+        // CASE 4: 3rd or more Installments - Maintain IsBidding = Y, IsFirstPayment = N
+        if (account.InstallmentsPaid >= 2 && totalInstallmentsAfterPayment >= 3)
+        {
+            account.IsBidding = "Y";
+            account.FirstPaymentFlag = "N";
+            _log.LogInformation($"CASE 4 - 3rd+ Installment: AccountId={account.AccountId}, IsBidding=Y, IsFirstPayment=N");
+            return;
+        }
+
+        // CASE 5: Bidding Winner - IsBidding = N, IsFirstPayment = N
+        // This should be called separately when someone wins a bid
+        // We'll handle it here if the account has won a bid flag
+        //if (account.HasWonBid == true)
+        //{
+        //    account.IsBidding = "N";
+        //    account.FirstPaymentFlag = "N";
+        //    _log.LogInformation($"CASE 5 - Bidding Winner: AccountId={account.AccountId}, IsBidding=N, IsFirstPayment=N");
+        //    return;
+        //}
+
+        // Default/Fallback - if none of the above, maintain current state
+        _log.LogWarning($"Unknown case for AccountId={account.AccountId}, " +
+                       $"Current Installments={account.InstallmentsPaid}, " +
+                       $"New Total={totalInstallmentsAfterPayment}");
+    }
 
     public async Task GenerateAllDuesForAccountAsync(long accountId)
     {

@@ -559,6 +559,8 @@ public class Account
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
     public int?  SchemeId { get; set; }
+    public string? FirstPaymentFlag { get; set; }
+    public string? IsBidding { get; set; } 
 
 }
 

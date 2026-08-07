@@ -728,6 +728,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.Remarks).HasColumnName("remarks");
             e.Property(x => x.SchemeId).HasColumnName("scheme_id");
             e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.FirstPaymentFlag).HasColumnName("first_payment_flag");
+            e.Property(x => x.IsBidding).HasColumnName("is_bidding");
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });

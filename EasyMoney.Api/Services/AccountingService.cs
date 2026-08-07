@@ -731,7 +731,7 @@ public class AccountingService : IAccountingService
                 (r.j.PaymentMethod ?? PaymentMethod.SYSTEM).ToString(),
                 r.j.Description, r.l.Debit, r.l.Credit, running));
         }
-        return new MemberAccountLedgerDto(acct.AccountId, acct.AccountNumber,
+        return new MemberAccountLedgerDto(acct.AccountId, acct.AccountNumber,acct.CustomerName,
             fromDate, toDate, opening, running, totD, totC, lines);
     }
 
@@ -795,7 +795,7 @@ public class AccountingService : IAccountingService
             }
 
             result.Add(new MemberAccountLedgerDto(
-                acct.AccountId, acct.AccountNumber,
+                acct.AccountId, acct.AccountNumber,acct.CustomerName,
                 fromDate, toDate, opening, running, totD, totC, lines));
         }
 
@@ -901,6 +901,7 @@ public class AccountingService : IAccountingService
         return new MemberAccountLedgerDto(
             account.AccountId,
             account.AccountNumber,
+            account.CustomerName,
             null, // fromDate not applicable
             null, // toDate not applicable
             openingBalance,

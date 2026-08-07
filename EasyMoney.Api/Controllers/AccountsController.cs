@@ -74,7 +74,9 @@ public class AccountsController : ControllerBase
                 TotalAmount: req.TotalAmount,
                 Remarks: req.Remarks,
                 SchemeId: req.SchemeId,
-                BranchId: _ctx.BranchId
+                BranchId: _ctx.BranchId,
+                IsBidding :"N",
+                FirstPayment:"Y"
 
             );
 
