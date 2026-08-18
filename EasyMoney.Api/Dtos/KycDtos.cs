@@ -18,7 +18,7 @@ public record CreateMemberRequest(
     string? BankAccountNo,
     string? BankIfsc,
     string? BankHolderName,
-
+    //long BranchId, 
 
      // Personal Details
     string? CustomerId,
@@ -112,11 +112,14 @@ public record UpdateMemberRequest(
     string? Pincode,
     string? BankAccountNo,
     string? BankIfsc,
-    string? BankHolderName);
+    string? BankHolderName,
+    long ? BranchId 
+    );
 
 public record MemberDto(
     long MemberId,
     long TenantId,
+    long? BranchId, 
     string CustomerIdentiferCode,
     string MemberType,
     string FullName,

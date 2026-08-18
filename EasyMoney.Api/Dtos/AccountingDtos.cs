@@ -87,6 +87,7 @@ public record MemberAccountLedgerLineDto(
 public record MemberAccountLedgerDto(
     long AccountId,
     string AccountNumber,
+    string? Customername,
     DateOnly? From,
     DateOnly? To,
     decimal OpeningBalance,

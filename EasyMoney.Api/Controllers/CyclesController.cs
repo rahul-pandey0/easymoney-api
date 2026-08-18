@@ -54,6 +54,14 @@ public class CyclesController : ControllerBase
         return c is null ? NotFound() : Ok(ToDto(c));
     }
 
+    [HttpGet,
+     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<BidDto>> GetByData()
+    {
+        var bids = await _bidding.GetByData();
+        return Ok(bids.Select(b => new BidDto(
+            b.BidId, b.CycleId, b.AccountId, b.BidPct, b.SubmittedAt, b.UpdatedAt, b.IsWinner)));
+    }
     // POST /api/v1/cycles/{id}/bids?accountId=3  — org users record bids on behalf of members
     [HttpPost("{cycleId:long}/bids"),
      Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
@@ -112,4 +120,129 @@ public class CyclesController : ControllerBase
         c.GrossCorpus, c.OrgFeeAmount, c.BidPool,
         c.WinnerAccountId, c.WinnerBidPct,
         c.LoanDisbursed, c.DividendPool, c.ResolvedAt);
+
+    // EasyMoney.Api.Controllers/CyclesController.cs - Update these methods
+
+    // UPDATE SubmitBid - Return BidDto with approval info
+    [HttpPost("{cycleId:long}/bid"),
+     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    public async Task<ActionResult<BidDto>> SubmitBids(long cycleId, [FromQuery] long accountId, [FromBody] SubmitBidRequest req)
+    {
+        try
+        {
+            var b = await _bidding.SubmitOrUpdateBidAsync(accountId, req.BidPct);
+            return Ok(new BidDto(
+                b.BidId,
+                b.CycleId,
+                b.AccountId,
+                b.BidPct,
+                b.SubmittedAt,
+                b.UpdatedAt,
+                b.IsWinner,
+                b.IsApproved,  // ADD THIS
+                b.ApprovedAt,  // ADD THIS
+                b.ApprovedBy   // ADD THIS
+            ));
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+
+    // UPDATE ListBids - Remove the duplicate and fix the route
+    [HttpGet("{cycleId:long}/bid"),
+     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<IReadOnlyList<BidDto>>> ListBids(
+        long cycleId,
+        [FromQuery] string? approvalStatus = null)  // ADD optional parameter
+    {
+        var bids = await _bidding.GetBidsAsync(cycleId, approvalStatus);
+        return Ok(bids.Select(b => new BidDto(
+            b.BidId,
+            b.CycleId,
+            b.AccountId,
+            b.BidPct,
+            b.SubmittedAt,
+            b.UpdatedAt,
+            b.IsWinner,
+            b.IsApproved,  // ADD THIS
+            b.ApprovedAt,  // ADD THIS
+            b.ApprovedBy   // ADD THIS
+        )));
+    }
+
+    // UPDATE ApproveBid - Return BidDto with approval info
+    [HttpPost("{cycleId:long}/bids/{bidId:long}/approve"),
+     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<BidDto>> ApproveBid(long cycleId, long bidId)
+    {
+        {
+            try
+            {
+                var bids = await _bidding.ApproveBidAsync(cycleId,bidId);
+
+                return Ok(new
+                {
+                    cycleId,
+                    //approvedCount = bids.Count,
+                    message = "All pending bids approved successfully."
+                });
+            }
+            catch (DomainException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+ 
+
+        // REMOVE the duplicate ListBids method at the bottom (the one with route [HttpGet("{cycleId:long}/bid")])
+        // Keep only the one above with route [HttpGet("{cycleId:long}/bids")]
+
+        //[HttpGet("{cycleId:long}/bid"),
+        // Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," +Roles.SifinAdmin)]
+        //public async Task<ActionResult<IReadOnlyList<BidDto>>> ListBids(
+        //long cycleId,
+        //[FromQuery] string? approvalStatus)
+        //{
+        //    var bids = await _bidding.GetBidsAsync(cycleId,approvalStatus);
+
+        //    return Ok(bids.Select(b => new BidDto(
+        //        b.BidId,
+        //        b.CycleId,
+        //        b.AccountId,
+        //        b.BidPct,
+        //        b.SubmittedAt,
+        //        b.UpdatedAt,
+        //        b.IsWinner
+        //    )));
+        //}
+
+
+        //[HttpPost("{cycleId:long}/bids/{bidId:long}/approve"),
+        //Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.SifinAdmin)]
+        //public async Task<ActionResult<BidDto>> ApproveBid(
+        //long cycleId,
+        //long bidId)
+        //{
+        //    try
+        //    {
+        //        var bid = await _bidding.ApproveBidAsync(
+        //            cycleId,
+        //            bidId);
+
+        //        return Ok(new BidDto(
+        //            bid.BidId,
+        //            bid.CycleId,
+        //            bid.AccountId,
+        //            bid.BidPct,
+        //            bid.SubmittedAt,
+        //            bid.UpdatedAt,
+        //            bid.IsWinner
+        //        ));
+        //    }
+        //    catch (DomainException ex)
+        //    {
+        //        return BadRequest(new { error = ex.Message });
+        //    }
+        //}
+    }
 }

@@ -40,6 +40,15 @@ public class MembersController : ControllerBase
     }
 
 
+    [HttpGet("{customerId:long}/member")]
+    public async Task<ActionResult<MemberDto>> GetByID(string customerId)
+    {
+        var m = await _members.GetByAsync(customerId);
+        if (m is null) return NotFound();
+        return Ok(MemberService.ToDto(m));
+    }
+
+
     [HttpGet]
     //public async Task<ActionResult<IReadOnlyList<MemberDto>>> List(
     public async Task<ActionResult<PagedResult<MemberDto>>> List(

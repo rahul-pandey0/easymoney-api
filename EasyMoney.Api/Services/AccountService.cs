@@ -64,6 +64,7 @@ public class AccountService : IAccountService
         var acct = new Account
         {
             TenantId = member.TenantId,
+            BranchId =member.BranchId,
             MemberId = memberId,
             AccountNumber = accountNumber,
             MonthlyContribution = monthlyContribution,
@@ -339,6 +340,7 @@ public class AccountService : IAccountService
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByTenantAsync(int skip, int take)
     {
         var accts = await _db.Accounts
+
             .OrderBy(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 200))
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
@@ -375,6 +377,6 @@ public class AccountService : IAccountService
             eligibleToBid, eligibleForDividend,
             corpus, loan?.CycleId,a.CreatedAt, a.OldAccountNo, a.PhoneNo, a.CustomerName, a.InterestRate, a.TargetAmount,
             a.PaymentDate, a.PaidAmount,a.LoanAmount,a.BonusAmount, a.InterestAmount,
-            a.TotalAmount, a.Remarks ,a.SchemeId);   
+            a.TotalAmount, a.Remarks ,a.SchemeId,a.BranchId,a.IsBidding );   
     }
 }

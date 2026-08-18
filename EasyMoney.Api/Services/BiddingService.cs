@@ -2,7 +2,9 @@ using EasyMoney.Api.Auth;
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Ocsp;
 
 namespace EasyMoney.Api.Services;
 
@@ -12,10 +14,16 @@ public interface IBiddingService
     Task<BiddingCycle?> GetCurrentCycleAsync(long tenantId);
     Task<BiddingCycle?> GetCycleAsync(long cycleId);
     Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId);
+    Task<IReadOnlyList<Bid>> GetByData();
+
     Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct);
     Task<BiddingCycle> CloseBiddingAsync(long cycleId);
     Task<AwardPreviewDto> GetAwardPreviewAsync(long cycleId);
     Task<CycleResolutionResultDto> ResolveCycleAsync(long cycleId);
+
+    Task<Bid> ApproveBidAsync(long cycleId,long bidId);  
+    Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId, string approvalStatus);  
+
 }
 
 public class BiddingService : IBiddingService
@@ -109,6 +117,68 @@ public class BiddingService : IBiddingService
         await _db.Bids.Where(b => b.CycleId == cycleId)
             .OrderByDescending(b => b.BidPct).ToListAsync();
 
+     
+    public async Task<IReadOnlyList<Bid>> GetByData() =>
+    await _db.Bids.Where(b => b.TenantId == _ctx.TenantId && b.IsApproved==false).OrderByDescending(b => b.BidPct).ToListAsync();
+    //public async Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct)
+    //{
+    //    var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+    //        ?? throw new DomainException($"Account {accountId} not found");
+    //    if (a.Status != AccountStatus.ACTIVE) throw new DomainException($"Account is {a.Status}; cannot bid");
+    //    if (a.IsPrized) throw new DomainException("Prized accounts cannot bid again");
+
+    //    var scheme = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == a.TenantId);
+    //    if (a.InstallmentsPaid < scheme.MinInstallmentsForEligibility)
+    //        throw new DomainException(
+    //            $"Need at least {scheme.MinInstallmentsForEligibility} paid installments to bid (have {a.InstallmentsPaid})");
+    //    if (bidPct < scheme.MinBidPct || bidPct > scheme.MaxBidPct)
+    //        throw new DomainException($"Bid must be between {scheme.MinBidPct}% and {scheme.MaxBidPct}%");
+
+    //    var cycle = await GetCurrentCycleAsync(a.TenantId)
+    //        ?? throw new DomainException("No open cycle for this tenant");
+    //    if (cycle.Status != CycleStatus.OPEN)
+    //        throw new DomainException($"Bidding is not open — cycle is currently {cycle.Status}");
+
+    //    var bid = await _db.Bids.FirstOrDefaultAsync(b => b.CycleId == cycle.CycleId && b.AccountId == a.AccountId);
+    //    if (bid is null)
+    //    {
+    //        bid = new Bid
+    //        {
+    //            CycleId = cycle.CycleId,
+    //            AccountId = a.AccountId,
+    //            BidPct = bidPct,
+    //            SubmittedAt = DateTime.UtcNow,
+    //            IsApproved = false,
+    //            TenantId = _ctx.TenantId,
+    //            BranchId=  _ctx.BranchId
+    //        };
+    //        _db.Bids.Add(bid);
+    //    }
+    //    else
+    //    {
+    //        bid.BidPct = bidPct;
+    //        bid.UpdatedAt = DateTime.UtcNow;
+    //        bid.IsApproved = false;  // ADD THIS - reset approval on update
+    //        bid.ApprovedAt = null;
+    //        bid.ApprovedBy = null;
+    //    }
+    //    await _db.SaveChangesAsync();
+
+    //    var approval = new ApprovalRequest
+    //    {
+    //        TenantId = _ctx.TenantId,
+    //        ActionType = ApprovalActionType.BID_APPROVE,
+    //        EntityType = "BIDDING",
+    //        EntityId = _ctx.TenantId,
+    //        Payload = System.Text.Json.JsonSerializer.Serialize(bid),
+    //        Status = ApprovalStatus.PENDING,
+    //        RequestedBy = _ctx.UserId.Value,
+    //        RequestedAt = DateTime.UtcNow
+    //    };
+    //    _db.ApprovalRequests.Add(approval);
+
+    //    return bid;
+    //}
     public async Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct)
     {
         var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
@@ -126,7 +196,9 @@ public class BiddingService : IBiddingService
         var cycle = await GetCurrentCycleAsync(a.TenantId)
             ?? throw new DomainException("No open cycle for this tenant");
         if (cycle.Status != CycleStatus.OPEN)
-            throw new DomainException($"Bidding is not open — cycle is currently {cycle.Status}");
+            throw new DomainException($"Bidding is not open — cycle is currently {cycle.Status}"); 
+
+        var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == a.TenantId);
 
         var bid = await _db.Bids.FirstOrDefaultAsync(b => b.CycleId == cycle.CycleId && b.AccountId == a.AccountId);
         if (bid is null)
@@ -136,7 +208,12 @@ public class BiddingService : IBiddingService
                 CycleId = cycle.CycleId,
                 AccountId = a.AccountId,
                 BidPct = bidPct,
-                SubmittedAt = DateTime.UtcNow
+                SubmittedAt = DateTime.UtcNow,
+                IsApproved = false,
+                TenantId = _ctx.TenantId,
+                BranchId = _ctx.BranchId,
+                OrgFeePct = data.OrgFeePct,
+                SifinCommissionPct = data.SifinCommissionPct
             };
             _db.Bids.Add(bid);
         }
@@ -144,13 +221,58 @@ public class BiddingService : IBiddingService
         {
             bid.BidPct = bidPct;
             bid.UpdatedAt = DateTime.UtcNow;
+            bid.IsApproved = false;
+            bid.ApprovedAt = null;
+            bid.ApprovedBy = null;
+            bid.OrgFeePct = data.OrgFeePct;
+            bid.SifinCommissionPct = data.SifinCommissionPct;
         }
+
+        // Save bid first to get BidId
         await _db.SaveChangesAsync();
+
+        // Now create approval request with the actual BidId
+        var approval = new ApprovalRequest
+        {
+            TenantId = _ctx.TenantId,
+            ActionType = ApprovalActionType.BID_APPROVE,  
+            EntityType = "BID",
+            EntityId = bid.BidId, 
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                bid.BidId,
+                bid.CycleId,
+                bid.AccountId,
+                bid.BidPct,
+                bid.IsApproved,
+                TenantId = _ctx.TenantId,
+                RequestedBy = _ctx.UserId
+            }),
+            Status = ApprovalStatus.PENDING,
+            RequestedBy = _ctx.UserId.Value,
+            RequestedAt = DateTime.UtcNow
+        };
+
+        _db.ApprovalRequests.Add(approval);
+        await _db.SaveChangesAsync();
+
         return bid;
     }
-
-    public async Task<BiddingCycle> CloseBiddingAsync(long cycleId)
+    public async Task<BiddingCycle> CloseBiddingAsync(long cycleId) 
     {
+        var totalBids = await _db.Bids.IgnoreQueryFilters().CountAsync(c => c.CycleId == cycleId);
+
+        var approvedBids = await _db.Bids.IgnoreQueryFilters().CountAsync(c => c.CycleId == cycleId && c.IsApproved);
+
+        if (totalBids == 0)
+        {
+            throw new DomainException($"No bids found for Cycle {cycleId}");
+        }
+
+        if (totalBids != approvedBids)
+        {
+            throw new DomainException($"Please approve all values. {approvedBids}/{totalBids} bids are approved");
+        }
         var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CycleId == cycleId)
             ?? throw new DomainException($"Cycle {cycleId} not found");
         if (cycle.Status != CycleStatus.OPEN)
@@ -361,6 +483,12 @@ public class BiddingService : IBiddingService
     /// </summary>
     private async Task PostFeeJournalAsync(BiddingCycle cycle, IReadOnlyList<Account> participants, decimal orgFeeAmount)
     {
+
+        var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == _ctx.TenantId);
+        var orgfee = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstAsync(s => s.GlId == data.OrgFeeGlId);
+        var sifinfee = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstAsync(s => s.GlId == data.SifinCommissionGlId);
+
+
         var grossCorpus = participants.Sum(p => p.MonthlyContribution);
         var lines = new List<JournalLineInput>();
         decimal allocated = 0m;
@@ -374,7 +502,7 @@ public class BiddingService : IBiddingService
             if (share > 0)
                 lines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, p.AccountId, share, 0));
         }
-        lines.Add(new JournalLineInput(EntryTarget.GL, SystemGl.OrgFeeIncome, null, 0, orgFeeAmount));
+        lines.Add(new JournalLineInput(EntryTarget.GL, orgfee.Code, null, 0, orgFeeAmount));
         await _accounting.PostJournalAsync(
             cycle.TenantId, cycle.CycleMonth, JournalSourceType.BID_RESOLUTION,
             cycle.CycleId, PaymentMethod.SYSTEM,
@@ -384,14 +512,20 @@ public class BiddingService : IBiddingService
 
     private async Task PostSifinSplitAsync(BiddingCycle cycle, decimal sifinShare)
     {
+        var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == _ctx.TenantId);
+        var orgfee = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstAsync(s => s.GlId == data.OrgFeeGlId);
+        var sifinfee = await _db.GeneralLedgerMaster.IgnoreQueryFilters().FirstAsync(s => s.GlId == data.SifinCommissionGlId); 
+
         await _accounting.PostJournalAsync(
             cycle.TenantId, cycle.CycleMonth, JournalSourceType.BID_RESOLUTION,
             cycle.CycleId, PaymentMethod.SYSTEM,
             $"Cycle {cycle.CycleMonth:yyyy-MM} SIFIN commission split",
             new[]
             {
-                new JournalLineInput(EntryTarget.GL, SystemGl.OrgFeeIncome, null, sifinShare, 0),
-                new JournalLineInput(EntryTarget.GL, SystemGl.SifinCommissionPayable, null, 0, sifinShare)
+                //new JournalLineInput(EntryTarget.GL, SystemGl.OrgFeeIncome, null, sifinShare, 0),
+                new JournalLineInput(EntryTarget.GL,orgfee.Code, null, sifinShare, 0),
+                new JournalLineInput(EntryTarget.GL, sifinfee.Code.ToString(), null, 0, sifinShare)
+                //new JournalLineInput(EntryTarget.GL, SystemGl.SifinCommissionPayable, null, 0, sifinShare)
             },
             _ctx.UserId, _ctx.UserId);
     }
@@ -521,10 +655,53 @@ public class BiddingService : IBiddingService
         await _accounting.PostJournalAsync(
             cycle.TenantId, cycle.CycleMonth, JournalSourceType.DIVIDEND,
             cycle.CycleId, PaymentMethod.SYSTEM,
-            $"Cycle {cycle.CycleMonth:yyyy-MM} no-bid dividend distribution",
+            $"Cycle {cycle.CycleMonth:yyyy-MM} no-bid dividend distribution", 
             lines, _ctx.UserId, _ctx.UserId);
         await _db.SaveChangesAsync();
         return count;
     }
 
+    public async Task<Bid> ApproveBidAsync(long cycleId, long bidId)
+    {
+        var cycle = await _db.BiddingCycles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId);
+
+        if (cycle is null)
+            throw new DomainException($"Cycle {cycleId} not found.");
+
+        // Get the specific bid that needs approval
+        var bid = await _db.Bids.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId && x.BidId == bidId && !x.IsApproved);
+
+        if (bid is null)
+            throw new DomainException($"Bid {bidId} is either already approved or not found.");
+
+        // Approve this specific bid
+        bid.IsApproved = true;
+        bid.ApprovedAt = DateTime.UtcNow;
+        bid.ApprovedBy = _ctx.UserId;
+        bid.BranchId = _ctx.BranchId;
+
+        await _db.SaveChangesAsync();
+
+        return bid;
+    }
+    public async Task<IReadOnlyList<Bid>> GetBidsAsync( long cycleId, string? approvalStatus = null)
+    {
+        var query = _db.Bids .Where(b => b.CycleId == cycleId);
+
+        if (string.Equals(approvalStatus, "pending",StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(b => !b.IsApproved);
+        }
+        else if (string.Equals( approvalStatus,"approved", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(b => b.IsApproved);
+        }
+
+        return await query
+            .OrderByDescending(b => b.UpdatedAt ?? b.SubmittedAt)
+            .ThenByDescending(b => b.BidPct)
+            .ToListAsync();
+    }
 }

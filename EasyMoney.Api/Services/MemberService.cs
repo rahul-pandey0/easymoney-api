@@ -10,7 +10,9 @@ namespace EasyMoney.Api.Services;
 public interface IMemberService
 {
     Task<Member> CreateAsync(CreateMemberRequest req);
-    Task<Member?> GetAsync(long memberId);     
+    Task<Member?> GetAsync(long memberId);
+    Task<Member?> GetByAsync(string customerId);
+
     //Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<PagedResult<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
@@ -53,8 +55,9 @@ public class MemberService : IMemberService
             throw new DomainException("Tenant context required to create member");
 
         var tenantId = _ctx.TenantId.Value;
+        var branchId = _ctx.BranchId.Value; // Rename local variable to avoid ambiguity  
 
-        // Generate Customer Identifier Code
+        // Generate Customer Identifier Code  
         var lastMember = await _db.Members
             .IgnoreQueryFilters()
             .Where(x => x.TenantId == tenantId)
@@ -71,10 +74,10 @@ public class MemberService : IMemberService
 
         var customerIdentifierCode = $"{tenantId}{sequence:D5}";
 
-
         var m = new Member
         {
-            TenantId = tenantId,
+            TenantId = tenantId, 
+            BranchId = branchId, 
 
             CustomerIdentifierCode = customerIdentifierCode,
 
@@ -83,9 +86,9 @@ public class MemberService : IMemberService
             Phone = req.Phone,
             Email = req.Email,
             PanNumber = req.PanNumber,
-            IdType=req.IdType,
-            IdNumber=req.IdNumber,
-            AddressProof=req.AddressProof,
+            IdType = req.IdType,
+            IdNumber = req.IdNumber,
+            AddressProof = req.AddressProof,
             AddressLine = req.AddressLine,
             City = req.City,
             State = req.State,
@@ -113,6 +116,26 @@ public class MemberService : IMemberService
 
     public Task<Member?> GetAsync(long memberId) =>
         _db.Members.FirstOrDefaultAsync(m => m.MemberId == memberId);
+
+    public async Task<Member?> GetByAsync(string customerId)
+    {
+        if (string.IsNullOrWhiteSpace(customerId))
+            return null;
+
+        try
+        {
+            // Use SingleOrDefaultAsync for better error detection
+            var member = await _db.Members.SingleOrDefaultAsync(m =>
+                m.CustomerIdentifierCode == customerId);
+
+            return member;
+        }
+        catch (InvalidOperationException ex)
+        {
+          
+            throw;
+        }
+    }
 
     //public async Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take)
     //{
@@ -161,6 +184,7 @@ public class MemberService : IMemberService
         var m = await _db.Members.FirstOrDefaultAsync(x => x.MemberId == memberId)
             ?? throw new DomainException($"Member {memberId} not found");
 
+        m.BranchId=_ctx.BranchId; // Ensure the branch ID is set to the current context's branch ID
         bool identityChanged = false;
         if (!string.IsNullOrWhiteSpace(req.FullName) && req.FullName != m.FullName)
         { m.FullName = req.FullName; identityChanged = true; }
@@ -186,9 +210,9 @@ public class MemberService : IMemberService
         }
         return m;
     }
-
+     
     public static MemberDto ToDto(Member m) => new(
-        m.MemberId, m.TenantId, m.CustomerIdentifierCode,m.MemberType.ToString(),
+        m.MemberId, m.TenantId,m.BranchId, m.CustomerIdentifierCode,m.MemberType.ToString(),
         m.FullName, m.Phone, m.Email,m.PanNumber,m.IdType,m.IdNumber,m.AddressProof,
         m.AddressLine, m.City, m.State, m.Pincode,
         m.KycTier.ToString(), m.KycStatus.ToString(),

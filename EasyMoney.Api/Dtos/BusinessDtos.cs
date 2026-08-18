@@ -8,7 +8,7 @@ namespace EasyMoney.Api.Dtos;
 public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate ,  long MemberId,
     string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount,
     DateOnly? PaymentDate,decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
-    decimal TotalAmount, string? Remarks,int  SchemeId);
+    decimal TotalAmount, string? Remarks,int  SchemeId,long BranchId);
  
 //public record UpdateAccountRequest(string accountNumber,decimal MonthlyContribution, DateOnly AccountOpenDate, long MemberId,
 //    string? OldAccountNo, string? PhoneNo, string? CustomerName, decimal InterestRate, decimal TargetAmount,
@@ -51,7 +51,7 @@ public record AccountSummaryDto(
     decimal CorpusBalance, long? PrizeWonInCycleId,
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
     DateOnly? PaymentDate, decimal PaidAmount, decimal LoanAmount,decimal bonusAmount, decimal InterestAmount,
-        decimal TotalAmount, string Remarks, int? SchemeId);
+        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding); 
 
 // ============================================================
 // Payment / Ledger
@@ -69,7 +69,10 @@ public record RecordPaymentRequest(
     decimal Amount,
     DateOnly PaidDate,
     string Method,     // CASH / BANK_TRANSFER / UPI / etc
-    long? DueId);
+    long? DueId,
+    string? GlCode 
+      
+    );
 
 //public record RecordPaymentRequest(
 //        decimal Amount,
@@ -105,7 +108,9 @@ public record CycleDto(
     DateTime? ResolvedAt);
 
 public record SubmitBidRequest(decimal BidPct);
-public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner);
+public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner, bool IsApproved = false,
+        DateTime? ApprovedAt = null,
+        long? ApprovedBy = null);
 
 // Ranked bid line shown in the award preview
 public record AwardPreviewBidDto(
@@ -147,6 +152,11 @@ public record LoanDto(
     long CycleId,
     decimal PrizeAmount,      // cash received by the winner = bidPool - forfeiture
     DateTime DisbursedAt);
+
+
+
+
+
 
 // ============================================================
 // Notifications

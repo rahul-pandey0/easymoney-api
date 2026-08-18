@@ -46,6 +46,36 @@ public interface IAccountingService
     Task<TrialBalanceDto> GetTrialBalanceAsync(long tenantId, DateOnly asOf);
     Task<BalanceSheetDto> GetBalanceSheetAsync(long tenantId, DateOnly asOf);
     Task<IncomeStatementDto> GetIncomeStatementAsync(long tenantId, DateOnly from, DateOnly to);
+
+    Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+            long? tenantId = null,    
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
+
+    //Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate);
+    //Task<IEnumerable<KycReportDto>> GetKycReportAsync( long tenantId, long? branchId, string? type, DateOnly? fromDate, DateOnly? toDate);
+
+
+    Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+            long? tenantId = null,
+            long? branchId = null,
+            string? type = null,
+            DateOnly? fromDate = null,
+            DateOnly? toDate = null
+        );
+
+    Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+          long? tenantId = null,     // Nullable - handles both scenarios
+          long? branchId = null,
+          string? type = null,
+          DateOnly? fromDate = null,
+          DateOnly? toDate = null
+      );
+
+
 }
 
 public class AccountingService : IAccountingService
@@ -63,6 +93,197 @@ public class AccountingService : IAccountingService
     // Posting
     // ===========================================================
 
+    //public async Task<long> PostJournalAsync(
+    //    long tenantId,
+    //    DateOnly entryDate,
+    //    JournalSourceType sourceType,
+    //    long? sourceId,
+    //    PaymentMethod paymentMethod,
+    //    string description,
+    //    IReadOnlyList<JournalLineInput> lines,
+    //    long? createdBy = null,
+    //    long? authorizedBy = null)
+    //{
+    //    if (lines is null || lines.Count < 2)
+    //        throw new DomainException("Journal must have at least 2 lines (one debit, one credit)");
+
+    //    // ---- 1. Validate each line shape (exactly one of GL/MEMBER_ACCOUNT, exactly one of debit/credit) ----
+    //    foreach (var l in lines)
+    //    {
+    //        if (l.Debit < 0 || l.Credit < 0)
+    //            throw new DomainException("Debit/Credit must be non-negative");
+    //        if ((l.Debit > 0 && l.Credit > 0) || (l.Debit == 0 && l.Credit == 0))
+    //            throw new DomainException("Each line must have exactly one of debit or credit (> 0)");
+
+    //        if (l.Target == EntryTarget.GL)
+    //        {
+    //            if (string.IsNullOrWhiteSpace(l.GlAccountCode))
+    //                throw new DomainException("GL line requires glAccountCode");
+    //            if (l.MemberAccountId.HasValue)
+    //                throw new DomainException("GL line must not have memberAccountId");
+    //        }
+    //        else if (l.Target == EntryTarget.MEMBER_ACCOUNT)
+    //        {
+    //            if (!l.MemberAccountId.HasValue)
+    //                throw new DomainException("MEMBER_ACCOUNT line requires memberAccountId");
+    //            if (!string.IsNullOrWhiteSpace(l.GlAccountCode))
+    //                throw new DomainException("MEMBER_ACCOUNT line must not have glAccountCode");
+    //        }
+    //        else
+    //        {
+    //            throw new DomainException($"Unknown entry_target {l.Target}");
+    //        }
+    //    }
+
+    //    // ---- 2. Balanced check ----
+    //    var totalDebit = lines.Sum(l => l.Debit);
+    //    var totalCredit = lines.Sum(l => l.Credit);
+    //    if (Math.Round(totalDebit, 2) != Math.Round(totalCredit, 2))
+    //        throw new UnbalancedJournalException($"Unbalanced journal: debit={totalDebit}, credit={totalCredit}");
+
+    //    // ---- 3. Resolve GL codes to ids (and verify they belong to this tenant) ----
+    //    var glCodes = lines.Where(l => l.Target == EntryTarget.GL)
+    //        .Select(l => l.GlAccountCode!).Distinct().ToList();
+
+    //    //var glMap = await _db.GlAccounts.IgnoreQueryFilters()
+    //    //    .Where(g => g.TenantId == tenantId && glCodes.Contains(g.Code))
+    //    //    .ToDictionaryAsync(g => g.Code, g => new { g.GlAccountId, g.AccountClass });
+
+    //    // Parse the string to enum
+    //    var glMap = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
+    //        .Where(g => glCodes.Contains(g.Code))
+    //        .ToDictionaryAsync(g => g.Code, g => new {
+    //            g.GlId,
+    //            Category = Enum.Parse<GlAccountClass>(g.Category) // Parse string to enum
+    //        });
+
+    //    foreach (var code in glCodes)
+    //        if (!glMap.ContainsKey(code))
+    //            throw new DomainException($"GL account '{code}' not found for tenant {tenantId}");
+
+    //    // ---- 4. Verify member accounts belong to this tenant ----
+    //    var memberAccountIds = lines.Where(l => l.Target == EntryTarget.MEMBER_ACCOUNT)
+    //        .Select(l => l.MemberAccountId!.Value).Distinct().ToList();
+    //    if (memberAccountIds.Count > 0)
+    //    {
+    //        var validCount = await _db.Accounts.IgnoreQueryFilters()
+    //            .CountAsync(a => a.TenantId == tenantId && memberAccountIds.Contains(a.AccountId));
+    //        if (validCount != memberAccountIds.Count)
+    //            throw new DomainException("One or more member accounts do not belong to this tenant");
+    //    }
+
+    //    // ---- 5. Manual-adjustment journals MUST have an authorizer ----
+    //    if (sourceType == JournalSourceType.MANUAL_ADJUSTMENT && !authorizedBy.HasValue)
+    //        throw new DomainException("MANUAL_ADJUSTMENT journals require an authorizer");
+
+    //    // ---- 6. Post inside a transaction, wrapped in EF's retrying execution strategy ----
+    //    long journalId = 0;
+    //    var strategy = _db.Database.CreateExecutionStrategy();
+    //    await strategy.ExecuteAsync(async () =>
+    //    {
+    //        await using var tx = await _db.Database.BeginTransactionAsync();
+    //        var je = new JournalEntry
+    //        {
+    //            TenantId = tenantId,
+    //            EntryDate = entryDate,
+    //            SourceType = sourceType,
+    //            SourceId = sourceId,
+    //            PaymentMethod = paymentMethod,
+    //            Description = description,
+    //            CreatedBy = createdBy ?? _tenantCtx.UserId,
+    //            AuthorizedBy = authorizedBy,
+    //            AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null,
+    //            Code = string.Join(",", glCodes),
+
+    //        };
+    //        _db.JournalEntries.Add(je);
+    //        await _db.SaveChangesAsync();    // assigns JournalId
+
+    //        // Cache balances we'll touch (single read per gl_account / per member_account).
+    //        var glBalances = new Dictionary<long, GlAccountBalance>();
+    //        var memberBalances = new Dictionary<long, MemberAccountBalance>();
+
+    //        foreach (var l in lines)
+    //        {
+    //            var line = new JournalLine
+    //            {
+    //                JournalId = je.JournalId,
+    //                EntryTarget = l.Target,
+    //                Debit = l.Debit,
+    //                Credit = l.Credit
+    //            };
+
+    //            if (l.Target == EntryTarget.GL)
+    //            {
+    //                var gl = glMap[l.GlAccountCode!];
+    //                line.GlAccountId = gl.GlId;
+
+    //                if (!glBalances.TryGetValue(gl.GlId, out var bal))
+    //                {
+    //                    bal = await _db.GlAccountBalances.FirstOrDefaultAsync(b => b.GlAccountId == gl.GlId);
+    //                    if (bal is null)
+    //                    {
+    //                        bal = new GlAccountBalance { GlAccountId = gl.GlId, Balance = 0m ,Tenantid=tenantId, BranchId= _tenantCtx.BranchId};
+    //                        _db.GlAccountBalances.Add(bal);
+    //                    }
+    //                    glBalances[gl.GlId] = bal;
+    //                }
+
+    //                // Normal-side convention:
+    //                //   ASSET/EXPENSE:                 balance += debit - credit
+    //                //   LIABILITY/INCOME/EQUITY:       balance += credit - debit
+    //                var delta = gl.Category is GlAccountClass.ASSET or GlAccountClass.EXPENSE 
+    //                ? l.Debit - l.Credit 
+    //                : l.Credit - l.Debit;
+
+
+    //                bal.Balance = Math.Round(bal.Balance + delta, 2);
+    //                bal.BranchId = _tenantCtx.BranchId ?? 0;
+    //                bal.Tenantid = tenantId;
+    //                bal.UpdatedAt = DateTime.UtcNow;
+    //                line.RunningBalance = bal.Balance;
+    //            }
+    //            else // MEMBER_ACCOUNT
+    //            {
+    //                var acctId = l.MemberAccountId!.Value;
+    //                line.MemberAccountId = acctId;
+
+    //                if (!memberBalances.TryGetValue(acctId, out var bal))
+    //                {
+    //                    bal = await _db.MemberAccountBalances.FirstOrDefaultAsync(b => b.AccountId == acctId);
+    //                    if (bal is null)
+    //                    {
+    //                        bal = new MemberAccountBalance { AccountId = acctId, Balance = 0m, Tenantid = tenantId, BranchId = _tenantCtx.BranchId };
+    //                        _db.MemberAccountBalances.Add(bal);
+    //                    }
+    //                    memberBalances[acctId] = bal;
+    //                }
+
+    //                // Member account is a LIABILITY-style subsidiary ledger:
+    //                //   credit (+) = member's corpus grows (scheme owes them)
+    //                //   debit  (-) = member's corpus reduces (drawdown / penalty)
+    //                // So balance += credit - debit (positive = owed TO member).
+    //                var delta = l.Credit - l.Debit;
+    //                bal.Balance = Math.Round(bal.Balance + delta, 2);
+    //                bal.UpdatedAt = DateTime.UtcNow;
+    //                line.RunningBalance = bal.Balance;
+    //                bal.BranchId = _tenantCtx.BranchId ?? 0;
+    //                bal.Tenantid = tenantId;
+    //            }
+
+    //            _db.JournalLines.Add(line);
+    //        }
+
+    //        await _db.SaveChangesAsync();
+    //        await tx.CommitAsync();
+    //        journalId = je.JournalId;
+    //    });
+
+    //    _log.LogInformation("Posted journal {Jid} for tenant {Tid}, source={Source}, total={Total}",
+    //        journalId, tenantId, sourceType, totalDebit);
+    //    return journalId;
+    //}
+
     public async Task<long> PostJournalAsync(
         long tenantId,
         DateOnly entryDate,
@@ -77,7 +298,7 @@ public class AccountingService : IAccountingService
         if (lines is null || lines.Count < 2)
             throw new DomainException("Journal must have at least 2 lines (one debit, one credit)");
 
-        // ---- 1. Validate each line shape (exactly one of GL/MEMBER_ACCOUNT, exactly one of debit/credit) ----
+        // ---- 1. Validate each line shape ----
         foreach (var l in lines)
         {
             if (l.Debit < 0 || l.Credit < 0)
@@ -111,12 +332,16 @@ public class AccountingService : IAccountingService
         if (Math.Round(totalDebit, 2) != Math.Round(totalCredit, 2))
             throw new UnbalancedJournalException($"Unbalanced journal: debit={totalDebit}, credit={totalCredit}");
 
-        // ---- 3. Resolve GL codes to ids (and verify they belong to this tenant) ----
+        // ---- 3. Resolve GL codes to ids ----
         var glCodes = lines.Where(l => l.Target == EntryTarget.GL)
             .Select(l => l.GlAccountCode!).Distinct().ToList();
-        var glMap = await _db.GlAccounts.IgnoreQueryFilters()
-            .Where(g => g.TenantId == tenantId && glCodes.Contains(g.Code))
-            .ToDictionaryAsync(g => g.Code, g => new { g.GlAccountId, g.AccountClass });
+
+        var glMap = await _db.GeneralLedgerMaster.IgnoreQueryFilters().Where(g => glCodes.Contains(g.Code))
+            .ToDictionaryAsync(g => g.Code, g => new {g.GlId,Category = Enum.Parse<GlAccountClass>(g.Category)
+            });
+
+        var glId = glMap.FirstOrDefault().Value.GlId; // Example of accessing GlId from the dictionary
+
 
         foreach (var code in glCodes)
             if (!glMap.ContainsKey(code))
@@ -137,12 +362,13 @@ public class AccountingService : IAccountingService
         if (sourceType == JournalSourceType.MANUAL_ADJUSTMENT && !authorizedBy.HasValue)
             throw new DomainException("MANUAL_ADJUSTMENT journals require an authorizer");
 
-        // ---- 6. Post inside a transaction, wrapped in EF's retrying execution strategy ----
+        // ---- 6. Post inside a transaction ----
         long journalId = 0;
         var strategy = _db.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
             await using var tx = await _db.Database.BeginTransactionAsync();
+            // Create journal entry
             var je = new JournalEntry
             {
                 TenantId = tenantId,
@@ -153,13 +379,18 @@ public class AccountingService : IAccountingService
                 Description = description,
                 CreatedBy = createdBy ?? _tenantCtx.UserId,
                 AuthorizedBy = authorizedBy,
-                AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null
+                AuthorizedAt = authorizedBy.HasValue ? DateTime.UtcNow : null,
+                GlId = glId,
+                BranchId =_tenantCtx.BranchId ?? 0,
             };
             _db.JournalEntries.Add(je);
-            await _db.SaveChangesAsync();    // assigns JournalId
+            await _db.SaveChangesAsync();
 
-            // Cache balances we'll touch (single read per gl_account / per member_account).
-            var glBalances = new Dictionary<long, GlAccountBalance>();
+            var transactionDate = entryDate.ToDateTime(TimeOnly.MinValue);
+            var branchId = _tenantCtx.BranchId;
+
+            // ✅ SINGLE dictionary for the one table
+            var glDailyBalances = new Dictionary<long, GLAccountDailyBalance>();
             var memberBalances = new Dictionary<long, MemberAccountBalance>();
 
             foreach (var l in lines)
@@ -175,28 +406,62 @@ public class AccountingService : IAccountingService
                 if (l.Target == EntryTarget.GL)
                 {
                     var gl = glMap[l.GlAccountCode!];
-                    line.GlAccountId = gl.GlAccountId;
+                    line.GlAccountId = gl.GlId;
 
-                    if (!glBalances.TryGetValue(gl.GlAccountId, out var bal))
+                    // ---- GET OR CREATE DAILY BALANCE ----
+                    if (!glDailyBalances.TryGetValue(gl.GlId, out var dailyBal))
                     {
-                        bal = await _db.GlAccountBalances.FirstOrDefaultAsync(b => b.GlAccountId == gl.GlAccountId);
-                        if (bal is null)
+                        // Try to get existing balance for TODAY
+                        dailyBal = await _db.GLAccountDailyBalance
+                            .FirstOrDefaultAsync(b =>
+                                b.GlId == gl.GlId &&
+                                b.TenantId == tenantId &&
+                                b.BranchId == branchId );
+
+                        if (dailyBal is null)
                         {
-                            bal = new GlAccountBalance { GlAccountId = gl.GlAccountId, Balance = 0m };
-                            _db.GlAccountBalances.Add(bal);
+                            // Get the LATEST balance (current balance) from any previous date
+                            var latestBalance = await _db.GLAccountDailyBalance
+                                .Where(b =>
+                                    b.GlId == gl.GlId &&
+                                    b.TenantId == tenantId &&
+                                    b.BranchId == branchId 
+                           )
+                                .OrderByDescending(b => b.UpdatedAt)
+                                .Select(b => b.Balance)
+                                .FirstOrDefaultAsync();
+
+                            // Create new daily balance for today with opening balance
+                            dailyBal = new GLAccountDailyBalance
+                            {
+                                GlId = gl.GlId,
+                                TenantId = tenantId,
+                                BranchId = branchId,
+                                //TransactionDate = transactionDate.Date,
+                                Balance = latestBalance, // Opening balance from latest record
+                                //DebitAmount = 0,
+                                //CreditAmount = 0,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            };
+                            _db.GLAccountDailyBalance.Add(dailyBal);
                         }
-                        glBalances[gl.GlAccountId] = bal;
+
+                        glDailyBalances[gl.GlId] = dailyBal;
                     }
 
-                    // Normal-side convention:
-                    //   ASSET/EXPENSE:                 balance += debit - credit
-                    //   LIABILITY/INCOME/EQUITY:       balance += credit - debit
-                    var delta = gl.AccountClass is GlAccountClass.ASSET or GlAccountClass.EXPENSE
+                    // Calculate delta based on account type
+                    var delta = gl.Category is GlAccountClass.ASSET or GlAccountClass.EXPENSE
                         ? l.Debit - l.Credit
                         : l.Credit - l.Debit;
-                    bal.Balance = Math.Round(bal.Balance + delta, 2);
-                    bal.UpdatedAt = DateTime.UtcNow;
-                    line.RunningBalance = bal.Balance;
+
+                    // Update daily balance (this becomes the current balance)
+                    //dailyBal.DebitAmount = Math.Round(dailyBal.DebitAmount + l.Debit, 2);
+                    //dailyBal.CreditAmount = Math.Round(dailyBal.CreditAmount + l.Credit, 2);
+                    dailyBal.Balance = Math.Round(dailyBal.Balance + delta, 2);
+                    dailyBal.UpdatedAt = DateTime.UtcNow;
+
+                    line.RunningBalance = dailyBal.Balance;
                 }
                 else // MEMBER_ACCOUNT
                 {
@@ -205,23 +470,29 @@ public class AccountingService : IAccountingService
 
                     if (!memberBalances.TryGetValue(acctId, out var bal))
                     {
-                        bal = await _db.MemberAccountBalances.FirstOrDefaultAsync(b => b.AccountId == acctId);
+                        bal = await _db.MemberAccountBalances
+                            .FirstOrDefaultAsync(b => b.AccountId == acctId);
+
                         if (bal is null)
                         {
-                            bal = new MemberAccountBalance { AccountId = acctId, Balance = 0m };
+                            bal = new MemberAccountBalance
+                            {
+                                AccountId = acctId,
+                                Balance = 0m,
+                                Tenantid = tenantId,
+                                BranchId = branchId ?? 0
+                            };
                             _db.MemberAccountBalances.Add(bal);
                         }
                         memberBalances[acctId] = bal;
                     }
 
-                    // Member account is a LIABILITY-style subsidiary ledger:
-                    //   credit (+) = member's corpus grows (scheme owes them)
-                    //   debit  (-) = member's corpus reduces (drawdown / penalty)
-                    // So balance += credit - debit (positive = owed TO member).
                     var delta = l.Credit - l.Debit;
                     bal.Balance = Math.Round(bal.Balance + delta, 2);
                     bal.UpdatedAt = DateTime.UtcNow;
                     line.RunningBalance = bal.Balance;
+                    bal.BranchId = branchId ?? 0;
+                    bal.Tenantid = tenantId;
                 }
 
                 _db.JournalLines.Add(line);
@@ -236,7 +507,6 @@ public class AccountingService : IAccountingService
             journalId, tenantId, sourceType, totalDebit);
         return journalId;
     }
-
     // ===========================================================
     // Chart of Accounts
     // ===========================================================
@@ -461,7 +731,7 @@ public class AccountingService : IAccountingService
                 (r.j.PaymentMethod ?? PaymentMethod.SYSTEM).ToString(),
                 r.j.Description, r.l.Debit, r.l.Credit, running));
         }
-        return new MemberAccountLedgerDto(acct.AccountId, acct.AccountNumber,
+        return new MemberAccountLedgerDto(acct.AccountId, acct.AccountNumber,acct.CustomerName,
             fromDate, toDate, opening, running, totD, totC, lines);
     }
 
@@ -525,7 +795,7 @@ public class AccountingService : IAccountingService
             }
 
             result.Add(new MemberAccountLedgerDto(
-                acct.AccountId, acct.AccountNumber,
+                acct.AccountId, acct.AccountNumber,acct.CustomerName,
                 fromDate, toDate, opening, running, totD, totC, lines));
         }
 
@@ -631,6 +901,7 @@ public class AccountingService : IAccountingService
         return new MemberAccountLedgerDto(
             account.AccountId,
             account.AccountNumber,
+            account.CustomerName,
             null, // fromDate not applicable
             null, // toDate not applicable
             openingBalance,
@@ -807,4 +1078,204 @@ public class AccountingService : IAccountingService
             .ToList();
         return grouped;
     }
+
+    public async Task<IEnumerable<PaymentReportDto>> GetPaymentReportAsync(
+        long? tenantId = null,
+        long? branchId = null,
+        string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
+    {
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
+
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            tenantId = _tenantCtx.TenantId;
+        }
+
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
+
+        // ✅ Start with query - use proper joins
+        var query = from je in _db.JournalEntries.IgnoreQueryFilters()
+                    join jl in _db.JournalLines.IgnoreQueryFilters()
+                        on je.JournalId equals jl.JournalId
+                    select new { je, jl };
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(x => x.je.TenantId == tenantId.Value);
+
+        // ✅ Apply branch filter on JournalEntry (not DTO)
+        //if (branchId.HasValue)
+        //    query = query.Where(x => x.je.BranchId == branchId.Value);
+
+        // Apply source type filter if provided
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<JournalSourceType>(type, true, out var sourceType))
+            {
+                query = query.Where(x => x.je.SourceType == sourceType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(JournalSourceType)));
+                throw new DomainException($"Invalid SourceType: '{type}'. Valid values: {validValues}");
+            }
+        }
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(x => x.je.EntryDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(x => x.je.EntryDate <= toDate.Value);
+
+        // ✅ Project to DTO after all filters
+        return await query.Select(x => new PaymentReportDto
+        {
+            JournalId = x.je.JournalId,
+            TenantId = x.je.TenantId,
+            //BranchId = x.je.BranchId,        // ✅ Include BranchId
+            EntryDate = x.je.EntryDate,
+            SourceType = x.je.SourceType.ToString(),
+            PaymentMethod = x.je.PaymentMethod.ToString(),
+            Description = x.je.Description,
+            Debit = x.jl.Debit,
+            Credit = x.jl.Credit,
+            Amount = x.jl.RunningBalance,
+            AccountNo =x.jl.MemberAccount.AccountNumber,
+            CustomerName=x.jl.MemberAccount.CustomerName,
+
+        }).ToListAsync();
+    }
+
+
+    public async Task<IEnumerable<KycReportDto>> GetKycReportAsync(
+    long? tenantId = null,
+    long? branchId = null,
+    string? type = null,
+    DateOnly? fromDate = null,
+    DateOnly? toDate = null)
+    {
+        // Start with base query - bypass global tenant filters
+        var query = _db.Members.IgnoreQueryFilters().AsQueryable();
+
+        if (tenantId.HasValue)
+            query = query.Where(m => m.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided (works for both scenarios)
+        if (branchId.HasValue)
+            query = query.Where(m => m.BranchId == branchId.Value);
+
+        // Apply member type filter if provided
+        if (!string.IsNullOrEmpty(type))
+        {
+            if (Enum.TryParse<MemberType>(type, true, out var memberType))
+            {
+                query = query.Where(m => m.MemberType == memberType);
+            }
+            else
+            {
+                var validValues = string.Join(", ", Enum.GetNames(typeof(MemberType)));
+                throw new DomainException($"Invalid MemberType: '{type}'. Valid values: {validValues}");
+            }
+        }
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt >= fromDate.Value.ToDateTime(TimeOnly.MinValue));
+
+        if (toDate.HasValue)
+            query = query.Where(m => m.KycApprovedAt <= toDate.Value.ToDateTime(TimeOnly.MaxValue));
+
+        // Project to DTO
+        return await query.Select(m => new KycReportDto
+        {
+            MemberId = m.MemberId,
+            TenantId = m.TenantId,
+            BranchId = m.BranchId,
+            MemberType = m.MemberType.ToString(),
+            KycStatus = m.KycStatus.ToString(),
+            KycTier = m.KycTier.ToString(),
+            KycApprovedAt = m.KycApprovedAt,
+            CustomerIdentifierCode = m.CustomerIdentifierCode,
+            FullName = m.FullName,
+            Phone = m.Phone,
+            Email = m.Email,
+            PanNumber = m.PanNumber,
+            IdType = m.IdType,
+            IdNumber = m.IdNumber
+        }).ToListAsync();
+    }
+
+
+
+    public async Task<IEnumerable<AccountOpenReportDto>> GetAccountOpenReportAsync(
+        long? tenantId = null,
+        long? branchId = null,
+         string? type = null,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null)
+    {
+        // Check permissions
+        var isAdmin = _tenantCtx.Role == "SIFIN_ADMIN" ||
+                      _tenantCtx.Role == "SUPER_ADMIN";
+
+        // If tenantId is null (user wants all data), check if they're admin
+        if (!tenantId.HasValue && !isAdmin)
+        {
+            // Non-admin trying to access all tenants - restrict to their own tenant
+            tenantId = _tenantCtx.TenantId;
+        }
+
+        // If tenantId is provided, check if user has access
+        if (tenantId.HasValue && !isAdmin && tenantId.Value != _tenantCtx.TenantId)
+        {
+            throw new UnauthorizedAccessException($"You don't have permission to access TenantId: {tenantId.Value}");
+        }
+
+        var query = _db.Accounts.IgnoreQueryFilters().AsQueryable();
+
+        // Apply tenant filter if provided
+        if (tenantId.HasValue)
+            query = query.Where(a => a.TenantId == tenantId.Value);
+
+        // Apply branch filter if provided
+        if (branchId.HasValue)
+            query = query.Where(a => a.BranchId == branchId.Value);
+
+        // ✅ Apply account type filter if provided
+        //if (type.HasValue)
+        //    query = query.Where(a => a.AccountType == type.Value);
+
+        // Apply date filters if provided
+        if (fromDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(a => a.AccountOpenDate <= toDate.Value);
+
+        // Project to DTO
+        return await query.Select(a => new AccountOpenReportDto
+        {
+            AccountId = a.AccountId,
+            TenantId = a.TenantId,
+            BranchId = a.BranchId,
+            AccountNumber = a.AccountNumber,
+            AccountOpenDate = a.AccountOpenDate,
+            Status = a.Status.ToString(),
+            //AccountType = a.AccountType.ToString(),
+            FullName = a.CustomerName,
+            Phone = a.PhoneNo,
+            //Email = a.Email,
+            Balance = a.MonthlyContribution
+        }).ToListAsync();
+    }
+
 }

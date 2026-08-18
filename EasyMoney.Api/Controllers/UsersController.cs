@@ -1,4 +1,5 @@
-﻿using EasyMoney.Api.Auth;
+﻿using System.Linq;
+using EasyMoney.Api.Auth;
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
@@ -34,6 +35,9 @@ public class UsersController : ControllerBase
     u.MemberId,
     u.Email,
     u.Member?.FullName,
+    u.UserName,
+    u.BranchId,
+    u.Branch?.BranchName,
     u.Tenant?.Name,
     u.Role.ToString(),
     u.IsActive,
@@ -68,7 +72,14 @@ public class UsersController : ControllerBase
         {
             // preAuthorized=true for SIFIN-created users; org-created users may still need MC approval
             bool preAuth = _ctx.IsSifin;
-            var u = await _auth.CreateUserAsync(tenantId, req.Email, req.Password, role, req.MemberId, _ctx.UserId, preAuth);
+            var u = await _auth.CreateUserAsync(tenantId, req.Email, req.Password, role, req.MemberId,req.BranchId, _ctx.UserId, preAuth);
+            var user = await _db.AppUsers
+        .Include(x => x.Member)
+        .Include(x => x.Branch)
+        .Include(x => x.Tenant)
+        .IgnoreQueryFilters()
+        .FirstAsync(x => x.UserId == u.UserId);
+
             return CreatedAtAction(nameof(Get), new { userId = u.UserId }, ToDto(u));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
@@ -93,23 +104,27 @@ public class UsersController : ControllerBase
     .IgnoreQueryFilters()
     .Include(u => u.Member)
     .Include(u => u.Tenant)
+    .Include(x => x.Branch)
     .Where(u => u.TenantId == tenantId);
         if (isActive.HasValue) q = q.Where(u => u.IsActive == isActive.Value);
 
         var users = await q.OrderBy(u => u.UserId)
             .Skip(skip).Take(Math.Clamp(take, 1, 200))
-            //.Select(u => new UserDto(
-            //    u.UserId, u.TenantId, u.MemberId, u.Email,
-            //    u.Role.ToString(), u.IsActive,
-            //    u.CreatedBy, u.CreatedAt,
-            //    u.AuthorizedBy, u.AuthorizedAt))
-            .Select(u => new UserDto(
+           //.Select(u => new UserDto(
+           //    u.UserId, u.TenantId, u.MemberId, u.Email,
+           //    u.Role.ToString(), u.IsActive,
+           //    u.CreatedBy, u.CreatedAt,
+           //    u.AuthorizedBy, u.AuthorizedAt))
+           .Select(u => new UserDto(
     u.UserId,
     u.TenantId,
     u.MemberId,
     u.Email,
-    u.Member != null ? u.Member.FullName : null,
-    u.Tenant != null ? u.Tenant.Name : null,
+    u.Member != null ? u.Member.FullName : null, // Name
+    u.UserName,                                  // UserName
+    u.BranchId,                                  // BranchId
+    u.Branch != null ? u.Branch.BranchName : null, // BranchName
+    u.Tenant != null ? u.Tenant.Name : null,     // TenantName
     u.Role.ToString(),
     u.IsActive,
     u.CreatedBy,
@@ -135,6 +150,7 @@ public class UsersController : ControllerBase
     .IgnoreQueryFilters()
     .Include(u => u.Member)
     .Include(u => u.Tenant)
+    .Include(u => u.Branch)
     .AsQueryable();
         if (tenantId.HasValue) q = q.Where(u => u.TenantId == tenantId.Value);
         if (isActive.HasValue) q = q.Where(u => u.IsActive == isActive.Value);
@@ -153,8 +169,11 @@ public class UsersController : ControllerBase
     u.TenantId,
     u.MemberId,
     u.Email,
-    u.Member != null ? u.Member.FullName : null,
-    u.Tenant != null ? u.Tenant.Name : null,
+    u.Member != null ? u.Member.FullName : null, // Name
+    u.UserName,                                  // UserName
+    u.BranchId,                                  // BranchId
+    u.Branch != null ? u.Branch.BranchName : null, // BranchName
+    u.Tenant != null ? u.Tenant.Name : null,     // TenantName
     u.Role.ToString(),
     u.IsActive,
     u.CreatedBy,
@@ -176,6 +195,7 @@ public class UsersController : ControllerBase
     .IgnoreQueryFilters()
     .Include(x => x.Member)
     .Include(x => x.Tenant)
+    .Include(x => x.Branch)
     .FirstOrDefaultAsync(x => x.UserId == userId);
         if (u is null) return NotFound();
         // Org roles may only view users in their own tenant
@@ -190,8 +210,11 @@ public class UsersController : ControllerBase
     u.TenantId,
     u.MemberId,
     u.Email,
-    u.Member?.FullName,
-    u.Tenant?.Name,
+    u.Member?.FullName,          // Name
+    u.UserName,                  // UserName
+    u.BranchId,                  // BranchId
+    u.Branch?.BranchName,        // BranchName
+    u.Tenant?.Name,              // TenantName
     u.Role.ToString(),
     u.IsActive,
     u.CreatedBy,
@@ -200,8 +223,8 @@ public class UsersController : ControllerBase
     u.AuthorizedAt));
     }
 
-    // PUT /api/v1/users/{userId}/status  — activate or deactivate
-    [HttpPut("users/{userId:long}/status"),
+        // PUT /api/v1/users/{userId}/status  — activate or deactivate
+        [HttpPut("users/{userId:long}/status"),
      Authorize(Roles = Roles.AnySifin + "," + Roles.OrgAdmin + "," + Roles.OrgAuthorizer)]
     public async Task<IActionResult> ChangeStatus(long userId, [FromBody] ChangeUserStatusRequest req)
     {
@@ -213,42 +236,46 @@ public class UsersController : ControllerBase
         // SIFIN_ADMIN cannot be deactivated via this endpoint (safety guard)
         if (target.Role == UserRole.SIFIN_ADMIN && !req.IsActive)
             return BadRequest(new { error = "Cannot deactivate a SIFIN_ADMIN account" });
-        //try
-        //{
-        //    var u = await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
-        //    return Ok(new UserDto(
-        //        u.UserId, u.TenantId, u.MemberId, u.Email,
-        //        u.Role.ToString(), u.IsActive,
-        //        u.CreatedBy, u.CreatedAt,
-        //        u.AuthorizedBy, u.AuthorizedAt));
-        //}
+            //try
+            //{
+            //    var u = await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
+            //    return Ok(new UserDto(
+            //        u.UserId, u.TenantId, u.MemberId, u.Email,
+            //        u.Role.ToString(), u.IsActive,
+            //        u.CreatedBy, u.CreatedAt,
+            //        u.AuthorizedBy, u.AuthorizedAt));
+            //}
 
-        try
-        {
-            await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
+            try
+            {
+                await _auth.ChangeUserStatusAsync(userId, req.IsActive, _ctx.UserId);
 
-            var u = await _db.AppUsers
-                .IgnoreQueryFilters()
-                .Include(x => x.Member)
-                .Include(x => x.Tenant)
-                .FirstAsync(x => x.UserId == userId);
+                var u = await _db.AppUsers
+                    .IgnoreQueryFilters()
+                    .Include(x => x.Member)
+                    .Include(x => x.Tenant)
+                    .Include(x => x.Branch)
+                    .FirstAsync(x => x.UserId == userId);
 
-            return Ok(new UserDto(
-                u.UserId,
-                u.TenantId,
-                u.MemberId,
-                u.Email,
-                u.Member?.FullName,
-                u.Tenant?.Name,
-                u.Role.ToString(),
-                u.IsActive,
-                u.CreatedBy,
-                u.CreatedAt,
-                u.AuthorizedBy,
-                u.AuthorizedAt));
+                return Ok(new UserDto(
+        u.UserId,
+        u.TenantId,
+        u.MemberId,
+        u.Email,
+        u.Member?.FullName,          // Name
+        u.UserName,                  // UserName
+        u.BranchId,                  // BranchId
+        u.Branch?.BranchName,        // BranchName
+        u.Tenant?.Name,              // TenantName
+        u.Role.ToString(),
+        u.IsActive,
+        u.CreatedBy,
+        u.CreatedAt,
+        u.AuthorizedBy,
+        u.AuthorizedAt));
         }
 
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
     // PUT /api/v1/users/{userId}/role  — change role (goes through approval when MC enabled)
@@ -270,39 +297,43 @@ public class UsersController : ControllerBase
         if (newIsSifin && !_ctx.IsSifin)
             return Forbid();
 
-        //try
-        //{
-        //    var u = await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
-        //    return Ok(new UserDto(
-        //        u.UserId, u.TenantId, u.MemberId, u.Email,
-        //        u.Role.ToString(), u.IsActive,
-        //        u.CreatedBy, u.CreatedAt,
-        //        u.AuthorizedBy, u.AuthorizedAt));
-        //}
-        try
-        {
-            await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
+            //try
+            //{
+            //    var u = await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
+            //    return Ok(new UserDto(
+            //        u.UserId, u.TenantId, u.MemberId, u.Email,
+            //        u.Role.ToString(), u.IsActive,
+            //        u.CreatedBy, u.CreatedAt,
+            //        u.AuthorizedBy, u.AuthorizedAt));
+            //}
+            try
+            {
+                await _auth.ChangeUserRoleAsync(userId, newRole, _ctx.UserId);
 
-            var u = await _db.AppUsers
-                .Include(x => x.Member)
-                .Include(x => x.Tenant)
-                .IgnoreQueryFilters()
-                .FirstAsync(x => x.UserId == userId);
+                var u = await _db.AppUsers
+                    .Include(x => x.Member)
+                    .Include(x => x.Tenant)
+                    .Include(x => x.Branch)
+                    .IgnoreQueryFilters()
+                    .FirstAsync(x => x.UserId == userId);
 
-            return Ok(new UserDto(
-                u.UserId,
-                u.TenantId,
-                u.MemberId,
-                u.Email,
-                u.Member?.FullName,
-                u.Tenant?.Name,
-                u.Role.ToString(),
-                u.IsActive,
-                u.CreatedBy,
-                u.CreatedAt,
-                u.AuthorizedBy,
-                u.AuthorizedAt));
-        }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+                return Ok(new UserDto(
+         u.UserId,
+         u.TenantId,
+         u.MemberId,
+         u.Email,
+         u.Member?.FullName,          // Name
+         u.UserName,                  // UserName
+         u.BranchId,                  // BranchId
+         u.Branch?.BranchName,        // BranchName
+         u.Tenant?.Name,              // TenantName
+         u.Role.ToString(),
+         u.IsActive,
+         u.CreatedBy,
+         u.CreatedAt,
+         u.AuthorizedBy,
+         u.AuthorizedAt));
+            }
+            catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 }

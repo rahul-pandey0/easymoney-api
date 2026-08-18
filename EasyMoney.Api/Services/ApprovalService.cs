@@ -248,7 +248,7 @@ public class ApprovalService : IApprovalService
                     throw new DomainException("Invalid role");
                 var authSvc = _sp.GetRequiredService<IAuthService>();
                 var u = await authSvc.CreateUserAsync(p.TenantId ?? req.TenantId, p.Email, p.Password, role,
-                    p.MemberId, createdBy: req.RequestedBy, preAuthorized: true);
+                    p.MemberId, p.BranchId, createdBy: req.RequestedBy, preAuthorized: true);
                 req.EntityId = u.UserId;
                 break;
             }
@@ -301,6 +301,18 @@ public class ApprovalService : IApprovalService
                 req.EntityId = result.CycleId;
                 break;
             }
+
+            case ApprovalActionType.BID_APPROVE:
+                {
+                    var payload = JsonSerializer.Deserialize<JsonElement>(req.Payload);
+
+                    var cycleId = payload.GetProperty("CycleId").GetInt64();
+                    var bidId = payload.GetProperty("BidId").GetInt64();
+                    var biddingSvc = _sp.GetRequiredService<IBiddingService>();
+                    await biddingSvc.ApproveBidAsync(cycleId, bidId);
+                    req.EntityId = cycleId;
+                    break;
+                }
             case ApprovalActionType.EXIT_PROCESS:
             {
                 var p = Parse<ExitProcessPayload>(req.Payload);
@@ -321,6 +333,19 @@ public class ApprovalService : IApprovalService
                 await authSvc.ChangeUserRoleAsync(req.EntityId.Value, newRole, _ctx.UserId);
                 break;
             }
+
+            case ApprovalActionType.CREATE_LOAN:
+                {
+                    var payload = JsonSerializer.Deserialize<JsonElement>(req.Payload);
+
+                    var cycleId = payload.GetProperty("CycleId").GetInt64();
+                    var loanId = payload.GetProperty("LoanId").GetInt64();
+                    var biddingSvc = _sp.GetRequiredService<ILoanService>();
+                    await biddingSvc.ApproveLoanAsync(loanId);
+                    req.EntityId = cycleId;
+                    break;
+                }
+
             default:
                 throw new DomainException($"Unknown action type {req.ActionType}");
         }

@@ -13,7 +13,10 @@ public record LoginResponse(
     string Role,
     long? TenantId, 
     long? MemberId, 
-    string? TenantName 
+    string? TenantName, 
+    long ? BranchId, 
+    string ? BranchName
+
     );
 
 public record MeResponse(
@@ -29,7 +32,8 @@ public record CreateUserRequest(
     string Password,
     string Role,
     long? TenantId,   // ignored when caller is ORG_ADMIN (forced to caller's tenant)
-    long? MemberId);
+    long? MemberId,
+    long? BranchId);
 
 public record UserDto(
     long UserId,
@@ -37,6 +41,9 @@ public record UserDto(
     long? MemberId,
     string Email,
     string? Name,
+    string? UserName,
+    long? BranchId,
+    string? BranchName,
     string? TenantName,
     string Role,
     bool IsActive,
@@ -90,9 +97,9 @@ public record TenantDto(
 
 public record GeneralLedgerDto(
     int ? GlId,
-    string? GlCode,
-    string? GlName,  
-    string? GlDescription,
+    string? Code, 
+    string? Name,  
+    string? Description,
     bool? Forbank,
     string? Category,
     bool? IsReported,

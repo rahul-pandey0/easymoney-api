@@ -72,4 +72,17 @@ public class BranchController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+
+
+    [HttpGet("tenant/{tenantId:long}")]
+    public async Task<ActionResult<List<BranchDto>>> GetByBranch(long tenantId)
+    {
+        var branches = await _branches.GetByTenantAsync(tenantId);
+
+        if (branches == null || !branches.Any())
+            return NotFound();
+
+        return Ok(branches);
+    }
 }

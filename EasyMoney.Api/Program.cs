@@ -123,6 +123,7 @@ try
     builder.Services.AddScoped<INotificationService, NotificationService>();
     builder.Services.AddScoped<DashboardService>();
     builder.Services.AddScoped<IBranchService, BranchService>();
+    builder.Services.AddScoped<IReportService, ReportService>();
 
 
 

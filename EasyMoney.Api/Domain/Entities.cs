@@ -1,5 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -29,14 +28,14 @@ public class Tenant
 public class GeneralLedgerMaster
 {
     public int GlId { get; set; } 
-    public string? GlCode { get; set; } = null!;
-    public string? GlName { get; set; } = null!;  
-    public string? GlDescription { get; set; }
-    public bool Forbank { get; set; }
-    public string? Category { get; set; }
-    public bool IsReported { get; set; }
-    public bool HasTransactions { get; set; }
-    public bool HasGst { get; set; }
+    public string? Code { get; set; } = null!;
+    public string? Name { get; set; } = null!;  
+    public string? Description { get; set; }
+    public bool? Forbank { get; set; }
+    public string Category { get; set; }
+    public bool? IsReported { get; set; }
+    public bool? HasTransactions { get; set; }
+    public bool? HasGst { get; set; }
     public DateTime? CreatedAt { get; set; }
     public long? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -141,6 +140,9 @@ public class SchemeConfig
     public string? GstGl { get; set; }
     public string? SchemeCode { get; set; }
     public int? SchemeId  { get; set; }
+        public int? OrgFeeGlId { get; set; }  // GL for Organization Fee
+    public int? SifinCommissionGlId { get; set; }  // GL for Sifin Commission
+
 }
 
 
@@ -201,8 +203,12 @@ public class SchemeMaster
 public class AppUser
 {
     public long UserId { get; set; }
+    public string? UserName { get; set; }
+ 
+    public Branch? Branch { get; set; }
     public long? TenantId { get; set; }
     public long? MemberId { get; set; }
+    public long? BranchId { get; set; }
     public string Email { get; set; } = null!;
     public string PasswordHash { get; set; } = null!;
     public UserRole Role { get; set; }
@@ -228,7 +234,9 @@ public class RefreshToken
 public class Member
 {
     public long MemberId { get; set; }
-    public long TenantId { get; set; }
+    public long TenantId { get; set; } 
+    public long? BranchId { get; set; }
+
     public string CustomerIdentifierCode { get; set; } = string.Empty;
     public MemberType MemberType { get; set; }
     public string FullName { get; set; } = null!;
@@ -275,6 +283,8 @@ public class Member
 
 public class IndividualKycDetail
 {
+    public long? BranchId { get; set; }
+
     public long MemberId { get; set; }
     public string? CustomerId { get; set; }
     public string? Name { get; set; }
@@ -386,6 +396,7 @@ public class IndividualKycDetail
 public class CorporateKycDetail
 {
     public long MemberId { get; set; }
+    public long BranchId { get; set; }
 
     // Company Details
     public string? EntityName { get; set; }
@@ -520,6 +531,8 @@ public class Account
 {
     public long AccountId { get; set; }
     public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+
     public long MemberId { get; set; }
     public string AccountNumber { get; set; } = null!;
     public decimal MonthlyContribution { get; set; }
@@ -548,7 +561,10 @@ public class Account
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public string? Remarks { get; set; }
-    public int?  SchemeId { get; set; }  
+    public int?  SchemeId { get; set; }
+    public string? FirstPaymentFlag { get; set; }
+    public string? IsBidding { get; set; }
+
 }
 
 public class BiddingCycle
@@ -567,6 +583,11 @@ public class BiddingCycle
     public decimal? DividendPool { get; set; }
     public CycleStatus Status { get; set; } = CycleStatus.OPEN;
     public DateTime? ResolvedAt { get; set; }
+    public long BranchId { get; set; }
+    public decimal OrgFeePct { get; set; } = 5.00m;
+    public decimal SifinCommissionPct { get; set; }
+    //public long? BidRefNo { get; set; }
+
 }
 
 public class Bid
@@ -578,6 +599,15 @@ public class Bid
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public bool IsWinner { get; set; }
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public bool IsApproved { get; set; }
+    public long? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public decimal OrgFeePct { get; set; } = 5.00m;
+    public decimal SifinCommissionPct { get; set; }
+    //public long? BidRefNo { get; set; }
+
 }
 
 public class Loan
@@ -593,6 +623,19 @@ public class Loan
     public DateTime? RepaidAt { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+
+    public string? PhoneNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public DateOnly? BidDate { get; set; }   
+    public string? LoanRemark { get; set; } 
+    public string? CoopName { get; set; }
+    public string? CoopMobileNumber { get; set; } 
+    public long? CoopAccountId { get; set; } 
+    public long? BranchId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? CreatedBy { get; set; }
+    public bool? AuthStatus { get; set; } 
+
 }
 
 public class LedgerEntry
@@ -655,6 +698,9 @@ public class JournalEntry
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
     public ICollection<JournalLine> Lines { get; set; } = new List<JournalLine>();
+    public long? BranchId { get; set; }
+    public long? GlId { get; set; } 
+
 }
 
 public class JournalLine
@@ -674,6 +720,8 @@ public class JournalLine
 
 public class GlAccountBalance
 {
+    public long?Tenantid { get; set; } 
+    public long? BranchId { get; set; }
     public long GlAccountId { get; set; }
     public decimal Balance { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -681,11 +729,27 @@ public class GlAccountBalance
 
 public class MemberAccountBalance
 {
+    public long? Tenantid { get; set; }
+    public long? BranchId { get; set; }
     public long AccountId { get; set; }
     public decimal Balance { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
+public class GLAccountDailyBalance
+{
+    public long Id { get; set; }
+    public long GlId { get; set; }
+    public long TenantId { get; set; }  
+    public long? BranchId { get; set; } 
+    //public DateTime TransactionDate { get; set; }
+    public decimal Balance { get; set; }
+    //public decimal DebitAmount { get; set; }
+    //public decimal CreditAmount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
+    //public virtual GeneralLedgerMaster GLAccount { get; set; }
+}
 public class IdempotencyLog
 {
     public string IdempotencyKey { get; set; } = null!;
@@ -918,4 +982,89 @@ public class Branch
     public DateTime? ModifiedAt { get; set; }
 
     public long? ModifiedBy { get; set; }
+}
+
+
+public class PaymentReportDto
+{
+    public long JournalId { get; set; }
+    public long TenantId { get; set; }
+    public decimal? Amount { get; set; } 
+
+    public DateOnly EntryDate { get; set; }
+    public string SourceType { get; set; } = string.Empty;
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public long? BranchId { get; set; }
+    public string CustomerName { get; set; } 
+    public string? AccountNo { get; set; }
+
+}
+public class ReportFilterPayload
+{
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long? GlId { get; set; } 
+
+    public string? Type { get; set; }
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
+    public long JournalId { get; set; }
+    public decimal? Amount { get; set; }
+
+    public DateOnly EntryDate { get; set; }
+    public string? SourceType { get; set; } 
+    public string? PaymentMethod { get; set; } 
+    public string? Description { get; set; }
+    public decimal? Debit { get; set; }
+    public decimal? Credit { get; set; }
+    public string? CustomerName { get; set; }
+    public string? AccountNo { get; set; }
+    public ReportsType ReportType { get; set; }
+    //public string Filters { get; internal set; }
+}
+public class ReportResponse
+{
+    public bool Success { get; set; }
+    public ReportsType ReportType { get; set; }
+    public object Data { get; set; }
+    public string Message { get; set; }
+
+}
+public class AccountOpenReportDto
+{
+    public long AccountId { get; set; }
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string AccountNumber { get; set; }
+    public DateOnly AccountOpenDate { get; set; }
+    public string Status { get; set; }
+    public string AccountType { get; set; }  // ✅ String representation of enum
+    public string FullName { get; set; }
+    public string Phone { get; set; }
+    public string? Email { get; set; }
+    public decimal? Balance { get; set; }
+    public long MemberId { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public DateOnly TenureEndDate { get; set; }
+
+}
+public class KycReportDto
+{
+    public long MemberId { get; set; }
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public string MemberType { get; set; }
+    public string KycStatus { get; set; }
+    public string KycTier { get; set; }
+    public DateTime? KycApprovedAt { get; set; }
+    public string CustomerIdentifierCode { get; set; } 
+    public string FullName { get; set; } = null!;
+    public string Phone { get; set; } = null!;
+    public string? Email { get; set; }
+    public string? PanNumber { get; set; }
+    public string? IdType { get; set; }
+    public string? IdNumber { get; set; }
 }

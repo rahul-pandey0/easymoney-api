@@ -11,16 +11,16 @@ namespace EasyMoney.Api.Controllers;
 [Route("api/v1/approval-requests")]
 [Authorize]
 public class ApprovalRequestsController : ControllerBase
-{
+{   
     private readonly IApprovalService _approvals;
     public ApprovalRequestsController(IApprovalService approvals) => _approvals = approvals;
 
     [HttpPost]
-    public async Task<ActionResult<ApprovalRequestDto>> Submit([FromBody] CreateApprovalRequest req)
+    public async Task<ActionResult<ApprovalRequestDto>> Submit([FromBody] CreateApprovalRequest req, [FromQuery] long? tenantId)
     {
         try
         {
-            var r = await _approvals.SubmitAsync(req.ActionType, req.EntityType, req.EntityId, req.Payload);
+            var r = await _approvals.SubmitAsync(req.ActionType, req.EntityType, req.EntityId, req.Payload, tenantId);
             return Ok(ToDto(r));
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }

@@ -176,31 +176,31 @@ public class TenantsController : ControllerBase
     
 
     [HttpGet("general_ledger")]
-    //Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + ",")]
-    public async Task<ActionResult<IReadOnlyList<GlAccountDto>>> GetAllGlata() 
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
+    public async Task<ActionResult<IReadOnlyList<GeneralLedgerDto>>> GetAllGlata() 
     {
         var result = await _tenants.GetAllGLSummariesAsync();
         return Ok(result);
     }
 
 
-    [HttpGet("{tenantId:long}/general_ledger")]
-    //Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + ",")]
-    public async Task<ActionResult<GlAccountDto>> GetTenantGLAccount(long tenantId)
-    {
-        var result = await _tenants.GetTenantGLAccountsAsync(tenantId);
+    //[HttpGet("{tenantId:long}/general_ledger")]
+    ////Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + ",")]
+    //public async Task<ActionResult<GlAccountDto>> GetTenantGLAccount(long tenantId)
+    //{
+    //    var result = await _tenants.GetTenantGLAccountsAsync(tenantId);
 
-        if (result == null)
-            return NotFound($"General ledger with TenantId {tenantId} not found");
+    //    if (result == null)
+    //        return NotFound($"General ledger with TenantId {tenantId} not found");
 
-        return Ok(result);
-    }
+    //    return Ok(result);
+    //}
 
 
 
-    [HttpGet("general_ledger/{glId:int}")]
-    //Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin + ",")]
-    public async Task<ActionResult<GeneralLedgerDto>> GetById(int glId)
+    [HttpGet("general_ledger/{glId:int}"),
+    Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin + ",")]
+    public async Task<ActionResult<GeneralLedgerMaster>> GetById(int glId)
     {
         try
         {
@@ -213,9 +213,9 @@ public class TenantsController : ControllerBase
         }
     }
 
-    [HttpPost("general_ledger")]
-    //Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin + ",")]
-    public async Task<IActionResult> CreateProduct([FromBody] GlAccountDto req)
+    [HttpPost("general_ledger"),
+    Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin + ",")]
+    public async Task<IActionResult> CreateProduct([FromBody] GeneralLedgerDto req)
     {
         try
         {
@@ -231,9 +231,9 @@ public class TenantsController : ControllerBase
         }
     }
 
-    [HttpPut("general_ledger/{glId:int}")]
-     //Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
-    public async Task<IActionResult> UpdateGlProdutConfig(int glId, [FromBody] GlAccountDto req)
+    [HttpPut("general_ledger/{glId:int}"),
+    Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + ",")]
+    public async Task<IActionResult> UpdateGlProdutConfig(int glId, [FromBody] GeneralLedgerMaster req)
     {
         try
         {

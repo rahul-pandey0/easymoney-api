@@ -10,6 +10,10 @@ public interface IBranchService
 {
     Task<BranchDto> CreateAsync(CreateBranchRequest request);
     Task<BranchDto?> GetByIdAsync(long branchId);
+
+    //Task<BranchDto?> GetByTenantAsync(long tenantId);
+    Task<List<BranchDto>> GetByTenantAsync(long tenantId);
+
     Task<IReadOnlyList<BranchDto>> GetAllAsync();
     Task<BranchDto> UpdateAsync(
         long branchId,
@@ -274,5 +278,25 @@ public class BranchService : IBranchService
             branch.OtherBank2,
             branch.CreatedAt
         );
+    }
+
+    public async Task<List<BranchDto>> GetByTenantAsync(long tenantId)
+    {
+        Console.WriteLine($"Current TenantId: {_ctx.TenantId}");
+
+        var branches = await _db.Branches
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId)  // Use Where instead of FirstOrDefault
+            .ToListAsync();
+
+        if (branches == null || !branches.Any())
+        {
+            Console.WriteLine("No branches found");
+            return new List<BranchDto>(); // Return empty list instead of null
+        }
+
+        Console.WriteLine($"Found {branches.Count} branches");
+
+        return branches.Select(b => ToDto(b)).ToList();
     }
 }

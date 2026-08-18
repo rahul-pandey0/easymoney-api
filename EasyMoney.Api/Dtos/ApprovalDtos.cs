@@ -101,7 +101,11 @@ public record SchemeConfigUpdatePayload(
     string? SchemeName,
 decimal? FixedRate,
 string? GstGl,
-string? SchemeCode
+string? SchemeCode,
+    int ? OrgFeeGlId, 
+        int? SifinCommissionGlId
+
+
 );
 
 
@@ -111,7 +115,8 @@ public record UserCreatePayload(
     string Email,
     string Password,
     string Role,
-    long? MemberId);
+    long? MemberId,
+    long? BranchId);
 
 public record UserRoleChangePayload(string NewRole);
 
@@ -135,7 +140,10 @@ public record AccountOpenPayload(
     decimal InterestAmount,
     decimal TotalAmount,
     string? Remarks,
-    int SchemeId
+    int SchemeId, 
+    long ? BranchId,
+    string ? IsBidding,
+    string ?FirstPayment
     );
 
 public record AccountUpdatePayload(
@@ -177,6 +185,20 @@ public record LoanDisbursementPayload(
 
 public record CycleResolutionOverridePayload(long CycleId);
 
+public record BIDapprove(long CycleId);
+
+
+// Use a complete DTO that matches your payload
+public record BidApprovalPayload(
+    long BidId,
+    long CycleId,
+    long AccountId,
+    decimal BidPct,
+    bool IsApproved,
+    long TenantId,
+    long RequestedBy
+);
+
 public record ExitProcessPayload(
     long AccountId,
     DateOnly ExitDate,
@@ -188,3 +210,16 @@ public record ManualJournalAdjustmentPayload(
     string PaymentMethod,
     string Description,
     IReadOnlyList<JournalLineInput> Lines);
+
+
+// EasyMoney.Api.Dtos/BidApprovalPayloadDto.cs
+public class BidApprovalPayloadDto
+{
+    public long BidId { get; set; }
+    public long CycleId { get; set; }
+    public long AccountId { get; set; }
+    public decimal BidPct { get; set; }
+    public bool IsApproved { get; set; }
+    public long TenantId { get; set; }
+    public long RequestedBy { get; set; }
+}
