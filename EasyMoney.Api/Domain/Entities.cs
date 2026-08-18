@@ -140,6 +140,9 @@ public class SchemeConfig
     public string? GstGl { get; set; }
     public string? SchemeCode { get; set; }
     public int? SchemeId  { get; set; }
+        public int? OrgFeeGlId { get; set; }  // GL for Organization Fee
+    public int? SifinCommissionGlId { get; set; }  // GL for Sifin Commission
+
 }
 
 
@@ -560,7 +563,7 @@ public class Account
     public string? Remarks { get; set; }
     public int?  SchemeId { get; set; }
     public string? FirstPaymentFlag { get; set; }
-    public string? IsBidding { get; set; } 
+    public string? IsBidding { get; set; }
 
 }
 
@@ -580,6 +583,11 @@ public class BiddingCycle
     public decimal? DividendPool { get; set; }
     public CycleStatus Status { get; set; } = CycleStatus.OPEN;
     public DateTime? ResolvedAt { get; set; }
+    public long BranchId { get; set; }
+    public decimal OrgFeePct { get; set; } = 5.00m;
+    public decimal SifinCommissionPct { get; set; }
+    //public long? BidRefNo { get; set; }
+
 }
 
 public class Bid
@@ -591,6 +599,15 @@ public class Bid
     public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public bool IsWinner { get; set; }
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public bool IsApproved { get; set; }
+    public long? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public decimal OrgFeePct { get; set; } = 5.00m;
+    public decimal SifinCommissionPct { get; set; }
+    //public long? BidRefNo { get; set; }
+
 }
 
 public class Loan
@@ -606,6 +623,19 @@ public class Loan
     public DateTime? RepaidAt { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
+
+    public string? PhoneNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public DateOnly? BidDate { get; set; }   
+    public string? LoanRemark { get; set; } 
+    public string? CoopName { get; set; }
+    public string? CoopMobileNumber { get; set; } 
+    public long? CoopAccountId { get; set; } 
+    public long? BranchId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? CreatedBy { get; set; }
+    public bool? AuthStatus { get; set; } 
+
 }
 
 public class LedgerEntry

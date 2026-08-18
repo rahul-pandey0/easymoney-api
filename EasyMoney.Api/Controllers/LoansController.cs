@@ -1,3 +1,4 @@
+using EasyMoney.Api.Auth;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using EasyMoney.Api.Services;
@@ -20,6 +21,17 @@ public class LoansController : ControllerBase
     public async Task<ActionResult<LoanDto>> GetByAccount(long accountId)
     {
         var l = await _loans.GetByAccountAsync(accountId);
+        if (l is null) return NotFound();
+        return Ok(new LoanDto(l.LoanId, l.AccountId, l.CycleId, l.PrincipalAmount, l.DisbursedAt));
+    }
+
+
+
+    [HttpPost, Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.SifinAdmin)]
+
+    public async Task<ActionResult<LoanDto>> CreateLoan(Loan loan)  
+    {
+        var l = await _loans.CreateLoanAsync(loan);
         if (l is null) return NotFound();
         return Ok(new LoanDto(l.LoanId, l.AccountId, l.CycleId, l.PrincipalAmount, l.DisbursedAt));
     }

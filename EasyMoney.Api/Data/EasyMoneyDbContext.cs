@@ -171,7 +171,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.GstGl).HasColumnName("gst_gl");
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
             e.Property(x => x.SchemeCode).HasColumnName("scheme_code");
-
+            e.Property(x => x.OrgFeeGlId).HasColumnName("org_fee_gl_id");
+            e.Property(x => x.SifinCommissionGlId).HasColumnName("sifin_commission_gl_id");
 
         });
 
@@ -259,6 +260,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.SchemeCode).HasColumnName("scheme_code"); 
 
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
+
 
         });
 
@@ -752,6 +754,9 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.DividendPool).HasColumnName("dividend_pool").HasColumnType("decimal(14,2)");
             e.Property(x => x.Status).HasColumnName("status").HasConversion<string>();
             e.Property(x => x.ResolvedAt).HasColumnName("resolved_at");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.OrgFeePct).HasColumnName("org_fee_pct");
+            e.Property(x => x.SifinCommissionPct).HasColumnName("sifin_commission_pct");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
@@ -766,6 +771,13 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.SubmittedAt).HasColumnName("submitted_at");
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             e.Property(x => x.IsWinner).HasColumnName("is_winner");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.IsApproved).HasColumnName("is_approved");
+            e.Property(x => x.ApprovedBy).HasColumnName("approved_by");
+            e.Property(x => x.ApprovedAt).HasColumnName("approved_at");
+            e.Property(x => x.OrgFeePct).HasColumnName("org_fee_pct");
+            e.Property(x => x.SifinCommissionPct).HasColumnName("sifin_commission_pct");
         });
 
         b.Entity<Loan>(e =>
@@ -783,8 +795,40 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.RepaidAt).HasColumnName("repaid_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+
+
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
+            e.Property(x => x.CustomerName).HasColumnName("customer_name");
+            e.Property(x => x.BidDate).HasColumnName("bid_date");
+            e.Property(x => x.LoanRemark).HasColumnName("loan_remark");
+            e.Property(x => x.CoopMobileNumber).HasColumnName("coop_mobile_number");
+            e.Property(x => x.CoopName).HasColumnName("coop_name");
+            e.Property(x => x.CoopAccountId).HasColumnName("coop_account_id"); 
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.AuthStatus).HasColumnName("auth_status");
+
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
-        });
+
+
+
+
+    //public string? PhoneNumber { get; set; }
+    //public string? CustomerName { get; set; }
+    //public DateOnly? BidDate { get; set; }
+    //public string? LoanRemark { get; set; }
+    //public string? CoopName { get; set; }
+    //public string? CoopMobileNumber { get; set; } 
+    //public long? CoopAccountId { get; set; }
+    //public long? BranchId { get; set; }
+    //public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    //public long? CreatedBy { get; set; }
+    //public bool? AuthStatus { get; set; }
+
+
+
+});
 
         b.Entity<LedgerEntry>(e =>
         {

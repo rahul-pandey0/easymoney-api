@@ -108,7 +108,9 @@ public record CycleDto(
     DateTime? ResolvedAt);
 
 public record SubmitBidRequest(decimal BidPct);
-public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner);
+public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner, bool IsApproved = false,
+        DateTime? ApprovedAt = null,
+        long? ApprovedBy = null);
 
 // Ranked bid line shown in the award preview
 public record AwardPreviewBidDto(
@@ -150,6 +152,11 @@ public record LoanDto(
     long CycleId,
     decimal PrizeAmount,      // cash received by the winner = bidPool - forfeiture
     DateTime DisbursedAt);
+
+
+
+
+
 
 // ============================================================
 // Notifications

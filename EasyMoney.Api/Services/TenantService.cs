@@ -190,6 +190,8 @@ public class TenantService : ITenantService
             GstGl = p.GstGl,
             SchemeCode = p.SchemeCode,
             SchemeId = 0,
+            OrgFeeGlId=p.OrgFeeGlId,
+            SifinCommissionGlId=p.SifinCommissionGlId,
 
             // Time Change
             TimeChPass = p.TimeChPass ?? 0m,

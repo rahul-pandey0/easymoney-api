@@ -49,10 +49,10 @@ public enum EntryTarget { GL, MEMBER_ACCOUNT }
 
 public enum ApprovalActionType
 {
-    TENANT_CREATE, TENANT_STATUS_CHANGE, SCHEME_CONFIG_UPDATE,
+    TENANT_CREATE, TENANT_STATUS_CHANGE, SCHEME_CONFIG_UPDATE, 
     USER_CREATE, USER_ROLE_CHANGE, ACCOUNT_OPEN,
     LOAN_DISBURSEMENT, CYCLE_RESOLUTION_OVERRIDE,
-    MANUAL_JOURNAL_ADJUSTMENT, EXIT_PROCESS, MEMBER_KYC_APPROVAL
+    MANUAL_JOURNAL_ADJUSTMENT, EXIT_PROCESS, MEMBER_KYC_APPROVAL,BID_APPROVE, CREATE_LOAN
 }
 public enum ApprovalStatus { PENDING, APPROVED, REJECTED, CANCELLED, AUTO_APPROVED }
 public enum BranchStatus
@@ -63,16 +63,16 @@ public enum BranchStatus
 
 public static class SystemGl
 {
-    public const string CashInHand = "1010";
-    public const string Bank = "1020";
+    public const string CashInHand = "1001";
+    public const string Bank = "1001";
     public const string EftClearing = "1030";
-    public const string LoansReceivable = "1100";
+    public const string LoansReceivable = "1001";
     public const string ContributionsReceivable = "1200";
     public const string BiddingPoolClearing = "1300";
     public const string MemberContributionsPayable = "2000";
     public const string DividendsPayable = "2100";
-    public const string SifinCommissionPayable = "2200";
-    public const string OrgFeeIncome = "4000";
+    public const string SifinCommissionPayable = "3003";
+    public const string OrgFeeIncome = "3001";
     public const string PenaltyIncome = "4100";
     public const string SifinPlatformCommissionIncome = "4200";
     public const string DividendExpense = "5000";
