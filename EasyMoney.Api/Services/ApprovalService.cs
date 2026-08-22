@@ -310,6 +310,8 @@ public class ApprovalService : IApprovalService
                     var bidId = payload.GetProperty("BidId").GetInt64();
                     var biddingSvc = _sp.GetRequiredService<IBiddingService>();
                     await biddingSvc.ApproveBidAsync(cycleId, bidId);
+                    //await biddingSvc.CloseBiddingAsync(cycleId);
+
                     req.EntityId = cycleId;
                     break;
                 }

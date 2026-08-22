@@ -20,7 +20,7 @@ public enum KycDocStatus { UPLOADED, VERIFIED, REJECTED }
 
 public enum AccountStatus { ACTIVE, PRIZED, EXITED, COMPLETED, SUSPENDED }
 public enum CycleStatus { OPEN, CLOSED, RESOLVED, NO_BID }
-public enum LoanStatus { ACTIVE, REPAID }
+public enum LoanStatus { ACTIVE, REPAID, PENDING , APPROVED , DEFAULTED , CANCELLED }
 public enum LedgerEntryType
 {
     CONTRIBUTION_DUE, PAYMENT_RECEIVED, DIVIDEND_CREDIT,

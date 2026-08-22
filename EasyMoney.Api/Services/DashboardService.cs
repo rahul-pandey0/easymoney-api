@@ -45,7 +45,7 @@ public class DashboardService
         dto.TotalLoans = await loans.CountAsync();
 
         dto.ActiveLoans =
-            await loans.CountAsync(l => l.Status == LoanStatus.ACTIVE);
+            await loans.CountAsync(l => l.Status =="ACTIVE");
 
         dto.TotalTenants = await _db.Tenants.CountAsync();
 

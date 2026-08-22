@@ -556,7 +556,7 @@ public class Account
     public decimal TargetAmount { get; set; }
     public DateOnly? PaymentDate { get; set; }
     public decimal PaidAmount { get; set; }
-    public decimal LoanAmount { get; set; }
+    public decimal? LoanAmount { get; set; }
     public decimal BonusAmount { get; set; }
     public decimal InterestAmount { get; set; }
     public decimal TotalAmount { get; set; }
@@ -606,6 +606,11 @@ public class Bid
     public DateTime? ApprovedAt { get; set; }
     public decimal OrgFeePct { get; set; } = 5.00m;
     public decimal SifinCommissionPct { get; set; }
+    public decimal FixedRate { get; set; }
+    public decimal TotalBid { get; set; }
+    public decimal TragetAmount { get; set; }
+    public decimal AllotmentAmount { get; set; }
+
     //public long? BidRefNo { get; set; }
 
 }
@@ -619,7 +624,7 @@ public class Loan
     public decimal PrincipalAmount { get; set; }
     public DateTime DisbursedAt { get; set; }
     public decimal OutstandingBalance { get; set; }
-    public LoanStatus Status { get; set; } = LoanStatus.ACTIVE;
+    public string? Status { get; set; } 
     public DateTime? RepaidAt { get; set; }
     public long? AuthorizedBy { get; set; }
     public DateTime? AuthorizedAt { get; set; }
@@ -628,14 +633,45 @@ public class Loan
     public string? CustomerName { get; set; }
     public DateOnly? BidDate { get; set; }   
     public string? LoanRemark { get; set; } 
-    public string? CoopName { get; set; }
-    public string? CoopMobileNumber { get; set; } 
-    public long? CoopAccountId { get; set; } 
+    //public string? CoopName { get; set; }
+    //public string? CoopMobileNumber { get; set; } 
+    //public long? CoopAccountId { get; set; } 
     public long? BranchId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public long? CreatedBy { get; set; }
-    public bool? AuthStatus { get; set; } 
+    public bool AuthStatus { get; set; }
+    public decimal? OrgFeeAmount { get; set; }
+    public decimal? SifinCommission { get; set; }
+    public decimal? NetDisbursementAmount { get; set; }
+    public decimal? ProcessingFee { get; set; }
+    public List<CoBorrower>? CoBorrowerDetails { get; set; }
 
+}
+
+public class CoBorrower
+{
+    public long TenantId { get; set; }
+    public long CoBorrowerId { get; set; }
+    public long LoanId { get; set; } 
+    public string? CoBorrowerName { get; set; }
+    public string? CoBorrowerPhone { get; set; }
+    public string? CoBorrowerEmail { get; set; }
+    public string? CoBorrowerAddress { get; set; }
+    //public long? CoBorrowerAccountId { get; set; }
+    public string? CoBorrowerAccountNumber { get; set; }
+     public string? CoopName { get; set; }
+    public string? CoopMobileNumber { get; set; }
+    public long? CoopAccountId { get; set; }
+    public string? CoopAccountNumber { get; set; }
+    public string? CoBorrowerRemarks { get; set; }
+    public bool IsPrimaryCoBorrower { get; set; } 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public long? UpdatedBy { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    //public virtual Loan ParentLoan { get; set; }
 }
 
 public class LedgerEntry
@@ -1067,4 +1103,164 @@ public class KycReportDto
     public string? PanNumber { get; set; }
     public string? IdType { get; set; }
     public string? IdNumber { get; set; }
+}
+
+
+// File: Dtos/BiddingSummaryDtos.cs
+
+public class BiddingSummaryDto
+{
+    // Cycle Information
+    public bool HasActiveBidding { get; set; }
+    public long? CycleId { get; set; }
+    public DateOnly? CycleMonth { get; set; }
+    public string CycleStatus { get; set; }
+    public string StatusColor { get; set; }
+
+    // Timeline
+    public DateTime? WindowOpenAt { get; set; }
+    public DateTime? WindowCloseAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+
+    // Bidding Statistics
+    public int TotalBids { get; set; }
+    public int ApprovedBids { get; set; }
+    public int PendingBids { get; set; }
+    public int RejectedBids { get; set; }
+    public int UniqueBidders { get; set; }
+
+    // Financial Summary
+    public decimal GrossCorpus { get; set; }
+    public decimal OrgFeeAmount { get; set; }
+    public decimal BidPool { get; set; }
+    public decimal LoanDisbursed { get; set; }
+    public decimal DividendPool { get; set; }
+
+    // Winner Details (if resolved)
+    public WinnerSummaryDto Winner { get; set; }
+    public long? WinnerAccountId { get; set; }
+    public decimal? WinnerBidPct { get; set; }
+
+    // Bidders List
+    public List<BidderSummaryDto> Bidders { get; set; }
+
+    // Messages
+    public string Message { get; set; }
+    public string NextStep { get; set; }
+    public bool CanProceed { get; set; }
+}
+
+public class WinnerSummaryDto
+{
+    public long BidId { get; set; }
+    public long AccountId { get; set; }
+    public string AccountNumber { get; set; }
+    public long MemberId { get; set; }
+    public string MemberName { get; set; }
+    public string MemberPhone { get; set; }
+    public string Email { get; set; }
+    public decimal BidPct { get; set; }
+    public decimal ForfeitureAmount { get; set; }
+    public decimal PrizeAmount { get; set; }
+    public decimal NetReceivable { get; set; }
+    public DateTime SubmittedAt { get; set; }
+}
+
+public class BidderSummaryDto
+{
+    //public int Rank { get; set; }
+    public long BidId { get; set; }
+    public long AccountId { get; set; }
+    public string AccountNumber { get; set; }
+    public long MemberId { get; set; }
+    public string MemberName { get; set; }
+    public string MemberPhone { get; set; }
+    public decimal BidPct { get; set; }
+    public DateTime SubmittedAt { get; set; }
+    public bool IsApproved { get; set; }
+    public bool IsWinner { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public long? ApprovedBy { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public int InstallmentsPaid { get; set; }
+    //public int TotalInstallments { get; set; }
+    public decimal ForfeitureAmount { get; set; }
+    public decimal PrizeIfWins { get; set; }
+    public string Status { get; set; }
+    public string StatusBadge { get; set; }
+    public decimal FixedRate { get; set; }
+    public decimal TotalBid { get; set; } 
+    public decimal TargetAmount { get; set; }
+    public decimal AllotmentAmount { get; set; }
+}
+
+// Dtos/DisbursementRequestDto.cs
+public class DisbursementRequestDto
+{
+    public long LoanId { get; set; }
+    public decimal? Amount { get; set; }
+    public string? PaymentMethod { get; set; }
+    public string? BankName { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? IfscCode { get; set; }
+    public string? ChequeNumber { get; set; }
+    public string? TransactionReference { get; set; }
+    public DateTime? DisbursedAt { get; set; }
+    public string? Remarks { get; set; }
+
+    // Fee breakdown
+    public decimal? ProcessingFee { get; set; }
+    public decimal? OrgFeeAmount { get; set; }
+    public decimal? SifinCommission { get; set; }
+    public decimal? FixedRateAmount { get; set; }
+    public decimal? TenantCommission { get; set; }
+    public decimal? TdsAmount { get; set; }
+    public decimal? OtherDeductions { get; set; }
+}
+
+// Dtos/DisbursementVoucherDto.cs
+public class DisbursementVoucherDto
+{
+    public long VoucherId { get; set; }
+    public long LoanId { get; set; }
+    public string VoucherNumber { get; set; }
+    public DateTime VoucherDate { get; set; }
+    public string TransactionType { get; set; } // "LOAN_DISBURSEMENT"
+    public string PaymentMethod { get; set; }
+    public string TransactionReference { get; set; }
+
+    // Amount Details
+    public decimal GrossAmount { get; set; }           // Principal Amount
+    public decimal FixedRateAmount { get; set; }       // Fixed Rate deduction
+    public decimal TenantCommission { get; set; }      // Org Fee
+    public decimal SifinCommission { get; set; }       // SIFIN Commission
+    public decimal ProcessingFee { get; set; }         // Processing Fee
+    public decimal TdsAmount { get; set; }             // TDS Deduction
+    public decimal OtherDeductions { get; set; }       // Other deductions
+    public decimal NetAmount { get; set; }             // Final disbursed amount
+
+    // Accounting Entries
+    public List<VoucherLineDto> DebitEntries { get; set; }
+    public List<VoucherLineDto> CreditEntries { get; set; }
+
+    // Additional Info
+    public string AccountNumber { get; set; }
+    public string AccountHolder { get; set; }
+    public string BankName { get; set; }
+    public string IfscCode { get; set; }
+    public string Remarks { get; set; }
+    public string Status { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string CreatedBy { get; set; }
+    public string AuthorizedBy { get; set; }
+}
+
+public class VoucherLineDto
+{
+    public string AccountCode { get; set; }
+    public string AccountName { get; set; }
+    public string AccountType { get; set; } // "Asset", "Liability", "Income", "Expense"
+    public decimal Amount { get; set; }
+    public string Narration { get; set; }
 }

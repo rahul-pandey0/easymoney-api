@@ -180,6 +180,7 @@ try
     app.UseSerilogRequestLogging(opts =>
     {
         opts.EnrichDiagnosticContext = (diag, httpCtx) =>
+        
         {
             var tenantId = httpCtx.User.FindFirst("tenant_id")?.Value ?? "-";
             var userId = httpCtx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "-";

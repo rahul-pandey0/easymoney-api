@@ -50,7 +50,7 @@ public record AccountSummaryDto(
     bool IsEligibleToBid, bool IsEligibleForDividend,
     decimal CorpusBalance, long? PrizeWonInCycleId,
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
-    DateOnly? PaymentDate, decimal PaidAmount, decimal LoanAmount,decimal bonusAmount, decimal InterestAmount,
+    DateOnly? PaymentDate, decimal PaidAmount, decimal? LoanAmount,decimal bonusAmount, decimal InterestAmount,
         decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding); 
 
 // ============================================================
@@ -107,8 +107,10 @@ public record CycleDto(
     decimal? LoanDisbursed, decimal? DividendPool,
     DateTime? ResolvedAt);
 
-public record SubmitBidRequest(decimal BidPct);
-public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner, bool IsApproved = false,
+public record SubmitBidReq(decimal BidPct,long AccountId,DateOnly BidDate,decimal FixedRate,decimal TargetAmount,decimal AllotmentAmount,decimal TotalBid); 
+public record SubmitBidRequest(decimal BidPct); 
+
+public record BidDto(long BidId, long CycleId, long AccountId, decimal BidPct, DateTime SubmittedAt, DateTime? UpdatedAt, bool IsWinner, bool IsApproved,
         DateTime? ApprovedAt = null,
         long? ApprovedBy = null);
 
@@ -146,15 +148,150 @@ public record CycleResolutionResultDto(
 // ============================================================
 // Loan (prize record — member won the bid in this cycle)
 // ============================================================
+//public record LoanDto(
+//    long LoanId,
+//    long AccountId,
+//    long CycleId,
+//    decimal PrizeAmount,      // cash received by the winner = bidPool - forfeiture
+//    DateTime DisbursedAt);
+//public record LoanDto(
+//      long loanId,
+//      long accountId,
+//      long cycleId,
+//      decimal principalAmount,
+//      DateTime? disbursedAt,
+//      string status,
+//      bool authStatus,
+//      DateTime? authorizedAt,
+//      long? authorizedBy,
+//      decimal? netDisbursementAmount,
+//      decimal? processingFee,
+//      decimal? orgFeeAmount,
+//      decimal? sifinCommission,
+//      decimal? outstandingBalance,
+//      string? loanRemark
+    
+    
+//    );
+
+// LoanDto.cs
 public record LoanDto(
     long LoanId,
     long AccountId,
     long CycleId,
-    decimal PrizeAmount,      // cash received by the winner = bidPool - forfeiture
-    DateTime DisbursedAt);
+    decimal PrincipalAmount,
+    DateTime? DisbursedAt,
+    string Status,
+    bool AuthStatus,
+    DateTime? AuthorizedAt,
+    long? AuthorizedBy,
+    decimal? NetDisbursementAmount,
+    decimal? ProcessingFee,
+    decimal? OrgFeeAmount,
+    decimal? SifinCommission,
+    decimal? OutstandingBalance,
+    string? LoanRemark,
+    string? CustomerName,
+    string? PhoneNumber,
+    long? BranchId,
+    List<CoBorrowerDto>? CoBorrowers
+);
 
+// CoBorrowerDto.cs
+public record CoBorrowerDto(
+    long CoBorrowerId,
+    long loanId, 
+    string? CoBorrowerName,
+    string? CoBorrowerPhone,
+    string? CoBorrowerEmail,
+    string? CoBorrowerAddress,
+    string? CoBorrowerAccountNumber,
+    string? CoopName,
+    string? CoopMobileNumber,
+    long? CoopAccountId,
+    string? CoopAccountNumber,
+    string? CoBorrowerRemarks,
+    bool IsPrimaryCoBorrower,
+    bool IsActive
+);
 
+// CreateLoanDto.cs
+public record CreateLoanDto(
+    long AccountId,
+    long CycleId,
+    decimal PrincipalAmount,
+    DateTime DisbursedAt,
+    string? PhoneNumber,
+    string? CustomerName,
+    DateOnly? BidDate,
+    string? LoanRemark,
+    long? BranchId,
+    decimal? OrgFeeAmount,
+    decimal? SifinCommission,
+    decimal? NetDisbursementAmount,
+    decimal? ProcessingFee,
+    List<CreateCoBorrowerDto>? CoBorrowers
+);
 
+// CreateCoBorrowerDto.cs
+public record CreateCoBorrowerDto(
+    string? CoBorrowerName,
+    string? CoBorrowerPhone,
+    string? CoBorrowerEmail,
+    string? CoBorrowerAddress,
+    string? CoBorrowerAccountNumber,
+    string? CoopName,
+    string? CoopMobileNumber,
+    long? CoopAccountId,
+    string? CoopAccountNumber,
+    string? CoBorrowerRemarks,
+    bool IsPrimaryCoBorrower
+);
+
+// UpdateLoanDto.cs
+public record UpdateLoanDto(
+    long LoanId,
+    decimal? PrincipalAmount,
+    decimal? OutstandingBalance,
+    string? Status,
+    DateTime? RepaidAt,
+    string? LoanRemark,
+    decimal? OrgFeeAmount,
+    decimal? SifinCommission,
+    decimal? NetDisbursementAmount,
+    decimal? ProcessingFee,
+    long? BranchId,
+    bool AuthStatus,
+    List<UpdateCoBorrowerDto>? CoBorrowers
+);
+
+// UpdateCoBorrowerDto.cs
+public record UpdateCoBorrowerDto(
+    long CoBorrowerId,
+    string? CoBorrowerName,
+    string? CoBorrowerPhone,
+    string? CoBorrowerEmail,
+    string? CoBorrowerAddress,
+    string? CoBorrowerAccountNumber,
+    string? CoopName,
+    string? CoopMobileNumber,
+    long? CoopAccountId,
+    string? CoopAccountNumber,
+    string? CoBorrowerRemarks,
+    bool IsPrimaryCoBorrower,
+    bool IsActive
+);
+public record DisbursementCalculationDto(
+long LoanId,
+    long AccountId,
+   long CycleId ,
+   decimal PrincipalAmount ,
+    decimal ProcessingFee ,
+   decimal OrgFeeAmount ,
+     decimal SifinCommission,
+   decimal NetDisbursementAmount,
+  string Status 
+);
 
 
 

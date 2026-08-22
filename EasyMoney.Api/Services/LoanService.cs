@@ -13,9 +13,18 @@ public interface ILoanService
     Task<Loan> DisburseAsync(long accountId, long cycleId, decimal principal);
 
     Task<Loan?> GetByAccountAsync(long accountId);
-    Task<Loan> CreateLoanAsync(Loan loan);
+    Task<List<Loan>> GetByAccountbytenant(); 
+
+    Task<LoanDto> CreateLoanAsync(CreateLoanDto loan);
     //Task<Loan>
-    Task<Loan> ApproveLoanAsync(long loanId); 
+    Task<Loan> ApproveLoanAsync(long loanId);
+
+    Task<Loan> GetLoanAsync(long loanId);
+    Task<Loan> CalculateNetDisbursementAsync(long loanId);
+    //Task<Loan> DisburseLoanAsync(long loanId);
+    Task<IEnumerable<Loan>> GetPendingApprovalLoansAsync();
+    Task<IEnumerable<Loan>> GetApprovedPendingDisbursementLoansAsync();
+    Task<DisbursementVoucherDto> DisburseLoanAsync(long loanId, DisbursementRequestDto request);
 
 }
 
@@ -89,33 +98,83 @@ public class LoanService : ILoanService
         return loan;
     }
 
-
-
-    public async Task<Loan> CreateLoanAsync(Loan loan)
+    public async Task<LoanDto> CreateLoanAsync(CreateLoanDto createLoanDto)
     {
+
         try
         {
-            var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstAsync(s => s.CycleId == loan.CycleId);
-            //if (cycle.Status == OPEN)
-            //{throw new Exception("plaes")
-            //}
+            // Validate cycle
+            //var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.CycleId == createLoanDto.CycleId);
+            var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstAsync(s => s.CycleId == createLoanDto.CycleId);
 
-            if (loan.AccountId <= 0)
+            if (cycle == null)
+                throw new DomainException($"Cycle with ID {createLoanDto.CycleId} not found");
+
+            //if (cycle.Status == "CLOSED" || cycle.Status == "RESOLVED")
+            //    throw new InvalidOperationException("Cannot create loan for closed or resolved cycle");
+
+            if (createLoanDto.AccountId <= 0)
                 throw new ArgumentException("Invalid AccountId");
 
-            // Set default values
-            loan.OutstandingBalance = loan.PrincipalAmount;
-            loan.Status = LoanStatus.ACTIVE;
-            loan.CreatedAt = DateTime.UtcNow;
-            loan.TenantId=_ctx.TenantId.Value;
-            loan.BranchId = _ctx.BranchId;
-            loan.LoanRemark = "LOAN Craetion";
-            // Add to database
+            // Create Loan
+            var loan = new Loan
+            {
+                TenantId = _ctx.TenantId.Value,
+                AccountId = createLoanDto.AccountId,
+                CycleId = createLoanDto.CycleId,
+                PrincipalAmount = createLoanDto.PrincipalAmount,
+                DisbursedAt = createLoanDto.DisbursedAt,
+                OutstandingBalance = createLoanDto.PrincipalAmount,
+                Status = "ACTIVE",
+                PhoneNumber = createLoanDto.PhoneNumber,
+                CustomerName = createLoanDto.CustomerName,
+                BidDate = createLoanDto.BidDate,
+                LoanRemark = createLoanDto.LoanRemark ?? "LOAN Creation",
+                BranchId = createLoanDto.BranchId ?? _ctx.BranchId,
+                OrgFeeAmount = createLoanDto.OrgFeeAmount,
+                SifinCommission = createLoanDto.SifinCommission,
+                NetDisbursementAmount = createLoanDto.NetDisbursementAmount,
+                ProcessingFee = createLoanDto.ProcessingFee,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = _ctx.UserId,
+                AuthStatus = false
+            };
+
             _db.Loans.Add(loan);
             await _db.SaveChangesAsync();
+
+            // Create Co-Borrowers if any
+            if (createLoanDto.CoBorrowers != null && createLoanDto.CoBorrowers.Any())
+            {
+                var coBorrowers = createLoanDto.CoBorrowers.Select(cb => new CoBorrower
+                {
+                    TenantId = _ctx.TenantId.Value,
+                    LoanId = loan.LoanId,
+                    //BranchId = loan.BranchId,
+                    CoBorrowerName = cb.CoBorrowerName,
+                    CoBorrowerPhone = cb.CoBorrowerPhone,
+                    CoBorrowerEmail = cb.CoBorrowerEmail,
+                    CoBorrowerAddress = cb.CoBorrowerAddress,
+                    CoBorrowerAccountNumber = cb.CoBorrowerAccountNumber,
+                    CoopName = cb.CoopName,
+                    CoopMobileNumber = cb.CoopMobileNumber,
+                    CoopAccountId = cb.CoopAccountId,
+                    CoopAccountNumber = cb.CoopAccountNumber,
+                    CoBorrowerRemarks = cb.CoBorrowerRemarks,
+                    IsPrimaryCoBorrower = cb.IsPrimaryCoBorrower,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = _ctx.UserId,
+                    IsActive = true
+                }).ToList();
+
+                _db.CoBorrowers.AddRange(coBorrowers);
+                await _db.SaveChangesAsync();
+            }
+
+            // Create Approval Request
             var approval = new ApprovalRequest
             {
-                TenantId = _ctx.TenantId,
+                TenantId = _ctx.TenantId.Value,
                 ActionType = ApprovalActionType.CREATE_LOAN,
                 EntityType = "Loan Create",
                 EntityId = loan.LoanId,
@@ -127,6 +186,8 @@ public class LoanService : ILoanService
                     loan.AuthStatus,
                     loan.TenantId,
                     loan.CreatedBy,
+                    loan.PrincipalAmount,
+                    loan.DisbursedAt
                 }),
                 Status = ApprovalStatus.PENDING,
                 RequestedBy = _ctx.UserId.Value,
@@ -135,40 +196,702 @@ public class LoanService : ILoanService
 
             _db.ApprovalRequests.Add(approval);
             await _db.SaveChangesAsync();
-
+            //await transaction.CommitAsync();
 
             _log.LogInformation("Disbursed loan {LoanId} ₹{PrincipalAmount} to account {AccountId}",
                 loan.LoanId, loan.PrincipalAmount, loan.AccountId);
 
-            return loan;
+            // Return the created loan with co-borrowers
+            return await GetLoanByIdAsync(loan.LoanId);
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Error creating loan for account {AccountId}", loan.AccountId);
+            //await transaction.RollbackAsync();
+            _log.LogError(ex, "Error creating loan for account {AccountId}", createLoanDto.AccountId);
+            throw;
+        }
+    }
+    public async Task<LoanDto> GetLoanByIdAsync(long loanId)
+    {
+        var loan = await _db.Loans
+            .Include(l => l.CoBorrowerDetails)
+            .FirstOrDefaultAsync(l => l.LoanId == loanId && l.TenantId == _ctx.TenantId);
+
+        if (loan == null)
+            throw new DomainException($"Loan with ID {loanId} not found");
+
+        return MapToLoanDto(loan);
+    }
+    private LoanDto MapToLoanDto(Loan loan)
+    {
+        return new LoanDto(
+            loan.LoanId,
+            loan.AccountId,
+            loan.CycleId,
+            loan.PrincipalAmount,
+            loan.DisbursedAt,
+            loan.Status,
+            loan.AuthStatus,
+            loan.AuthorizedAt,
+            loan.AuthorizedBy,
+            loan.NetDisbursementAmount,
+            loan.ProcessingFee,
+            loan.OrgFeeAmount,
+            loan.SifinCommission,
+            loan.OutstandingBalance,
+            loan.LoanRemark,
+            loan.CustomerName,
+            loan.PhoneNumber,
+            loan.BranchId,
+            loan.CoBorrowerDetails?.Where(cb => cb.IsActive).Select(cb => new CoBorrowerDto(
+                cb.CoBorrowerId,
+                cb.LoanId,
+                cb.CoBorrowerName,
+                cb.CoBorrowerPhone,
+                cb.CoBorrowerEmail,
+                cb.CoBorrowerAddress,
+                cb.CoBorrowerAccountNumber,
+                cb.CoopName,
+                cb.CoopMobileNumber,
+                cb.CoopAccountId,
+                cb.CoopAccountNumber,
+                cb.CoBorrowerRemarks,
+                cb.IsPrimaryCoBorrower,
+                cb.IsActive
+            )).ToList() ?? new List<CoBorrowerDto>()
+        );
+    }
+    public async Task<IEnumerable<LoanDto>> GetLoansByTenantAsync()
+    {
+        var loans = await _db.Loans
+            .Include(l => l.CoBorrowerDetails)
+            .Where(l => l.TenantId == _ctx.TenantId)
+            .OrderByDescending(l => l.CreatedAt)
+            .ToListAsync();
+
+        return loans.Select(MapToLoanDto);
+    }
+    /* public async Task<Loan> CreateLoanAsync(Loan loan)
+     {
+         try
+         {
+             var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstAsync(s => s.CycleId == loan.CycleId);
+             //if (cycle.Status == OPEN)
+             //{throw new Exception("plaes")
+             //}
+
+             if (loan.AccountId <= 0)
+                 throw new ArgumentException("Invalid AccountId");
+
+             // Set default values
+             loan.OutstandingBalance = loan.PrincipalAmount;
+             loan.Status = "ACTIVE";
+             loan.CreatedAt = DateTime.UtcNow;
+             loan.TenantId=_ctx.TenantId.Value;
+             loan.BranchId = _ctx.BranchId;
+             loan.LoanRemark = "LOAN Craetion";
+             // Add to database
+             _db.Loans.Add(loan);
+             await _db.SaveChangesAsync();
+             var approval = new ApprovalRequest
+             {
+                 TenantId = _ctx.TenantId,
+                 ActionType = ApprovalActionType.CREATE_LOAN,
+                 EntityType = "Loan Create",
+                 EntityId = loan.LoanId,
+                 Payload = System.Text.Json.JsonSerializer.Serialize(new
+                 {
+                     loan.LoanId,
+                     loan.CycleId,
+                     loan.AccountId,
+                     loan.AuthStatus,
+                     loan.TenantId,
+                     loan.CreatedBy,
+                 }),
+                 Status = ApprovalStatus.PENDING,
+                 RequestedBy = _ctx.UserId.Value,
+                 RequestedAt = DateTime.UtcNow
+             };
+
+             _db.ApprovalRequests.Add(approval);
+             await _db.SaveChangesAsync();
+
+
+             _log.LogInformation("Disbursed loan {LoanId} ₹{PrincipalAmount} to account {AccountId}",
+                 loan.LoanId, loan.PrincipalAmount, loan.AccountId);
+
+             return loan;
+         }
+         catch (Exception ex)
+         {
+             _log.LogError(ex, "Error creating loan for account {AccountId}", loan.AccountId);
+             throw;
+         }
+     }
+
+     */
+    public Task<Loan?> GetByAccountAsync(long accountId) =>
+        _db.Loans.IgnoreQueryFilters().FirstOrDefaultAsync(l => l.AccountId == accountId);
+
+    public Task<List<Loan>> GetByAccountbytenant() =>
+        _db.Loans.IgnoreQueryFilters()
+            .Where(l => l.TenantId == _ctx.TenantId)
+            .ToListAsync();
+
+
+    //public async Task<Loan> ApproveLoanAsync(long loanId)
+    //{
+    //    var data = await _db.Loans.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(x => x.LoanId == loanId);
+
+    //    if (data is null)
+    //        throw new DomainException($"Loan {loanId} not found.");
+
+    //            // Approve this specific bid
+    //    data.AuthStatus = true;
+    //    data.AuthorizedAt = DateTime.UtcNow;
+    //    data.AuthorizedBy = _ctx.UserId;
+    //    data.BranchId = _ctx.BranchId;
+
+    //    await _db.SaveChangesAsync();
+
+    //    return data;
+    //}
+
+    //public async Task<Loan> GetLoanAsync(long loanId)
+    //{
+    //    return await _db.Loans.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(l => l.LoanId == loanId)
+    //        ?? throw new DomainException($"Loan {loanId} not found");
+    //}
+    public async Task<Loan> ApproveLoanAsync(long loanId)
+    {
+        var loan = await _db.Loans.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.LoanId == loanId)
+            ?? throw new DomainException($"Loan {loanId} not found.");
+
+
+
+        // Approve the loan
+        loan.AuthStatus = true;
+        loan.AuthorizedAt = DateTime.UtcNow;
+        loan.AuthorizedBy = _ctx.UserId;
+        loan.Status = "ACTIVE";
+        loan.BranchId = _ctx.BranchId;
+
+        await _db.SaveChangesAsync();
+
+        // Update approval request status
+        var approvalRequest = await _db.ApprovalRequests
+            .FirstOrDefaultAsync(a => a.EntityType == "Loan" && a.EntityId == loanId && a.Status == ApprovalStatus.PENDING);
+        if (approvalRequest != null)
+        {
+            approvalRequest.Status = ApprovalStatus.APPROVED;
+            //approvalRequest.ApprovedBy = _ctx.UserId;
+            //approvalRequest.ApprovedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        // Calculate net disbursement after approval
+        //await CalculateNetDisbursementAsync(loanId);
+
+        _log.LogInformation("Loan {LoanId} approved by user {UserId}", loanId, _ctx.UserId);
+        return loan;
+    }
+
+    // NEW METHOD - Get Loan by ID
+    public async Task<Loan> GetLoanAsync(long loanId)
+    {
+        return await _db.Loans.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(l => l.LoanId == loanId)
+            ?? throw new DomainException($"Loan {loanId} not found");
+    }
+
+    // NEW METHOD - Calculate net disbursement
+    public async Task<Loan> CalculateNetDisbursementAsync(long loanId)
+    {
+        var loan = await GetLoanAsync(loanId);
+
+        if (!loan.AuthStatus)
+            throw new DomainException($"Loan {loanId} is not approved yet");
+
+        // Get the cycle
+        var cycle = await _db.BiddingCycles.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.CycleId == loan.CycleId)
+            ?? throw new DomainException($"Cycle {loan.CycleId} not found");
+
+        var scheme = await _db.SchemeConfigs.IgnoreQueryFilters()
+            .FirstAsync(s => s.TenantId == cycle.TenantId);
+
+        // Calculate deductions
+        var processingFeePct = scheme.OrgFeePct; // You may need to add this field
+        var orgFeeAmount = Math.Round((decimal)(cycle.GrossCorpus * scheme.OrgFeePct / 100m), 2);
+        var sifinShare = Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2);
+        var processingFee = Math.Round(loan.PrincipalAmount * processingFeePct / 100m, 2);
+
+        // Calculate net disbursement amount
+        var netAmount = loan.PrincipalAmount - processingFee; // Subtract any fees
+
+        // Store calculations
+        //loan.ProcessingFee = processingFee;
+        loan.OrgFeeAmount = orgFeeAmount;
+        loan.SifinCommission = sifinShare;
+        loan.NetDisbursementAmount = netAmount;
+
+        await _db.SaveChangesAsync();
+
+        return loan;
+    }
+
+    // NEW METHOD - Disburse Loan
+    //public async Task<Loan> DisburseLoanAsync(long loanId)
+    //{
+    //    var loan = await GetLoanAsync(loanId);
+
+    //    // Validate loan is approved
+    //    if (loan.AuthStatus==false)
+    //        throw new DomainException($"Loan {loanId} is not approved yet");
+
+    //    // Validate loan is not already disbursed
+    //    //if (loan.DisbursedAt)
+    //    //    throw new DomainException($"Loan {loanId} has already been disbursed");
+
+    //    // Calculate net amount if not already calculated
+    //    if (!loan.NetDisbursementAmount.HasValue)
+    //        await CalculateNetDisbursementAsync(loanId);
+
+    //    var account = await _db.Accounts.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(a => a.AccountId == loan.AccountId)
+    //        ?? throw new DomainException($"Account {loan.AccountId} not found");
+
+    //    var cycle = await _db.BiddingCycles.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(c => c.CycleId == loan.CycleId)
+    //        ?? throw new DomainException($"Cycle {loan.CycleId} not found");
+
+    //    var netAmount = loan.NetDisbursementAmount ?? loan.PrincipalAmount;
+
+    //    // Update loan status
+    //    loan.Status = "ACTIVE";
+    //    loan.DisbursedAt = DateTime.UtcNow;
+    //    loan.OutstandingBalance = netAmount;
+    //    //loan.DisbursedBy = _ctx.UserId;
+
+    //    await _db.SaveChangesAsync();
+
+    //    // Update account balance
+    //    account.LoanAmount = (account.LoanAmount) + netAmount;
+    //    await _db.SaveChangesAsync();
+
+    //    // Create GL entries for disbursement
+    //    await _accounting.PostJournalAsync(
+    //        account.TenantId,
+    //        cycle.CycleMonth,
+    //        JournalSourceType.LOAN_DISBURSEMENT,
+    //        sourceId: loan.LoanId,
+    //        PaymentMethod.BANK_TRANSFER,
+    //        description: $"Loan disbursement to {account.AccountNumber} (cycle {cycle.CycleMonth:yyyy-MM})",
+    //        lines: new[]
+    //        {
+    //            new JournalLineInput(EntryTarget.GL, SystemGl.LoansReceivable, null, netAmount, 0),
+    //            new JournalLineInput(EntryTarget.GL, SystemGl.Bank, null, 0, netAmount)
+    //        },
+    //        createdBy: _ctx.UserId,
+    //        authorizedBy: _ctx.UserId);
+
+    //    _db.LedgerEntries.Add(new LedgerEntry
+    //    {
+    //        TenantId = account.TenantId,
+    //        AccountId = account.AccountId,
+    //        CycleId = cycle.CycleId,
+    //        EntryType = LedgerEntryType.LOAN_DISBURSEMENT,
+    //        Amount = netAmount,
+    //        EntryDate = cycle.CycleMonth,
+    //        Description = $"Loan disbursed (cycle {cycle.CycleMonth:yyyy-MM})",
+    //        CreatedBy = _ctx.UserId
+    //    });
+
+    //    await _db.SaveChangesAsync();
+
+    //    _log.LogInformation("Disbursed loan {LoanId} ₹{Amount} to account {AccountId}",
+    //        loan.LoanId, netAmount, loan.AccountId);
+
+    //    return loan;
+    //}
+
+    // NEW METHOD - Get pending approval loans
+    public async Task<IEnumerable<Loan>> GetPendingApprovalLoansAsync()
+    {
+        return await _db.Loans.IgnoreQueryFilters()
+            .Where(l => l.AuthStatus == false && l.Status == "PENDING")
+            .OrderByDescending(l => l.CreatedAt)
+            .ToListAsync();
+    }
+
+    // NEW METHOD - Get approved pending disbursement loans
+    public async Task<IEnumerable<Loan>> GetApprovedPendingDisbursementLoansAsync()
+    {
+        return await _db.Loans.IgnoreQueryFilters()
+            .Where(l => l.AuthStatus == true && l.Status == "APPROVED" && l.DisbursedAt == null)
+            .OrderByDescending(l => l.AuthorizedAt)
+            .ToListAsync();
+    }
+
+    public async Task<DisbursementVoucherDto> DisburseLoanAsync(long loanId, DisbursementRequestDto request)
+    {
+        try
+        {
+            var loan = await GetLoanAsync(loanId);
+
+            // Validate loan is approved
+            if (!loan.AuthStatus)
+                throw new DomainException($"Loan {loanId} is not approved yet");
+
+            //// Validate loan is not already disbursed
+            //if (loan.DisbursedAt)
+            //    throw new DomainException($"Loan {loanId} has already been disbursed on {loan.DisbursedAt.Value}");
+
+            var account = await _db.Accounts.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.AccountId == loan.AccountId)
+                ?? throw new DomainException($"Account {loan.AccountId} not found");
+
+            var cycle = await _db.BiddingCycles.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.CycleId == loan.CycleId)
+                ?? throw new DomainException($"Cycle {loan.CycleId} not found");
+
+            // Get scheme config for GL accounts and fees
+            var scheme = await _db.SchemeConfigs.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(s => s.TenantId == loan.TenantId)
+                ?? throw new DomainException($"Scheme config not found for tenant {loan.TenantId}");
+
+            // ============================================================
+            // STEP 1: CALCULATE ALL AMOUNTS
+            // ============================================================
+
+            // Get participants and gross corpus
+            var participants = await _db.Accounts.IgnoreQueryFilters()
+                .Where(p => p.TenantId == loan.TenantId
+                            && (p.Status == AccountStatus.ACTIVE || p.Status == AccountStatus.PRIZED)
+                            && p.AccountOpenDate <= cycle.CycleMonth
+                            && p.TenureEndDate > cycle.CycleMonth)
+                .ToListAsync();
+
+            var grossCorpus = participants.Sum(p => p.MonthlyContribution);
+
+            // 1.1 Calculate Fixed Rate Amount (if bid has fixed rate)
+            var fixedRateAmount = request.FixedRateAmount;
+           
+
+            // 1.2 Calculate Tenant Commission (Org Fee)
+            var tenantCommission = request.OrgFeeAmount ??
+                Math.Round(grossCorpus * (scheme.OrgFeePct / 100m), 2);
+
+            // 1.3 Calculate SIFIN Commission
+            var sifinCommission = request.SifinCommission ??
+                Math.Round(tenantCommission * (scheme.SifinCommissionPct / 100m), 2);
+
+            // 1.4 Calculate Processing Fee
+            var processingFee = request.ProcessingFee ??
+                Math.Round(loan.PrincipalAmount * (scheme.OrgFeePct / 100m), 2);
+
+            // 1.5 Calculate TDS (if applicable - e.g., 10% on commission)
+            var tdsAmount = request.TdsAmount ??
+                Math.Round((tenantCommission + sifinCommission) * 0.10m, 2);
+
+            // 1.6 Other deductions (if any)
+            var otherDeductions = request.OtherDeductions ?? 0;
+
+            // 1.7 Calculate Net Disbursement Amount
+            var totalDeductions = fixedRateAmount + tenantCommission + sifinCommission +
+                                  processingFee + tdsAmount + otherDeductions;
+
+            var grossAmount = request.Amount ?? loan.PrincipalAmount;
+            var netAmount = grossAmount - totalDeductions;
+
+            if (netAmount < 0) netAmount = 0;
+
+            // ============================================================
+            // STEP 2: UPDATE LOAN WITH ALL CALCULATED VALUES
+            // ============================================================
+
+            loan.Status = "ACTIVE";
+            loan.DisbursedAt = request.DisbursedAt ?? DateTime.UtcNow;
+            //loan.DisbursedBy = _ctx.UserId;
+            loan.OutstandingBalance = netAmount ?? 0;
+            loan.NetDisbursementAmount = netAmount;
+
+            // Store fee breakdown
+            //loan.FixedRateAmount = fixedRateAmount;
+            //loan.TenantCommission = tenantCommission;
+            //loan.SifinCommission = sifinCommission;
+            //loan.ProcessingFee = processingFee;
+            //loan.TdsAmount = tdsAmount;
+            //loan.OtherDeductions = otherDeductions;
+            //loan.TotalDeductions = totalDeductions;
+
+            //// Store disbursement details
+            //loan.PaymentMethod = request.PaymentMethod;
+            //loan.TransactionReference = request.TransactionReference;
+            //loan.BankName = request.BankName;
+            //loan.AccountNumber = request.AccountNumber;
+            //loan.IfscCode = request.IfscCode;
+            //loan.ChequeNumber = request.ChequeNumber;
+            //loan.DisbursementRemarks = request.Remarks;
+
+            // Generate voucher number
+            var voucherNumber = GenerateVoucherNumber(cycle.CycleMonth);
+            //loan.VoucherNumber = voucherNumber;
+
+            await _db.SaveChangesAsync();
+
+            // Update account balance
+            account.LoanAmount = (account.LoanAmount) + netAmount;
+            await _db.SaveChangesAsync();
+
+            // ============================================================
+            // STEP 3: CREATE JOURNAL ENTRIES (VOUCHER)
+            // ============================================================
+
+            var journalLines = new List<JournalLineInput>();
+            var voucherLines = new List<VoucherLineDto>();
+
+            // 3.1 Dr Loans Receivable (Full Principal Amount)
+            journalLines.Add(new JournalLineInput(
+                EntryTarget.GL,
+                scheme.LoanAssetGL.ToString(),
+                null,
+                grossAmount,  // Debit
+                0
+            ));
+            voucherLines.Add(new VoucherLineDto
+            {
+                AccountCode = scheme.LoanAssetGL.ToString(),
+                AccountName = "Loans Receivable",
+                AccountType = "Asset",
+                Amount = grossAmount,
+                Narration = "Loan disbursement principal amount"
+            });
+
+            // 3.2 Cr Bank/Cash (Net Amount)
+            journalLines.Add(new JournalLineInput(
+                EntryTarget.GL,
+                scheme.BankName.ToString(),
+                null,
+                0,            // Debit
+                netAmount ?? 0     // Credit
+            ));
+            voucherLines.Add(new VoucherLineDto
+            {
+                AccountCode = scheme.BankName.ToString(),
+                AccountName = "Bank/Cash Account",
+                AccountType = "Asset",
+                Amount = netAmount ?? 0,
+                Narration = "Net disbursement to member"
+            });
+
+            // 3.3 Cr Fixed Rate Income (if fixed rate amount > 0)
+            if (fixedRateAmount > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.FixedRate.ToString(),
+                    null,
+                    0,                     // Debit
+                    fixedRateAmount ?? 0       // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    //AccountCode = scheme.FixedRateGlId.ToString(),
+                    AccountName = "Fixed Rate Income",
+                    AccountType = "Income",
+                    Amount = fixedRateAmount ?? 0,
+                    Narration = "Fixed rate income from bidding"
+                });
+            }
+
+            // 3.4 Cr Tenant Commission (Org Fee)
+            if (tenantCommission > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.OrgFeeGlId.ToString(),
+                    null,
+                    0,                     // Debit
+                    tenantCommission       // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    AccountCode = scheme.OrgFeeGlId.ToString(),
+                    AccountName = "Organization Fee Income",
+                    AccountType = "Income",
+                    Amount = tenantCommission,
+                    Narration = "Organization fee / Tenant commission"
+                });
+            }
+
+            // 3.5 Cr SIFIN Commission Payable (if SIFIN commission > 0)
+            if (sifinCommission > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.SifinCommissionGlId.ToString(),
+                    null,
+                    0,                     // Debit
+                    sifinCommission        // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    AccountCode = scheme.SifinCommissionGlId.ToString(),
+                    AccountName = "SIFIN Commission Payable",
+                    AccountType = "Liability",
+                    Amount = sifinCommission,
+                    Narration = "SIFIN platform commission"
+                });
+            }
+
+            // 3.6 Cr Processing Fee Income
+            if (processingFee > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.OrgFeePct.ToString(),
+                    null,
+                    0,                     // Debit
+                    processingFee          // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    //AccountCode = scheme.ProcessingFeeGlId.ToString(),
+                    AccountName = "Processing Fee Income",
+                    AccountType = "Income",
+                    Amount = processingFee,
+                    Narration = "Loan processing fee"
+                });
+            }
+
+            // 3.7 Cr TDS Payable (if TDS > 0)
+            if (tdsAmount > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.Reserve2.ToString(),
+                    null,
+                    0,                     // Debit
+                    tdsAmount              // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    //AccountCode = scheme.TdsGlId.ToString(),
+                    AccountName = "TDS Payable",
+                    AccountType = "Liability",
+                    Amount = tdsAmount,
+                    Narration = "TDS deduction on commission"
+                });
+            }
+
+            // 3.8 Cr Other Deductions (if any)
+            if (otherDeductions > 0)
+            {
+                journalLines.Add(new JournalLineInput(
+                    EntryTarget.GL,
+                    scheme.SifinPayable.ToString(),
+                    null,
+                    0,                     // Debit
+                    otherDeductions        // Credit
+                ));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    //AccountCode = scheme.OtherDeductionsGlId.ToString(),
+                    AccountName = "Other Deductions",
+                    AccountType = "Liability",
+                    Amount = otherDeductions,
+                    Narration = "Other deductions"
+                });
+            }
+
+            // Post journal
+            await _accounting.PostJournalAsync(
+                account.TenantId,
+                cycle.CycleMonth,
+                JournalSourceType.LOAN_DISBURSEMENT,
+                sourceId: loan.LoanId,
+                PaymentMethod.BANK_TRANSFER,
+                description: $"Loan disbursement voucher - {voucherNumber} - {account.AccountNumber} (cycle {cycle.CycleMonth:yyyy-MM})",
+                lines: journalLines,
+                createdBy: _ctx.UserId,
+                authorizedBy: _ctx.UserId);
+
+            // Add ledger entry
+            _db.LedgerEntries.Add(new LedgerEntry
+            {
+                TenantId = account.TenantId,
+                AccountId = account.AccountId,
+                CycleId = cycle.CycleId,
+                EntryType = LedgerEntryType.LOAN_DISBURSEMENT,
+                Amount = netAmount ?? 0,
+                EntryDate = cycle.CycleMonth,
+                Description = $"Loan disbursed (cycle {cycle.CycleMonth:yyyy-MM}) - Voucher: {voucherNumber}",
+                CreatedBy = _ctx.UserId
+            });
+
+            await _db.SaveChangesAsync();
+
+            // ============================================================
+            // STEP 4: RETURN VOUCHER DETAILS
+            // ============================================================
+
+            var voucher = new DisbursementVoucherDto
+            {
+                VoucherId = loan.LoanId, // Or generate a separate Voucher ID
+                LoanId = loan.LoanId,
+                VoucherNumber = voucherNumber,
+                VoucherDate = loan.DisbursedAt,
+                TransactionType = "LOAN_DISBURSEMENT",
+                //PaymentMethod = loan.PaymentMethod,
+                //TransactionReference = loan.TransactionReference,
+
+                GrossAmount = grossAmount,
+                FixedRateAmount = fixedRateAmount ?? 0,
+                TenantCommission = tenantCommission,
+                SifinCommission = sifinCommission,
+                ProcessingFee = processingFee,
+                TdsAmount = tdsAmount,
+                OtherDeductions = otherDeductions,
+                NetAmount = netAmount ?? 0,
+
+                DebitEntries = voucherLines.Where(v => v.Amount > 0 && v.AccountType == "Asset"
+                    || v.AccountType == "Expense").ToList(),
+                CreditEntries = voucherLines.Where(v => v.Amount > 0 && (v.AccountType == "Income"
+                    || v.AccountType == "Liability")).ToList(),
+
+                AccountNumber = account.AccountNumber,
+                //AccountHolder = account.AccountName ?? account.CustomerName,
+                //BankName = loan.BankName,
+                //IfscCode = loan.IfscCode,
+                //Remarks = loan.DisbursementRemarks,
+                Status = "COMPLETED",
+                CreatedAt = DateTime.UtcNow,
+                //CreatedBy = _ctx.UserName,
+                //AuthorizedBy = _ctx.UserName
+            };
+
+            _log.LogInformation("Disbursed loan {LoanId} ₹{Amount} to account {AccountId}. Voucher: {Voucher}",
+                loan.LoanId, netAmount, loan.AccountId, voucherNumber);
+
+            return voucher;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error disbursing loan {LoanId}", loanId);
             throw;
         }
     }
 
-    public Task<Loan?> GetByAccountAsync(long accountId) =>
-        _db.Loans.IgnoreQueryFilters().FirstOrDefaultAsync(l => l.AccountId == accountId);
-
-     
-    public async Task<Loan> ApproveLoanAsync(long loanId)
+    // Helper method to generate voucher number
+    private string GenerateVoucherNumber(DateOnly cycleMonth)
     {
-        var data = await _db.Loans.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(x => x.LoanId == loanId);
-
-        if (data is null)
-            throw new DomainException($"Loan {loanId} not found.");
-
-                // Approve this specific bid
-        data.AuthStatus = true;
-        data.AuthorizedAt = DateTime.UtcNow;
-        data.AuthorizedBy = _ctx.UserId;
-        data.BranchId = _ctx.BranchId;
-
-        await _db.SaveChangesAsync();
-
-        return data;
+        var year = cycleMonth.Year;
+        var month = cycleMonth.Month.ToString("D2");
+        var sequence = _db.Loans.Count(l => l.AuthorizedBy.HasValue && l.CycleId > 0) + 1;
+        return $"VCH-{year}{month}-{sequence:D5}";
     }
 }

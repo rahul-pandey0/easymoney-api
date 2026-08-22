@@ -1,6 +1,7 @@
 using EasyMoney.Api.Auth;
 using EasyMoney.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using static Dapper.SqlMapper;
 
 namespace EasyMoney.Api.Data;
 
@@ -35,6 +36,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<BiddingCycle> BiddingCycles => Set<BiddingCycle>();
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<Loan> Loans => Set<Loan>();
+    public DbSet<CoBorrower> CoBorrowers  => Set<CoBorrower>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Dividend> Dividends => Set<Dividend>();
     public DbSet<GlAccount> GlAccounts => Set<GlAccount>();
@@ -778,6 +780,11 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.ApprovedAt).HasColumnName("approved_at");
             e.Property(x => x.OrgFeePct).HasColumnName("org_fee_pct");
             e.Property(x => x.SifinCommissionPct).HasColumnName("sifin_commission_pct");
+            e.Property(x => x.FixedRate).HasColumnName("fixed_rate");
+            e.Property(x => x.TotalBid).HasColumnName("total_bid");
+            e.Property(x => x.AllotmentAmount).HasColumnName("allotment_amount");
+            e.Property(x => x.TragetAmount).HasColumnName("target_amount");
+
         });
 
         b.Entity<Loan>(e =>
@@ -795,40 +802,52 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.RepaidAt).HasColumnName("repaid_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
-
-
+             e.Property(e => e.Status).HasColumnName("status").HasDefaultValue(LoanStatus.PENDING); 
             e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
             e.Property(x => x.CustomerName).HasColumnName("customer_name");
             e.Property(x => x.BidDate).HasColumnName("bid_date");
             e.Property(x => x.LoanRemark).HasColumnName("loan_remark");
-            e.Property(x => x.CoopMobileNumber).HasColumnName("coop_mobile_number");
-            e.Property(x => x.CoopName).HasColumnName("coop_name");
-            e.Property(x => x.CoopAccountId).HasColumnName("coop_account_id"); 
+            //e.Property(x => x.CoopMobileNumber).HasColumnName("coop_mobile_number");
+            //e.Property(x => x.CoopName).HasColumnName("coop_name");
+            //e.Property(x => x.CoopAccountId).HasColumnName("coop_account_id"); 
             e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.AuthStatus).HasColumnName("auth_status");
-
+            e.Property(x => x.NetDisbursementAmount).HasColumnName("net_disbursement_amount");
+            e.Property(x => x.OrgFeeAmount).HasColumnName("org_fee_amount");
+            e.Property(x => x.SifinCommission).HasColumnName("sifin_commission");
+            e.Property(x => x.ProcessingFee).HasColumnName("processing_fee"); 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
 
+        });
 
+        b.Entity<CoBorrower>(e =>
+        {
+            e.ToTable("co_borrowers");
+            e.HasKey(x => x.CoBorrowerId);
+            e.Property(x => x.CoBorrowerId).HasColumnName("co_borrower_id").ValueGeneratedOnAdd();
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.LoanId).HasColumnName("loan_id");
+            e.Property(x => x.CoBorrowerName).HasColumnName("co_borrower_name").HasMaxLength(200);
+            e.Property(x => x.CoBorrowerPhone).HasColumnName("co_borrower_phone").HasMaxLength(20);
+            e.Property(x => x.CoBorrowerEmail).HasColumnName("co_borrower_email").HasMaxLength(100);
+            e.Property(x => x.CoBorrowerAddress).HasColumnName("co_borrower_address").HasMaxLength(500);
+            e.Property(x => x.CoBorrowerAccountNumber).HasColumnName("co_borrower_account_number").HasMaxLength(50);
+            e.Property(x => x.CoopName).HasColumnName("coop_name").HasMaxLength(200);
+            e.Property(x => x.CoopMobileNumber).HasColumnName("coop_mobile_number").HasMaxLength(20);
+            e.Property(x => x.CoopAccountId).HasColumnName("coop_account_id");
+            e.Property(x => x.CoopAccountNumber).HasColumnName("coop_account_number").HasMaxLength(50);
+            e.Property(x => x.CoBorrowerRemarks).HasColumnName("co_borrower_remarks").HasMaxLength(500);
+            e.Property(x => x.IsPrimaryCoBorrower).HasColumnName("is_primary_co_borrower").HasDefaultValue(false);
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
 
-
-    //public string? PhoneNumber { get; set; }
-    //public string? CustomerName { get; set; }
-    //public DateOnly? BidDate { get; set; }
-    //public string? LoanRemark { get; set; }
-    //public string? CoopName { get; set; }
-    //public string? CoopMobileNumber { get; set; } 
-    //public long? CoopAccountId { get; set; }
-    //public long? BranchId { get; set; }
-    //public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    //public long? CreatedBy { get; set; }
-    //public bool? AuthStatus { get; set; }
-
-
-
-});
+        });
 
         b.Entity<LedgerEntry>(e =>
         {

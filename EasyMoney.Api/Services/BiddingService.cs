@@ -16,14 +16,17 @@ public interface IBiddingService
     Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId);
     Task<IReadOnlyList<Bid>> GetByData();
 
-    Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct);
+    //Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct);
+    Task<Bid> SubmitOrUpdateBidAsync(long accountId, SubmitBidReq request);
+
     Task<BiddingCycle> CloseBiddingAsync(long cycleId);
     Task<AwardPreviewDto> GetAwardPreviewAsync(long cycleId);
     Task<CycleResolutionResultDto> ResolveCycleAsync(long cycleId);
 
     Task<Bid> ApproveBidAsync(long cycleId,long bidId);  
-    Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId, string approvalStatus);  
-
+    Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId, string approvalStatus);
+    Task<BiddingSummaryDto> GetCompleteBiddingSummaryAsync();
+    //Task SubmitOrUpdateBidAsync(long accountId, SubmitBidReq req);
 }
 
 public class BiddingService : IBiddingService
@@ -179,8 +182,8 @@ public class BiddingService : IBiddingService
 
     //    return bid;
     //}
-    public async Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct)
-    {
+    public async Task<Bid> SubmitOrUpdateBidAsync(long accountId, SubmitBidReq req)
+    { 
         var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
             ?? throw new DomainException($"Account {accountId} not found");
         if (a.Status != AccountStatus.ACTIVE) throw new DomainException($"Account is {a.Status}; cannot bid");
@@ -190,7 +193,7 @@ public class BiddingService : IBiddingService
         if (a.InstallmentsPaid < scheme.MinInstallmentsForEligibility)
             throw new DomainException(
                 $"Need at least {scheme.MinInstallmentsForEligibility} paid installments to bid (have {a.InstallmentsPaid})");
-        if (bidPct < scheme.MinBidPct || bidPct > scheme.MaxBidPct)
+        if (req.BidPct < scheme.MinBidPct || req.BidPct > scheme.MaxBidPct)
             throw new DomainException($"Bid must be between {scheme.MinBidPct}% and {scheme.MaxBidPct}%");
 
         var cycle = await GetCurrentCycleAsync(a.TenantId)
@@ -207,19 +210,25 @@ public class BiddingService : IBiddingService
             {
                 CycleId = cycle.CycleId,
                 AccountId = a.AccountId,
-                BidPct = bidPct,
+                BidPct = req.BidPct,
                 SubmittedAt = DateTime.UtcNow,
                 IsApproved = false,
                 TenantId = _ctx.TenantId,
                 BranchId = _ctx.BranchId,
                 OrgFeePct = data.OrgFeePct,
-                SifinCommissionPct = data.SifinCommissionPct
+                SifinCommissionPct = data.SifinCommissionPct,
+                FixedRate = req.FixedRate,
+                //TotalBid=req.TotalBid,
+                TragetAmount = req.TargetAmount,
+                AllotmentAmount = req.AllotmentAmount,
+                TotalBid = req.BidPct + req.FixedRate,
+
             };
             _db.Bids.Add(bid);
         }
         else
         {
-            bid.BidPct = bidPct;
+            bid.BidPct = req.BidPct;
             bid.UpdatedAt = DateTime.UtcNow;
             bid.IsApproved = false;
             bid.ApprovedAt = null;
@@ -343,7 +352,6 @@ public class BiddingService : IBiddingService
             grossCorpus, orgFeeAmount, bidPool,
             ranked.Count, ranked);
     }
-
     public async Task<CycleResolutionResultDto> ResolveCycleAsync(long cycleId)
     {
         var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CycleId == cycleId)
@@ -378,13 +386,9 @@ public class BiddingService : IBiddingService
                 0m, 0m, 0m, null, null, 0m, 0m, 0, 0m);
         }
 
-        // Step 3: SIFIN commission split (reclassifies a portion of upcoming org fee income).
-        //         Posted before the winner-forfeiture journal so org fee revenue can split cleanly.
-        decimal sifinShare = Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2);
-
-        // Step 6: pick winner from eligible bids
+        // Step 3: pick winner from eligible bids (ONLY APPROVED BIDS)
         var eligibleBids = await _db.Bids
-            .Where(b => b.CycleId == cycle.CycleId)
+            .Where(b => b.CycleId == cycle.CycleId && b.IsApproved) // Only approved bids
             .Join(_db.Accounts.IgnoreQueryFilters(),
                   b => b.AccountId, a => a.AccountId,
                   (b, a) => new { b, a })
@@ -398,19 +402,18 @@ public class BiddingService : IBiddingService
         decimal? winnerBidPct = null;
         decimal loanAmount = 0m;
         decimal dividendPool = 0m;
-
         int dividendCount = 0;
+
         if (eligibleBids.Count == 0)
         {
-            // NO_BID path: dividend pool = NoBidDefaultDividendPct% of gross corpus,
-            // funded by the org-fee + remaining corpus. Distribute over all eligible accounts.
+            // NO_BID path
             cycle.Status = CycleStatus.NO_BID;
             dividendPool = Math.Round(grossCorpus * scheme.NoBidDefaultDividendPct / 100m, 2);
 
-            // Org fee journal (no winner forfeiture in NO_BID): the org fee comes pro rata from
-            // each participating member's ACC.
             if (orgFeeAmount > 0)
                 await PostFeeJournalAsync(cycle, participants, orgFeeAmount);
+
+            var sifinShare = Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2);
             if (sifinShare > 0)
                 await PostSifinSplitAsync(cycle, sifinShare);
 
@@ -418,7 +421,7 @@ public class BiddingService : IBiddingService
         }
         else
         {
-            // Order: bid_pct DESC, monthly_contribution DESC (per user choice), open_date ASC, account_id ASC
+            // Select winner
             var winner = eligibleBids
                 .OrderByDescending(x => x.b.BidPct)
                 .ThenByDescending(x => x.a.MonthlyContribution)
@@ -439,20 +442,66 @@ public class BiddingService : IBiddingService
 
             await _db.SaveChangesAsync();
 
-            // Consolidated forfeiture-and-distribution journal:
-            //   Dr Winner ACC      winnerForfeiture
-            //   Cr 4000 Org Fee Income     orgFeeAmount
-            //   Cr Non-winner ACC_i        share_i  (floored, sum <= dividendPool)
-            //   Cr Winner ACC              residual (any cents that couldn't be allocated)
-            dividendCount = await PostWinnerForfeitureAndDividendAsync(
-                cycle, winner.a.AccountId, winnerForfeiture, orgFeeAmount, dividendPool);
+            // Post journals
+            //dividendCount = await PostWinnerForfeitureAndDividendAsync(
+            //    cycle, winner.a.AccountId, winnerForfeiture, orgFeeAmount, dividendPool);
 
-            // SIFIN split as separate journal
-            if (sifinShare > 0) await PostSifinSplitAsync(cycle, sifinShare);
+            //var sifinShare = Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2);
+            //if (sifinShare > 0) await PostSifinSplitAsync(cycle, sifinShare);
 
-            // Disburse loan via LoanService (Dr 1100, Cr Bank)
-            if (loanAmount > 0)
-                await _loans.DisburseAsync(winner.a.AccountId, cycle.CycleId, loanAmount);
+            // CREATE LOAN IN PENDING STATUS (NOT DISBURSED YET)
+            //if (loanAmount > 0)
+            //{
+            //    var loan = new Loan
+            //    {
+            //        TenantId = cycle.TenantId,
+            //        AccountId = winner.a.AccountId,
+            //        CycleId = cycle.CycleId,
+            //        PrincipalAmount = loanAmount,
+            //        //DisbursedAt = null, // Not disbursed yet
+            //        //Status = LoanStatus.PENDING, // Pending approval
+            //        AuthStatus = false,
+            //        CreatedAt = DateTime.UtcNow,
+            //        CreatedBy = _ctx.UserId,
+            //        BranchId = _ctx.BranchId,
+            //        LoanRemark = $"Prize loan for cycle {cycle.CycleMonth:yyyy-MM}",
+            //        OutstandingBalance = loanAmount
+            //    };
+
+            //    _db.Loans.Add(loan);
+            //    await _db.SaveChangesAsync();
+
+            //    // Create approval request for loan
+            //    var approval = new ApprovalRequest
+            //    {
+            //        TenantId = _ctx.TenantId,
+            //        ActionType = ApprovalActionType.CREATE_LOAN,
+            //        EntityType = "Loan",
+            //        EntityId = loan.LoanId,
+            //        Payload = System.Text.Json.JsonSerializer.Serialize(new
+            //        {
+            //            loan.LoanId,
+            //            loan.CycleId,
+            //            loan.AccountId,
+            //            loan.PrincipalAmount,
+            //            cycle.CycleMonth,
+            //            winnerBidPct,
+            //            winnerForfeiture,
+            //            orgFeeAmount,
+            //            //sifinShare,
+            //            dividendPool
+            //        }),
+            //        Status = ApprovalStatus.PENDING,
+            //        RequestedBy = _ctx.UserId.Value,
+            //        RequestedAt = DateTime.UtcNow
+            //    };
+
+            //    _db.ApprovalRequests.Add(approval);
+            //    await _db.SaveChangesAsync();
+
+            //    _log.LogInformation("Loan {LoanId} created for winner account {AccountId}, awaiting approval",
+            //        loan.LoanId, winner.a.AccountId);
+            //}
         }
 
         cycle.GrossCorpus = grossCorpus;
@@ -466,16 +515,146 @@ public class BiddingService : IBiddingService
         if (cycle.Status != CycleStatus.NO_BID) cycle.Status = CycleStatus.RESOLVED;
         await _db.SaveChangesAsync();
 
-        _log.LogInformation(
-            "Resolved cycle {Cid}: gross={Gross}, orgFee={Fee}, sifin={Sifin}, winner={Win}, loan={Loan}, divPool={Div}, divCount={Cnt}",
-            cycle.CycleId, grossCorpus, orgFeeAmount, sifinShare, winnerAccountId, loanAmount, dividendPool, dividendCount);
-
         return new CycleResolutionResultDto(
             cycle.CycleId, cycle.Status.ToString(),
             grossCorpus, orgFeeAmount, bidPool,
             winnerAccountId, winnerBidPct,
-            loanAmount, dividendPool, dividendCount, sifinShare);
+            loanAmount, dividendPool, dividendCount,
+            Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2));
     }
+
+    //public async Task<CycleResolutionResultDto> ResolveCycleAsync(long cycleId)
+    //{
+    //    var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CycleId == cycleId)
+    //        ?? throw new DomainException($"Cycle {cycleId} not found");
+    //    if (cycle.Status is CycleStatus.RESOLVED or CycleStatus.NO_BID)
+    //        throw new DomainException($"Cycle already {cycle.Status}");
+
+    //    var scheme = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == cycle.TenantId);
+
+    //    // Step 1: close the cycle window
+    //    cycle.Status = CycleStatus.CLOSED;
+    //    await _db.SaveChangesAsync();
+
+    //    // Step 2: gross corpus = sum(monthly_contribution) over participating accounts
+    //    var participants = await _db.Accounts.IgnoreQueryFilters()
+    //        .Where(a => a.TenantId == cycle.TenantId
+    //                    && (a.Status == AccountStatus.ACTIVE || a.Status == AccountStatus.PRIZED)
+    //                    && a.AccountOpenDate <= cycle.CycleMonth
+    //                    && a.TenureEndDate > cycle.CycleMonth)
+    //        .ToListAsync();
+    //    var grossCorpus = participants.Sum(a => a.MonthlyContribution);
+    //    var orgFeeAmount = Math.Round(grossCorpus * scheme.OrgFeePct / 100m, 2);
+    //    var bidPool = grossCorpus - orgFeeAmount;
+
+    //    if (grossCorpus <= 0)
+    //    {
+    //        cycle.GrossCorpus = 0m; cycle.OrgFeeAmount = 0m; cycle.BidPool = 0m;
+    //        cycle.LoanDisbursed = 0m; cycle.DividendPool = 0m;
+    //        cycle.Status = CycleStatus.NO_BID; cycle.ResolvedAt = DateTime.UtcNow;
+    //        await _db.SaveChangesAsync();
+    //        return new CycleResolutionResultDto(cycleId, cycle.Status.ToString(),
+    //            0m, 0m, 0m, null, null, 0m, 0m, 0, 0m);
+    //    }
+
+    //    // Step 3: SIFIN commission split (reclassifies a portion of upcoming org fee income).
+    //    //         Posted before the winner-forfeiture journal so org fee revenue can split cleanly.
+    //    decimal sifinShare = Math.Round(orgFeeAmount * scheme.SifinCommissionPct / 100m, 2);
+
+    //    // Step 6: pick winner from eligible bids
+    //    var eligibleBids = await _db.Bids
+    //        .Where(b => b.CycleId == cycle.CycleId)
+    //        .Join(_db.Accounts.IgnoreQueryFilters(),
+    //              b => b.AccountId, a => a.AccountId,
+    //              (b, a) => new { b, a })
+    //        .Where(x => !x.a.IsPrized
+    //                    && x.a.Status == AccountStatus.ACTIVE
+    //                    && x.a.InstallmentsPaid >= scheme.MinInstallmentsForEligibility
+    //                    && x.b.BidPct >= scheme.MinBidPct && x.b.BidPct <= scheme.MaxBidPct)
+    //        .ToListAsync();
+
+    //    long? winnerAccountId = null;
+    //    decimal? winnerBidPct = null;
+    //    decimal loanAmount = 0m;
+    //    decimal dividendPool = 0m;
+
+    //    int dividendCount = 0;
+    //    if (eligibleBids.Count == 0)
+    //    {
+    //        // NO_BID path: dividend pool = NoBidDefaultDividendPct% of gross corpus,
+    //        // funded by the org-fee + remaining corpus. Distribute over all eligible accounts.
+    //        cycle.Status = CycleStatus.NO_BID;
+    //        dividendPool = Math.Round(grossCorpus * scheme.NoBidDefaultDividendPct / 100m, 2);
+
+    //        // Org fee journal (no winner forfeiture in NO_BID): the org fee comes pro rata from
+    //        // each participating member's ACC.
+    //        if (orgFeeAmount > 0)
+    //            await PostFeeJournalAsync(cycle, participants, orgFeeAmount);
+    //        if (sifinShare > 0)
+    //            await PostSifinSplitAsync(cycle, sifinShare);
+
+    //        dividendCount = await DistributeDividendForNoBidAsync(cycle, participants, dividendPool);
+    //    }
+    //    else
+    //    {
+    //        // Order: bid_pct DESC, monthly_contribution DESC (per user choice), open_date ASC, account_id ASC
+    //        var winner = eligibleBids
+    //            .OrderByDescending(x => x.b.BidPct)
+    //            .ThenByDescending(x => x.a.MonthlyContribution)
+    //            .ThenBy(x => x.a.AccountOpenDate)
+    //            .ThenBy(x => x.a.AccountId)
+    //            .First();
+
+    //        winner.b.IsWinner = true;
+    //        winner.a.IsPrized = true;
+    //        winner.a.Status = AccountStatus.PRIZED;
+    //        winnerAccountId = winner.a.AccountId;
+    //        winnerBidPct = winner.b.BidPct;
+
+    //        var winnerForfeiture = Math.Round(grossCorpus * winner.b.BidPct / 100m, 2);
+    //        loanAmount = bidPool - winnerForfeiture;
+    //        dividendPool = winnerForfeiture - orgFeeAmount;
+    //        if (dividendPool < 0) dividendPool = 0;
+
+    //        await _db.SaveChangesAsync();
+
+    //        // Consolidated forfeiture-and-distribution journal:
+    //        //   Dr Winner ACC      winnerForfeiture
+    //        //   Cr 4000 Org Fee Income     orgFeeAmount
+    //        //   Cr Non-winner ACC_i        share_i  (floored, sum <= dividendPool)
+    //        //   Cr Winner ACC              residual (any cents that couldn't be allocated)
+    //        dividendCount = await PostWinnerForfeitureAndDividendAsync(
+    //            cycle, winner.a.AccountId, winnerForfeiture, orgFeeAmount, dividendPool);
+
+    //        // SIFIN split as separate journal
+    //        if (sifinShare > 0) await PostSifinSplitAsync(cycle, sifinShare);
+
+    //        // Disburse loan via LoanService (Dr 1100, Cr Bank)
+    //        if (loanAmount > 0)
+    //            await _loans.DisburseAsync(winner.a.AccountId, cycle.CycleId, loanAmount);
+    //    }
+
+    //    cycle.GrossCorpus = grossCorpus;
+    //    cycle.OrgFeeAmount = orgFeeAmount;
+    //    cycle.BidPool = bidPool;
+    //    cycle.WinnerAccountId = winnerAccountId;
+    //    cycle.WinnerBidPct = winnerBidPct;
+    //    cycle.LoanDisbursed = loanAmount;
+    //    cycle.DividendPool = dividendPool;
+    //    cycle.ResolvedAt = DateTime.UtcNow;
+    //    if (cycle.Status != CycleStatus.NO_BID) cycle.Status = CycleStatus.RESOLVED;
+    //    await _db.SaveChangesAsync();
+
+    //    _log.LogInformation(
+    //        "Resolved cycle {Cid}: gross={Gross}, orgFee={Fee}, sifin={Sifin}, winner={Win}, loan={Loan}, divPool={Div}, divCount={Cnt}",
+    //        cycle.CycleId, grossCorpus, orgFeeAmount, sifinShare, winnerAccountId, loanAmount, dividendPool, dividendCount);
+
+    //    return new CycleResolutionResultDto(
+    //        cycle.CycleId, cycle.Status.ToString(),
+    //        grossCorpus, orgFeeAmount, bidPool,
+    //        winnerAccountId, winnerBidPct,
+    //        loanAmount, dividendPool, dividendCount, sifinShare);
+    //}
 
     /// <summary>
     /// Org-fee-only journal (used in NO_BID path). Each participant's ACC is debited
@@ -704,4 +883,244 @@ public class BiddingService : IBiddingService
             .ThenByDescending(b => b.BidPct)
             .ToListAsync();
     }
+    public async Task<BiddingSummaryDto> GetCompleteBiddingSummaryAsync()
+    {
+        var tenantId = _ctx.TenantId ?? 0;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Get the current cycle (OPEN, CLOSED, or RESOLVED)
+        var cycle = await _db.BiddingCycles
+            .IgnoreQueryFilters()
+            .Where(c => c.TenantId == tenantId
+                       && (c.Status == CycleStatus.OPEN
+                           || c.Status == CycleStatus.CLOSED
+                           || c.Status == CycleStatus.RESOLVED
+                           || c.Status == CycleStatus.NO_BID))
+            .OrderByDescending(c => c.CycleMonth)
+            .FirstOrDefaultAsync();
+
+        if (cycle == null)
+        {
+            return new BiddingSummaryDto
+            {
+                HasActiveBidding = false,
+                Message = "No bidding cycle found",
+                NextStep = "Open a new cycle to start bidding"
+            };
+        }
+
+        // Get all bids for this cycle
+        var allBids = await _db.Bids
+            .Where(b => b.CycleId == cycle.CycleId)
+            .ToListAsync();
+
+        var approvedBids = allBids.Where(b => b.IsApproved).ToList();
+        var pendingBids = allBids.Where(b => !b.IsApproved).ToList();
+
+        // Get account details
+        var accountIds = allBids.Select(b => b.AccountId).Distinct().ToList();
+        var accounts = await _db.Accounts
+            .IgnoreQueryFilters()
+            .Where(a => accountIds.Contains(a.AccountId))
+            .ToDictionaryAsync(a => a.AccountId);
+
+        // Get member details
+        var memberIds = accounts.Values.Select(a => a.MemberId).Distinct().ToList();
+        var members = await _db.Members
+            .IgnoreQueryFilters()
+            .Where(m => memberIds.Contains(m.MemberId))
+            .ToDictionaryAsync(m => m.MemberId);
+
+        // Get scheme config for calculations
+        var scheme = await _db.SchemeConfigs
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+
+        // Calculate corpus
+        var participants = await _db.Accounts
+            .IgnoreQueryFilters()
+            .Where(a => a.TenantId == tenantId
+                        && (a.Status == AccountStatus.ACTIVE || a.Status == AccountStatus.PRIZED)
+                        && a.AccountOpenDate <= cycle.CycleMonth
+                        && a.TenureEndDate > cycle.CycleMonth)
+            .ToListAsync();
+
+        var grossCorpus = participants.Sum(a => a.MonthlyContribution);
+        var orgFeeAmount = Math.Round(grossCorpus * (scheme?.OrgFeePct ?? 0) / 100m, 2);
+        var bidPool = grossCorpus - orgFeeAmount;
+
+        // Build bidder list with ranks
+        var bidders = new List<BidderSummaryDto>();
+        int rank = 1;
+
+        // Sort by bid percentage (highest first)
+        foreach (var bid in allBids.OrderByDescending(b => b.BidPct))
+        {
+            var account = accounts.GetValueOrDefault(bid.AccountId);
+            var member = account != null ? members.GetValueOrDefault(account.MemberId) : null;
+
+            if (account != null && member != null)
+            {
+                var forfeiture = Math.Round(grossCorpus * bid.BidPct / 100m, 2);
+                var prizeIfWins = bidPool - forfeiture;
+
+                string status;
+                string badge;
+
+                if (bid.IsWinner)
+                {
+                    status = "Winner";
+                    badge = "winner";
+                }
+                else if (bid.IsApproved)
+                {
+                    status = "Approved";
+                    badge = "approved";
+                }
+                else
+                {
+                    status = "Pending";
+                    badge = "pending";
+                }
+
+                bidders.Add(new BidderSummaryDto
+                {
+                    //Rank = rank++,
+                    BidId = bid.BidId,
+                    AccountId = bid.AccountId,
+                    AccountNumber = account.AccountNumber,
+                    MemberId = member.MemberId,
+                    MemberName = member.FullName,
+                    MemberPhone = member.Phone,
+                    BidPct = bid.BidPct,
+                    SubmittedAt = bid.SubmittedAt,
+                    IsApproved = bid.IsApproved,
+                    IsWinner = bid.IsWinner,
+                    ApprovedAt = bid.ApprovedAt,
+                    ApprovedBy = bid.ApprovedBy,
+                    MonthlyContribution = account.MonthlyContribution,
+                    InstallmentsPaid = account.InstallmentsPaid,
+                    //TotalInstallments = account.TotalInstallments,
+                    ForfeitureAmount = forfeiture,
+                    PrizeIfWins = prizeIfWins < 0 ? 0 : prizeIfWins,
+                    Status = status,
+                    StatusBadge = badge,
+                    TotalBid = bid.TotalBid,
+                    FixedRate =bid.FixedRate,
+                    TargetAmount =bid.TragetAmount,
+                    AllotmentAmount =bid.AllotmentAmount,
+                });
+            }
+        }
+
+        // Get winner
+        WinnerSummaryDto winner = null;
+        if (cycle.WinnerAccountId.HasValue)
+        {
+            var winnerBid = allBids.FirstOrDefault(b => b.AccountId == cycle.WinnerAccountId.Value && b.IsWinner);
+            var winnerAccount = winnerBid != null ? accounts.GetValueOrDefault(winnerBid.AccountId) : null;
+            var winnerMember = winnerAccount != null ? members.GetValueOrDefault(winnerAccount.MemberId) : null;
+
+            if (winnerBid != null && winnerAccount != null && winnerMember != null)
+            {
+                var forfeiture = Math.Round(grossCorpus * winnerBid.BidPct / 100m, 2);
+                var prize = bidPool - forfeiture;
+
+                winner = new WinnerSummaryDto
+                {
+                    BidId = winnerBid.BidId,
+                    AccountId = winnerAccount.AccountId,
+                    AccountNumber = winnerAccount.AccountNumber,
+                    MemberId = winnerMember.MemberId,
+                    MemberName = winnerMember.FullName,
+                    MemberPhone = winnerMember.Phone,
+                    Email = winnerMember.Email,
+                    BidPct = winnerBid.BidPct,
+                    ForfeitureAmount = forfeiture,
+                    PrizeAmount = prize < 0 ? 0 : prize,
+                    NetReceivable = (prize < 0 ? 0 : prize) - (scheme?.SifinCommissionPct ?? 0),
+                    SubmittedAt = winnerBid.SubmittedAt
+                };
+            }
+        }
+
+        // Determine status and next steps
+        string statusText = cycle.Status.ToString();
+        string nextStep = "";
+        bool canProceed = false;
+
+        switch (cycle.Status)
+        {
+            case CycleStatus.OPEN:
+                statusText = "Bidding Open";
+                nextStep = "Bidding is currently open. Close bidding to proceed.";
+                canProceed = allBids.Any();
+                break;
+            case CycleStatus.CLOSED:
+                statusText = "Bidding Closed";
+                nextStep = "Bidding is closed. Select winner and resolve cycle.";
+                canProceed = approvedBids.Any();
+                break;
+            case CycleStatus.RESOLVED:
+                statusText = "Resolved";
+                nextStep = "Cycle resolved. Winner selected and loan created.";
+                canProceed = true;
+                break;
+            case CycleStatus.NO_BID:
+                statusText = "No Bids";
+                nextStep = "No eligible bids. Cycle completed without winner.";
+                canProceed = true;
+                break;
+        }
+
+        return new BiddingSummaryDto
+        {
+            HasActiveBidding = cycle.Status == CycleStatus.OPEN,
+            CycleId = cycle.CycleId,
+            CycleMonth = cycle.CycleMonth,
+            CycleStatus = statusText,
+
+            WindowOpenAt = cycle.WindowOpenAt,
+            WindowCloseAt = cycle.WindowCloseAt,
+            ClosedAt = cycle.WindowCloseAt,
+            ResolvedAt = cycle.ResolvedAt,
+
+            TotalBids = allBids.Count,
+            ApprovedBids = approvedBids.Count,
+            PendingBids = pendingBids.Count,
+            RejectedBids = 0,
+            UniqueBidders = accountIds.Count,
+
+            GrossCorpus = grossCorpus,
+            OrgFeeAmount = orgFeeAmount,
+            BidPool = bidPool,
+            LoanDisbursed = cycle.LoanDisbursed ?? 0,
+            DividendPool = cycle.DividendPool ?? 0,
+
+            Winner = winner,
+            WinnerAccountId = cycle.WinnerAccountId,
+            WinnerBidPct = cycle.WinnerBidPct,
+
+            Bidders = bidders,
+
+            Message = GetStatusMessage(cycle, allBids.Count, accountIds.Count),
+            NextStep = nextStep,
+            CanProceed = canProceed
+        };
+    }
+
+    private string GetStatusMessage(BiddingCycle cycle, int totalBids, int uniqueBidders)
+    {
+        return cycle.Status switch
+        {
+            CycleStatus.OPEN => $"🔄 Bidding is OPEN - {totalBids} bids from {uniqueBidders} bidders",
+            CycleStatus.CLOSED => $"📌 Bidding CLOSED - {totalBids} bids received",
+            CycleStatus.RESOLVED => $"✅ Cycle RESOLVED - Winner selected!",
+            CycleStatus.NO_BID => $"❌ No eligible bids - Cycle completed",
+            _ => $"Status: {cycle.Status}"
+        };
+    }
+
+   
+    
 }
