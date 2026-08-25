@@ -85,6 +85,9 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AuthorisationRequired).HasColumnName("authorisation_required");
             e.Property(x => x.EmailNotification).HasColumnName("email_notification");
             e.Property(x => x.SmsNotification).HasColumnName("sms_notification");
+            e.Property(x => x.LogoData).HasColumnName("logo_data");
+            e.Property(x => x.LogoContentType).HasColumnName("logo_content_type").HasMaxLength(100);
+            e.Property(x => x.LogoFileName).HasColumnName("logo_file_name").HasMaxLength(255);
 
         });
 

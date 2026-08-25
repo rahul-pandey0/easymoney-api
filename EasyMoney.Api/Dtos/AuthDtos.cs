@@ -69,7 +69,10 @@ public record CreateTenantRequest(
     DateOnly? EffectiveDate, 
     bool AuthorisationRequired,
     bool SmsNotification,
-    bool EmailNotification
+    bool EmailNotification,
+     string? Logo,  // Base64 encoded image
+    string? LogoFileName // For multipart/form-data upload
+
     );
 
 public record TenantDto(
@@ -90,7 +93,11 @@ public record TenantDto(
     DateTime? AuthorizedAt,
     bool AuthorisationRequired,
     bool SmsNotification,
-    bool EmailNotification
+    bool EmailNotification,
+    string? LogoBase64,  // Base64 encoded image for display
+    string? LogoContentType,
+    string? LogoFileName,
+    string? LogoUrl  // URL to fetch the logo
 );
 
 

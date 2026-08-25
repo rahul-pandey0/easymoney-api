@@ -47,9 +47,11 @@ public interface ITenantService
     Task<GeneralLedgerMaster> GetGLSummaryByIdAsync(int glId);
 
     Task<GeneralLedgerMaster> GetGldata(long glId);
-    Task<GlAccount> GetGlcreateAsync(); 
+    Task<GlAccount> GetGlcreateAsync();
 
-
+    //Task<bool> UpdateTenantLogoAsync(long tenantId, IFormFile logoFile);
+    Task<Tenant?> GetTenantByIdAsync(long tenantId);
+    Task<bool> UpdateTenantLogoAsync(long tenantId, IFormFile logoFile);
 
 }
 
@@ -66,33 +68,131 @@ public class TenantService : ITenantService
 
     public async Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy, bool isSuperAdmin)
     {
-        if (string.IsNullOrWhiteSpace(req.Name)) throw new DomainException("Tenant name required");
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(req.Name))
+            throw new DomainException("Tenant name required");
+
+        // Check for duplicates
         if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Name == req.Name))
             throw new DomainException("Tenant name already exists");
-         if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Phone == req.Phone))
+
+        if (!string.IsNullOrWhiteSpace(req.Phone) &&
+            await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Phone == req.Phone))
             throw new DomainException("Tenant Mobile No already exists");
+
+        // Process logo from base64
+        byte[]? logoData = null;
+        string? logoContentType = null;
+        string? logoFileName = null;
+
+        if (!string.IsNullOrWhiteSpace(req.Logo))
+        {
+            try
+            {
+                // Remove data URL prefix if present
+                var base64Data = req.Logo;
+                if (base64Data.Contains(","))
+                {
+                    var parts = base64Data.Split(',');
+                    if (parts.Length == 2)
+                    {
+                        // Extract content type from data URL
+                        var contentTypeMatch = System.Text.RegularExpressions.Regex.Match(
+                            parts[0], @"data:(?<type>.+?);base64"
+                        );
+                        if (contentTypeMatch.Success)
+                            logoContentType = contentTypeMatch.Groups["type"].Value;
+
+                        base64Data = parts[1];
+                    }
+                }
+
+                // Validate base64 string
+                if (string.IsNullOrWhiteSpace(base64Data))
+                    throw new DomainException("Invalid logo data");
+
+                logoData = Convert.FromBase64String(base64Data);
+
+                // Validate size (5MB)
+                if (logoData.Length > 5 * 1024 * 1024)
+                    throw new DomainException("Logo file size cannot exceed 5MB");
+
+                // Validate content type
+                var allowedTypes = new[] {
+                "image/jpeg", "image/png", "image/gif",
+                "image/webp", "image/svg+xml", "image/bmp"
+            };
+
+                if (!string.IsNullOrEmpty(logoContentType) &&
+                    !allowedTypes.Contains(logoContentType.ToLower()))
+                {
+                    throw new DomainException("Only JPEG, PNG, GIF, WEBP, SVG, and BMP images are allowed");
+                }
+
+                // Set default content type if not detected
+                if (string.IsNullOrEmpty(logoContentType))
+                {
+                    // Try to detect from file extension in filename
+                    if (!string.IsNullOrEmpty(req.LogoFileName))
+                    {
+                        var ext = Path.GetExtension(req.LogoFileName).ToLower();
+                        logoContentType = ext switch
+                        {
+                            ".jpg" or ".jpeg" => "image/jpeg",
+                            ".png" => "image/png",
+                            ".gif" => "image/gif",
+                            ".webp" => "image/webp",
+                            ".svg" => "image/svg+xml",
+                            ".bmp" => "image/bmp",
+                            _ => "image/png"
+                        };
+                    }
+                    else
+                    {
+                        logoContentType = "image/png"; // Default
+                    }
+                }
+
+                logoFileName = req.LogoFileName ?? "logo.png";
+            }
+            catch (FormatException)
+            {
+                throw new DomainException("Invalid logo image format. Please upload a valid image.");
+            }
+            catch (Exception ex)
+            {
+                throw new DomainException($"Error processing logo: {ex.Message}");
+            }
+        }
+
+        // Create tenant
         var t = new Tenant
         {
-            Name = req.Name,
-            RegistrationNumber = req.RegistrationNumber,
-            Address = req.Address,
-            Phone = req.Phone,
-            OrgEmail = req.OrgEmail,
-            ContactPersonName = req.ContactPersonName,
-            ContactPersonPhone = req.ContactPersonPhone,
+            Name = req.Name.Trim(),
+            RegistrationNumber = req.RegistrationNumber?.Trim(),
+            Address = req.Address?.Trim(),
+            Phone = req.Phone?.Trim(),
+            OrgEmail = req.OrgEmail?.Trim(),
+            ContactPersonName = req.ContactPersonName?.Trim(),
+            ContactPersonPhone = req.ContactPersonPhone?.Trim(),
             StartDate = req.StartDate,
             EffectiveDate = req.EffectiveDate,
             Status = isSuperAdmin ? TenantStatus.ACTIVE : TenantStatus.PENDING,
             CreatedBy = createdBy,
             AuthorizedBy = isSuperAdmin ? createdBy : null,
-            AuthorizedAt = isSuperAdmin ? DateTime.UtcNow  : null,
-            AuthorisationRequired = req.AuthorisationRequired ,
-            SmsNotification = req.SmsNotification ,
+            AuthorizedAt = isSuperAdmin ? DateTime.UtcNow : null,
+            AuthorisationRequired = req.AuthorisationRequired,
+            SmsNotification = req.SmsNotification,
             EmailNotification = req.EmailNotification,
+            LogoData = logoData,
+            LogoContentType = logoContentType,
+            LogoFileName = logoFileName
         };
+
         _db.Tenants.Add(t);
         await _db.SaveChangesAsync();
 
+        // Handle approval workflow for non-superadmin
         if (!isSuperAdmin)
         {
             if (!createdBy.HasValue)
@@ -114,17 +214,123 @@ public class TenantService : ITenantService
             await _db.SaveChangesAsync();
         }
 
-        // 1:1 scheme_config row (defaults baked in via Domain entity property initializers)
-        //var sc = new SchemeConfig { TenantId = t.TenantId };
-        //_db.SchemeConfigs.Add(sc);
-        //await _db.SaveChangesAsync();
-
+        // Seed chart of accounts
         await _accounting.SeedTenantChartAsync(t.TenantId, createdBy);
 
-        _log.LogInformation("Created tenant {Tid} '{Name}' (reg={Reg}) with default scheme_config + CoA",
-            t.TenantId, t.Name, t.RegistrationNumber);
+        _log.LogInformation("Created tenant {Tid} '{Name}' with logo: {HasLogo} ({Size} bytes)",
+            t.TenantId, t.Name, logoData != null, logoData?.Length ?? 0);
+
         return t;
     }
+
+
+
+    public async Task<Tenant?> GetTenantByIdAsync(long tenantId)
+    {
+        return await _db.Tenants.FindAsync(tenantId);
+    }
+
+    public async Task<bool> UpdateTenantLogoAsync(long tenantId, IFormFile logoFile)
+    {
+        var tenant = await _db.Tenants.FindAsync(tenantId);
+        if (tenant == null)
+            return false;
+
+        if (logoFile == null || logoFile.Length == 0)
+            return false;
+
+        // Validate file size (max 5MB)
+        if (logoFile.Length > 5 * 1024 * 1024)
+            throw new DomainException("Logo file size cannot exceed 5MB");
+
+        // Validate file type
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml" };
+        if (!allowedTypes.Contains(logoFile.ContentType.ToLower()))
+            throw new DomainException("Only JPEG, PNG, GIF, WEBP, and SVG images are allowed");
+
+        using var memoryStream = new MemoryStream();
+        await logoFile.CopyToAsync(memoryStream);
+
+        tenant.LogoData = memoryStream.ToArray();
+        tenant.LogoContentType = logoFile.ContentType;
+        tenant.LogoFileName = Path.GetFileName(logoFile.FileName);
+        tenant.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<byte[]?> GetTenantLogoAsync(long tenantId)
+    {
+        var tenant = await _db.Tenants
+            .Where(t => t.TenantId == tenantId)
+            .Select(t => new { t.LogoData, t.LogoContentType })
+            .FirstOrDefaultAsync();
+
+        return tenant?.LogoData;
+    }
+
+    //public async Task<Tenant> CreateTenantAsync(CreateTenantRequest req, long? createdBy, long? authorizedBy, bool isSuperAdmin)
+    //{
+    //    if (string.IsNullOrWhiteSpace(req.Name)) throw new DomainException("Tenant name required");
+    //    if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Name == req.Name))
+    //        throw new DomainException("Tenant name already exists");
+    //     if (await _db.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Phone == req.Phone))
+    //        throw new DomainException("Tenant Mobile No already exists");
+    //    var t = new Tenant
+    //    {
+    //        Name = req.Name,
+    //        RegistrationNumber = req.RegistrationNumber,
+    //        Address = req.Address,
+    //        Phone = req.Phone,
+    //        OrgEmail = req.OrgEmail,
+    //        ContactPersonName = req.ContactPersonName,
+    //        ContactPersonPhone = req.ContactPersonPhone,
+    //        StartDate = req.StartDate,
+    //        EffectiveDate = req.EffectiveDate,
+    //        Status = isSuperAdmin ? TenantStatus.ACTIVE : TenantStatus.PENDING,
+    //        CreatedBy = createdBy,
+    //        AuthorizedBy = isSuperAdmin ? createdBy : null,
+    //        AuthorizedAt = isSuperAdmin ? DateTime.UtcNow  : null,
+    //        AuthorisationRequired = req.AuthorisationRequired ,
+    //        SmsNotification = req.SmsNotification ,
+    //        EmailNotification = req.EmailNotification,
+    //    };
+    //    _db.Tenants.Add(t);
+    //    await _db.SaveChangesAsync();
+
+    //    if (!isSuperAdmin)
+    //    {
+    //        if (!createdBy.HasValue)
+    //            throw new DomainException("Created user required for maker-checker request");
+
+    //        var approval = new ApprovalRequest
+    //        {
+    //            TenantId = t.TenantId,
+    //            ActionType = ApprovalActionType.TENANT_CREATE,
+    //            EntityType = "TENANT",
+    //            EntityId = t.TenantId,
+    //            Payload = System.Text.Json.JsonSerializer.Serialize(req),
+    //            Status = ApprovalStatus.PENDING,
+    //            RequestedBy = createdBy.Value,
+    //            RequestedAt = DateTime.UtcNow
+    //        };
+
+    //        _db.ApprovalRequests.Add(approval);
+    //        await _db.SaveChangesAsync();
+    //    }
+
+    //    // 1:1 scheme_config row (defaults baked in via Domain entity property initializers)
+    //    //var sc = new SchemeConfig { TenantId = t.TenantId };
+    //    //_db.SchemeConfigs.Add(sc);
+    //    //await _db.SaveChangesAsync();
+
+    //    await _accounting.SeedTenantChartAsync(t.TenantId, createdBy);
+
+    //    _log.LogInformation("Created tenant {Tid} '{Name}' (reg={Reg}) with default scheme_config + CoA",
+    //        t.TenantId, t.Name, t.RegistrationNumber);
+    //    return t;
+    //}
 
     public async Task CreateSchemeConfigAsync(long tenantId, SchemeConfigUpdatePayload p, long? authorizedBy)
     {

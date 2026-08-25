@@ -20,12 +20,47 @@ public class TenantsController : ControllerBase
         _tenants = tenants; _ctx = ctx;
     }
 
-    static TenantDto ToDto(Tenant t) => new(
-        t.TenantId, t.Name,
-        t.RegistrationNumber, t.Address, t.Phone,
-        t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone, t.StartDate, t.EffectiveDate,
-        t.Status.ToString(), t.CreatedAt,t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt,
-         t.AuthorisationRequired, t.SmsNotification, t.EmailNotification);
+    //static TenantDto ToDto(Tenant t) => new(
+    //    t.TenantId, t.Name,
+    //    t.RegistrationNumber, t.Address, t.Phone,
+    //    t.OrgEmail, t.ContactPersonName, t.ContactPersonPhone, t.StartDate, t.EffectiveDate,
+    //    t.Status.ToString(), t.CreatedAt,t.CreatedBy, t.AuthorizedBy, t.AuthorizedAt,
+    //     t.AuthorisationRequired, t.SmsNotification, t.EmailNotification,t.Logo,t.LogoContentType, t.LogoFileName);
+
+    private TenantDto ToDto(Tenant t)
+    {
+        string? logoBase64 = null;
+        if (t.LogoData != null && t.LogoData.Length > 0)
+        {
+            // Convert byte array to base64 string for client display
+            logoBase64 = Convert.ToBase64String(t.LogoData);
+        }
+
+        return new TenantDto(
+            t.TenantId,
+            t.Name,
+            t.RegistrationNumber,
+            t.Address,
+            t.Phone,
+            t.OrgEmail,
+            t.ContactPersonName,
+            t.ContactPersonPhone,
+            t.StartDate,
+            t.EffectiveDate,
+            t.Status.ToString(),
+            t.CreatedAt,
+            t.CreatedBy,
+            t.AuthorizedBy,
+            t.AuthorizedAt,
+            t.AuthorisationRequired,
+            t.SmsNotification,
+            t.EmailNotification,
+            logoBase64,
+            t.LogoContentType,
+            t.LogoFileName,
+            t.LogoData != null ? $"/api/tenants/{t.TenantId}/logo" : null
+        );
+    }
 
     // POST /api/v1/tenants  — SIFIN_ADMIN / SIFIN_OPERATOR creates a new tenant
     [HttpPost, Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator )]

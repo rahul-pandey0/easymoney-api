@@ -24,6 +24,10 @@ public class Tenant
     public bool AuthorisationRequired { get; set; }
     public bool SmsNotification { get; set; }
     public bool EmailNotification { get; set; }
+    public byte[]? LogoData { get; set; }
+    public string? LogoContentType { get; set; }
+    public string? LogoFileName { get; set; }
+
 }
 public class GeneralLedgerMaster
 {
