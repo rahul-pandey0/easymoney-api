@@ -418,7 +418,11 @@ public class TenantService : ITenantService
             UpdatedBy = authorizedBy,
             UpdatedAt = DateTime.UtcNow,
             AuthorizedBy = authorizedBy,
-            AuthorizedAt = DateTime.UtcNow
+            AuthorizedAt = DateTime.UtcNow,
+            MinimumInstallmentAmount =p.MinimumInstallmentAmount,
+            MaximumInstallmentAmount =p.MaximumInstallmentAmount,
+
+            
         };
 
         _db.SchemeConfigs.Add(schemeConfig);
@@ -502,7 +506,9 @@ public class TenantService : ITenantService
             UpdatedBy = authorizedBy,
             UpdatedAt = DateTime.UtcNow,
             AuthorizedBy = authorizedBy,
-            AuthorizedAt = DateTime.UtcNow
+            AuthorizedAt = DateTime.UtcNow,
+            MinimumInstallmentAmount = p.MinimumInstallmentAmount,
+            MaximumInstallmentAmount = p.MaximumInstallmentAmount,
         };
 
         _db.SchemeMaster.Add(schemedata);

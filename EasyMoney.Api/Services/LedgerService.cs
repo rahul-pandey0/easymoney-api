@@ -186,20 +186,20 @@ public class LedgerService : ILedgerService
         ?? throw new DomainException($"Scheme config not found for tenant {tenantId}");
 
     // Check minimum installments for eligibility (should be 2)
-    if (data.MinInstallmentsForEligibility != 0)
-    {
-        var memberBalance = await _db.MemberAccountBalances.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(x => x.AccountId == accountId)
-            ?? throw new DomainException($"Member balance not found for account {accountId}");
+    //if (data.MinInstallmentsForEligibility != 0)
+    //{
+    //    var memberBalance = await _db.MemberAccountBalances.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(x => x.AccountId == accountId)
+    //        ?? throw new DomainException($"Member balance not found for account {accountId}");
 
-        // Calculate installments
-        int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
-        int currentInstallments = a.InstallmentsPaid;
-        int totalInstallmentsAfterPayment = currentInstallments + delta1;
+    //    // Calculate installments
+    //    int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
+    //    int currentInstallments = a.InstallmentsPaid;
+    //    int totalInstallmentsAfterPayment = currentInstallments + delta1;
 
-        // UPDATE FLAGS BASED ON PAYMENT CASES
-        await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
-    }
+    //    // UPDATE FLAGS BASED ON PAYMENT CASES
+    //    await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
+    //}
 
 
 

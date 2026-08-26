@@ -103,7 +103,10 @@ decimal? FixedRate,
 string? GstGl,
 string? SchemeCode,
     int ? OrgFeeGlId, 
-        int? SifinCommissionGlId
+        int? SifinCommissionGlId,
+        decimal? MinimumInstallmentAmount,
+        decimal ? MaximumInstallmentAmount
+
 
 
 );
@@ -143,7 +146,8 @@ public record AccountOpenPayload(
     int SchemeId, 
     long ? BranchId,
     string ? IsBidding,
-    string ?FirstPayment
+    string ?FirstPayment,
+    string? CustomerCode
     );
 
 public record AccountUpdatePayload(

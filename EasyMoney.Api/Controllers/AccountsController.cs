@@ -76,7 +76,8 @@ public class AccountsController : ControllerBase
                 SchemeId: req.SchemeId,
                 BranchId: _ctx.BranchId,
                 IsBidding :"N",
-                FirstPayment:"Y"
+                FirstPayment:"Y",
+                CustomerCode : req.CustomerCode
 
             );
 

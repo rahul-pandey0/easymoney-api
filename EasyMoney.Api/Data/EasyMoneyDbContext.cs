@@ -179,6 +179,9 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.OrgFeeGlId).HasColumnName("org_fee_gl_id");
             e.Property(x => x.SifinCommissionGlId).HasColumnName("sifin_commission_gl_id");
 
+            e.Property(x => x.MinimumInstallmentAmount).HasColumnName("minimum_installment_amount");
+            e.Property(x => x.MaximumInstallmentAmount).HasColumnName("maximum_installment_amount");
+
         });
 
         b.Entity<SchemeMaster>(e =>
@@ -265,6 +268,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.SchemeCode).HasColumnName("scheme_code"); 
 
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
+
+
+            e.Property(x => x.MinimumInstallmentAmount).HasColumnName("minimum_installment_amount");
+            e.Property(x => x.MaximumInstallmentAmount).HasColumnName("maximum_installment_amount");
 
 
         });
@@ -737,6 +744,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.FirstPaymentFlag).HasColumnName("first_payment_flag");
             e.Property(x => x.IsBidding).HasColumnName("is_bidding");
+            e.Property(x => x.CustomerCode).HasColumnName("customer_code"); 
+
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });

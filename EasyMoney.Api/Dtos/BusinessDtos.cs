@@ -8,7 +8,7 @@ namespace EasyMoney.Api.Dtos;
 public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate ,  long MemberId,
     string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount,
     DateOnly? PaymentDate,decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
-    decimal TotalAmount, string? Remarks,int  SchemeId,long BranchId);
+    decimal TotalAmount, string? Remarks,int  SchemeId,long BranchId ,string CustomerCode);
  
 //public record UpdateAccountRequest(string accountNumber,decimal MonthlyContribution, DateOnly AccountOpenDate, long MemberId,
 //    string? OldAccountNo, string? PhoneNo, string? CustomerName, decimal InterestRate, decimal TargetAmount,
@@ -51,7 +51,7 @@ public record AccountSummaryDto(
     decimal CorpusBalance, long? PrizeWonInCycleId,
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
     DateOnly? PaymentDate, decimal PaidAmount, decimal? LoanAmount,decimal bonusAmount, decimal InterestAmount,
-        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding); 
+        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding,string ? customerCode); 
 
 // ============================================================
 // Payment / Ledger

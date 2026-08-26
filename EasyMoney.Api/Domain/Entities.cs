@@ -147,6 +147,9 @@ public class SchemeConfig
         public int? OrgFeeGlId { get; set; }  // GL for Organization Fee
     public int? SifinCommissionGlId { get; set; }  // GL for Sifin Commission
 
+    public decimal? MinimumInstallmentAmount { get; set; }
+    public decimal? MaximumInstallmentAmount { get; set; }
+
 }
 
 
@@ -200,7 +203,9 @@ public class SchemeMaster
     public string? SchemeName { get; set; }
     public decimal FixedRate { get; set; }
     public string? GstGl { get; set; } 
-    public string? SchemeCode { get; set; } 
+    public string? SchemeCode { get; set; }
+    public decimal? MinimumInstallmentAmount { get; set; }
+    public decimal? MaximumInstallmentAmount { get; set; }
 
 }
 
@@ -568,6 +573,8 @@ public class Account
     public int?  SchemeId { get; set; }
     public string? FirstPaymentFlag { get; set; }
     public string? IsBidding { get; set; }
+    public string? CustomerCode { get; set; } 
+
 
 }
 
