@@ -70,7 +70,12 @@ public record RecordPaymentRequest(
     DateOnly PaidDate,
     string Method,     // CASH / BANK_TRANSFER / UPI / etc
     long? DueId,
-    string? GlCode 
+    string? GlCode ,
+    string AccountNo, 
+    string? BankName,
+    string? ChequeNo,
+    DateOnly? Chequedate, 
+    string? UpiId 
       
     );
 
@@ -200,7 +205,7 @@ public record LoanDto(
 // CoBorrowerDto.cs
 public record CoBorrowerDto(
     long CoBorrowerId,
-    long loanId, 
+    long? loanId, 
     string? CoBorrowerName,
     string? CoBorrowerPhone,
     string? CoBorrowerEmail,
@@ -230,11 +235,25 @@ public record CreateLoanDto(
     decimal? SifinCommission,
     decimal? NetDisbursementAmount,
     decimal? ProcessingFee,
-    List<CreateCoBorrowerDto>? CoBorrowers
+    List<CreateCoBorrowerDto>? CoBorrowers,
+
+     string? LoanApplicationStatus,      
+    string? SecurityDocStatus,          
+    string? SecurityDocRemarks,         
+
+    // Cheque Details
+    string? ChequeObtained,             
+    string? ChequeAccountNo,            
+    string? ChequeBankName,             
+    string? ChequeNo,                  
+    DateTime? ChequeDate,
+    string? Remarks,
+    long? LoanId
 );
 
 // CreateCoBorrowerDto.cs
 public record CreateCoBorrowerDto(
+    long ? CoBorrowerId,
     string? CoBorrowerName,
     string? CoBorrowerPhone,
     string? CoBorrowerEmail,

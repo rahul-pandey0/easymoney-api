@@ -643,7 +643,6 @@ public class Loan
     public string? PhoneNumber { get; set; }
     public string? CustomerName { get; set; }
     public DateOnly? BidDate { get; set; }   
-    public string? LoanRemark { get; set; } 
     //public string? CoopName { get; set; }
     //public string? CoopMobileNumber { get; set; } 
     //public long? CoopAccountId { get; set; } 
@@ -656,6 +655,20 @@ public class Loan
     public decimal? NetDisbursementAmount { get; set; }
     public decimal? ProcessingFee { get; set; }
     public List<CoBorrower>? CoBorrowerDetails { get; set; }
+    public string? LoanRemark { get; set; }
+    public string? LoanApplicationStatus { get; set; }
+    public string? SecurityDocStatus { get; set; }
+    public string? SecurityDocRemarks { get; set; }
+
+    // Cheque Details
+    public string? ChequeObtained { get; set; }
+    public string? ChequeAccountNo { get; set; }
+    public string? ChequeBankName { get; set; }
+    public string? ChequeNo { get; set; }
+    public DateTime? ChequeDate { get; set; }
+
+    public string ? Remarks { get; set; } 
+
 
 }
 
@@ -703,6 +716,9 @@ public class LedgerEntry
     public long? GlAccountId { get; set; }
     public string? GlAccountName { get; set; }
     public string? PhoneNumber { get; set; }
+
+
+    public long? PaymentDetailId { get; set; } // Link to payment detail
 }
 
 public class Dividend
@@ -1274,4 +1290,52 @@ public class VoucherLineDto
     public string AccountType { get; set; } // "Asset", "Liability", "Income", "Expense"
     public decimal Amount { get; set; }
     public string Narration { get; set; }
+}
+
+
+public class PaymentDetail
+{
+    public long PaymentDetailId { get; set; }
+    public long TenantId { get; set; }
+    public long AccountId { get; set; }
+    public decimal Amount { get; set; }
+    public DateOnly PaymentDate { get; set; }
+    public PaymentMethod PaymentMethod { get; set; }
+    public PaymentMethod PaymentStatus { get; set; }
+    public string? ReferenceNumber { get; set; }
+    public string? ChequeNumber { get; set; }
+    public string? BankName { get; set; }
+    public string? AccountNumber { get; set; }
+    public DateOnly? ChequeDate { get; set; }
+    public string? UPIId { get; set; }
+    public string? TransactionReference { get; set; }
+    public string? Remarks { get; set; }
+    public long? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? ModifiedBy { get; set; }
+    public DateTime? ModifiedAt { get; set; }
+    public virtual Account Account { get; set; }
+    public virtual Tenant Tenant { get; set; }
+}
+
+public class BidderWithoutLoanDto
+{
+    public long BidId { get; set; }
+    public long AccountId { get; set; }
+    public string AccountNumber { get; set; }
+    public long MemberId { get; set; }
+    public string MemberName { get; set; }
+    public string MemberPhone { get; set; }
+    public string Email { get; set; }
+    public decimal BidPct { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public decimal ForfeitureAmount { get; set; }
+    public decimal PrizeIfWins { get; set; }
+    public DateTime SubmittedAt { get; set; }
+    public bool IsApproved { get; set; }
+    public bool IsWinner { get; set; }
+    public string Status { get; set; }
+    public string StatusBadge { get; set; }
+    public long? CycleId { get; set; }
+    public DateOnly? CycleMonth { get; set; }
 }

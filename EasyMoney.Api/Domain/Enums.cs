@@ -37,6 +37,8 @@ public enum UserRole
 
 public enum GlAccountClass { ASSET, LIABILITY, EQUITY, INCOME, EXPENSE }
 
+public enum PaymentStatus { COMPLETED, PENDING, FAILED, REFUNDED }
+
 public enum JournalSourceType
 {
     CONTRIBUTION, BID_RESOLUTION, LOAN_DISBURSEMENT,

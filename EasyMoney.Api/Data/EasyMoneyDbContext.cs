@@ -36,14 +36,14 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<BiddingCycle> BiddingCycles => Set<BiddingCycle>();
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<Loan> Loans => Set<Loan>();
-    public DbSet<CoBorrower> CoBorrowers  => Set<CoBorrower>();
+    public DbSet<CoBorrower> CoBorrowers => Set<CoBorrower>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<Dividend> Dividends => Set<Dividend>();
     public DbSet<GlAccount> GlAccounts => Set<GlAccount>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
-    public DbSet<JournalLine> JournalLines => Set<JournalLine>(); 
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<GlAccountBalance> GlAccountBalances => Set<GlAccountBalance>();
-    public DbSet<GLAccountDailyBalance> GLAccountDailyBalance => Set<GLAccountDailyBalance>(); 
+    public DbSet<GLAccountDailyBalance> GLAccountDailyBalance => Set<GLAccountDailyBalance>();
 
     public DbSet<MemberAccountBalance> MemberAccountBalances => Set<MemberAccountBalance>();
     public DbSet<IdempotencyLog> IdempotencyLogs => Set<IdempotencyLog>();
@@ -51,7 +51,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<Branch> Branches => Set<Branch>();
-
+    public DbSet<PaymentDetail> PaymentDetail => Set<PaymentDetail>();
 
 
     //public DbSet<IndividualDetail> IndividualDetails { get; set; }
@@ -265,7 +265,7 @@ public class EasyMoneyDbContext : DbContext
             // Tax
             e.Property(x => x.TdsAc).HasColumnName("tds_ac");
             e.Property(x => x.GstGl).HasColumnName("gst_gl");
-            e.Property(x => x.SchemeCode).HasColumnName("scheme_code"); 
+            e.Property(x => x.SchemeCode).HasColumnName("scheme_code");
 
             e.Property(x => x.ServicesTax).HasColumnName("services_tax");
 
@@ -284,7 +284,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.GlId).HasColumnName("gl_id");
             e.Property(x => x.Code).HasColumnName("code");
             e.Property(x => x.Name).HasColumnName("name");
-            e.Property(x => x.Description).HasColumnName("description"); 
+            e.Property(x => x.Description).HasColumnName("description");
             e.Property(x => x.Forbank).HasColumnName("for_bank");
             e.Property(x => x.Category).HasColumnName("category").HasConversion<string>();
             e.Property(x => x.IsReported).HasColumnName("is_reported");
@@ -301,34 +301,34 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.status).HasColumnName("status");
         });
 
-    b.Entity<AppUser>(e =>
-        {
-            e.ToTable("app_user");
-            e.HasKey(x => x.UserId);
-            e.Property(x => x.UserId).HasColumnName("user_id");
-            e.Property(x => x.TenantId).HasColumnName("tenant_id");
-            e.Property(x => x.MemberId).HasColumnName("member_id");
-            e.Property(x => x.UserName).HasColumnName("user_name");
-            e.Property(x => x.BranchId).HasColumnName("branch_id");
-            e.Property(x => x.Email).HasColumnName("email");
-            e.Property(x => x.PasswordHash).HasColumnName("password_hash");
-            e.Property(x => x.Role).HasColumnName("role").HasConversion<string>();
-            e.Property(x => x.CreatedBy).HasColumnName("created_by");
-            e.Property(x => x.IsActive).HasColumnName("is_active");
-            e.Property(x => x.CreatedAt).HasColumnName("created_at");
-            e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
-            e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
-            e.HasOne(u => u.Branch).WithMany().HasForeignKey(u => u.BranchId).OnDelete(DeleteBehavior.Restrict);
-            b.Entity<AppUser>()
-    .HasOne(u => u.Member)
-    .WithMany()
-    .HasForeignKey(u => u.MemberId);
+        b.Entity<AppUser>(e =>
+            {
+                e.ToTable("app_user");
+                e.HasKey(x => x.UserId);
+                e.Property(x => x.UserId).HasColumnName("user_id");
+                e.Property(x => x.TenantId).HasColumnName("tenant_id");
+                e.Property(x => x.MemberId).HasColumnName("member_id");
+                e.Property(x => x.UserName).HasColumnName("user_name");
+                e.Property(x => x.BranchId).HasColumnName("branch_id");
+                e.Property(x => x.Email).HasColumnName("email");
+                e.Property(x => x.PasswordHash).HasColumnName("password_hash");
+                e.Property(x => x.Role).HasColumnName("role").HasConversion<string>();
+                e.Property(x => x.CreatedBy).HasColumnName("created_by");
+                e.Property(x => x.IsActive).HasColumnName("is_active");
+                e.Property(x => x.CreatedAt).HasColumnName("created_at");
+                e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
+                e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+                e.HasOne(u => u.Branch).WithMany().HasForeignKey(u => u.BranchId).OnDelete(DeleteBehavior.Restrict);
+                b.Entity<AppUser>()
+        .HasOne(u => u.Member)
+        .WithMany()
+        .HasForeignKey(u => u.MemberId);
 
-            b.Entity<AppUser>()
-                .HasOne(u => u.Tenant)
-                .WithMany()
-                .HasForeignKey(u => u.TenantId);
-        });
+                b.Entity<AppUser>()
+                    .HasOne(u => u.Tenant)
+                    .WithMany()
+                    .HasForeignKey(u => u.TenantId);
+            });
 
         b.Entity<RefreshToken>(e =>
         {
@@ -343,7 +343,7 @@ public class EasyMoneyDbContext : DbContext
         });
 
         b.Entity<Member>(e =>
-        { 
+        {
             e.ToTable("member");
             e.HasKey(x => x.MemberId);
             e.Property(x => x.MemberId).HasColumnName("member_id");
@@ -735,16 +735,16 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.TargetAmount).HasColumnName("target_amount").HasDefaultValue(0m);
             e.Property(x => x.PaymentDate).HasColumnName("payment_date");
             e.Property(x => x.PaidAmount).HasColumnName("paid_amount").HasDefaultValue(0m);
-            e.Property(x => x.LoanAmount).HasColumnName("loan_amount").HasDefaultValue(0m); 
-            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasDefaultValue(0m); 
-            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasDefaultValue(0m); 
-            e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasDefaultValue(0m); 
+            e.Property(x => x.LoanAmount).HasColumnName("loan_amount").HasDefaultValue(0m);
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasDefaultValue(0m);
+            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasDefaultValue(0m);
+            e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasDefaultValue(0m);
             e.Property(x => x.Remarks).HasColumnName("remarks");
             e.Property(x => x.SchemeId).HasColumnName("scheme_id");
             e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.FirstPaymentFlag).HasColumnName("first_payment_flag");
             e.Property(x => x.IsBidding).HasColumnName("is_bidding");
-            e.Property(x => x.CustomerCode).HasColumnName("customer_code"); 
+            e.Property(x => x.CustomerCode).HasColumnName("customer_code");
 
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
@@ -814,11 +814,11 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.RepaidAt).HasColumnName("repaid_at");
             e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
             e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
-             e.Property(e => e.Status).HasColumnName("status").HasDefaultValue(LoanStatus.PENDING); 
+            e.Property(e => e.Status).HasColumnName("status").HasDefaultValue(LoanStatus.PENDING);
             e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
             e.Property(x => x.CustomerName).HasColumnName("customer_name");
             e.Property(x => x.BidDate).HasColumnName("bid_date");
-            e.Property(x => x.LoanRemark).HasColumnName("loan_remark");
+      
             //e.Property(x => x.CoopMobileNumber).HasColumnName("coop_mobile_number");
             //e.Property(x => x.CoopName).HasColumnName("coop_name");
             //e.Property(x => x.CoopAccountId).HasColumnName("coop_account_id"); 
@@ -829,7 +829,19 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.NetDisbursementAmount).HasColumnName("net_disbursement_amount");
             e.Property(x => x.OrgFeeAmount).HasColumnName("org_fee_amount");
             e.Property(x => x.SifinCommission).HasColumnName("sifin_commission");
-            e.Property(x => x.ProcessingFee).HasColumnName("processing_fee"); 
+            e.Property(x => x.ProcessingFee).HasColumnName("processing_fee");
+
+            e.Property(x => x.LoanRemark).HasColumnName("loan_remark");
+            e.Property(x => x.LoanApplicationStatus).HasColumnName("loan_application_status");
+            e.Property(x => x.SecurityDocStatus).HasColumnName("security_doc_status");
+            e.Property(x => x.SecurityDocRemarks).HasColumnName("security_doc_remarks"); 
+            e.Property(x => x.ChequeObtained).HasColumnName("cheque_obtained");
+            e.Property(x => x.ChequeAccountNo).HasColumnName("cheque_account_no");
+            e.Property(x => x.ChequeBankName).HasColumnName("cheque_bank_name");
+            e.Property(x => x.ChequeNo).HasColumnName("cheque_no");
+            e.Property(x => x.ChequeDate).HasColumnName("cheque_date");
+            e.Property(x => x.Remarks).HasColumnName("remark");
+
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
 
         });
@@ -882,6 +894,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.GlAccountId).HasColumnName("gl_account_id");
             e.Property(x => x.GlAccountName).HasColumnName("gl_account_name");
             e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
+            e.Property(x => x.PaymentDetailId).HasColumnName("payment_detail_id");
+
         });
 
         b.Entity<Dividend>(e =>
@@ -1060,6 +1074,44 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.DecidedBy).HasColumnName("decided_by");
             e.Property(x => x.DecidedAt).HasColumnName("decided_at");
             e.Property(x => x.DecisionRemarks).HasColumnName("decision_remarks");
+        });
+
+        b.Entity<PaymentDetail>(e =>
+        {
+            e.ToTable("payment_detail");
+            e.HasKey(x => x.PaymentDetailId);
+            e.Property(x => x.PaymentDetailId).HasColumnName("payment_detail_id").ValueGeneratedOnAdd();
+            e.Property(x => x.TenantId).HasColumnName("tenant_id").IsRequired();
+            e.Property(x => x.AccountId).HasColumnName("account_id").IsRequired();
+            e.Property(x => x.Amount).HasColumnName("amount").HasPrecision(19, 4).IsRequired();
+            e.Property(x => x.PaymentDate).HasColumnName("payment_date").IsRequired();
+            e.Property(x => x.PaymentMethod).HasColumnName("payment_method").HasConversion<string>().IsRequired();
+            e.Property(x => x.PaymentStatus).HasColumnName("payment_status").HasConversion<string>().IsRequired();
+            e.Property(x => x.ReferenceNumber).HasColumnName("reference_number").HasMaxLength(50);
+            e.Property(x => x.ChequeNumber).HasColumnName("cheque_number").HasMaxLength(50);
+            e.Property(x => x.BankName).HasColumnName("bank_name").HasMaxLength(100);
+            e.Property(x => x.AccountNumber).HasColumnName("account_number").HasMaxLength(50);
+            e.Property(x => x.ChequeDate).HasColumnName("cheque_date");
+            e.Property(x => x.UPIId).HasColumnName("upi_id").HasMaxLength(100);
+            e.Property(x => x.TransactionReference).HasColumnName("transaction_reference").HasMaxLength(100);
+            e.Property(x => x.Remarks).HasColumnName("remarks").HasColumnType("TEXT");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP(6)").ValueGeneratedOnAdd();
+            e.Property(x => x.ModifiedBy).HasColumnName("modified_by");
+            e.Property(x => x.ModifiedAt).HasColumnName("modified_at").HasDefaultValueSql("NULL ON UPDATE CURRENT_TIMESTAMP(6)").ValueGeneratedOnUpdate();
+            //e.HasIndex(x => x.TenantId).HasDatabaseName("idx_payment_detail_tenant_id");
+            //e.HasIndex(x => x.AccountId).HasDatabaseName("idx_payment_detail_account_id");
+            //e.HasIndex(x => x.PaymentDate).HasDatabaseName("idx_payment_detail_payment_date");
+            //e.HasIndex(x => x.PaymentMethod).HasDatabaseName("idx_payment_detail_payment_method");
+            //e.HasIndex(x => x.PaymentStatus).HasDatabaseName("idx_payment_detail_payment_status");
+            //e.HasIndex(x => x.ReferenceNumber).HasDatabaseName("idx_payment_detail_reference_number");
+            //e.HasIndex(x => x.ChequeNumber).HasDatabaseName("idx_payment_detail_cheque_number");
+            //e.HasIndex(x => x.UPIId).HasDatabaseName("idx_payment_detail_upi_id");
+            //e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_payment_detail_created_at");
+
+            // Optional: Composite indexes
+            //e.HasIndex(x => new { x.AccountId, x.PaymentDate }).HasDatabaseName("idx_payment_detail_account_date");
+            //e.HasIndex(x => new { x.TenantId, x.PaymentMethod, x.PaymentDate }).HasDatabaseName("idx_payment_detail_tenant_method_date");
         });
 
         b.Entity<Branch>(e =>
@@ -1273,10 +1325,8 @@ public class EasyMoneyDbContext : DbContext
         //    e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
         //    e.Property(x => x.OfficeAddress).HasColumnName("office_address");
         //});
-
+    
     }
-
-
     private static string IncomeBandToDb(IncomeBand b) => b switch
     {
         IncomeBand.BELOW_1L => "BELOW_1L",

@@ -13,8 +13,9 @@ public interface ILoanService
     Task<Loan> DisburseAsync(long accountId, long cycleId, decimal principal);
 
     Task<Loan?> GetByAccountAsync(long accountId);
-    Task<List<Loan>> GetByAccountbytenant(); 
-
+    Task<List<Loan>> GetByAccountbytenant();
+    Task<Loan?> GetByAccountsdata(int loanId);  
+    Task<List<BidderWithoutLoanDto>> GetByAccountData();  
     Task<LoanDto> CreateLoanAsync(CreateLoanDto loan);
     //Task<Loan>
     Task<Loan> ApproveLoanAsync(long loanId);
@@ -25,6 +26,7 @@ public interface ILoanService
     Task<IEnumerable<Loan>> GetPendingApprovalLoansAsync();
     Task<IEnumerable<Loan>> GetApprovedPendingDisbursementLoansAsync();
     Task<DisbursementVoucherDto> DisburseLoanAsync(long loanId, DisbursementRequestDto request);
+    Task<LoanDto> UpdateLoanAsync(int id, CreateLoanDto updateLoanDto); // Add this
 
 }
 
@@ -129,7 +131,6 @@ public class LoanService : ILoanService
                 PhoneNumber = createLoanDto.PhoneNumber,
                 CustomerName = createLoanDto.CustomerName,
                 BidDate = createLoanDto.BidDate,
-                LoanRemark = createLoanDto.LoanRemark ?? "LOAN Creation",
                 BranchId = createLoanDto.BranchId ?? _ctx.BranchId,
                 OrgFeeAmount = createLoanDto.OrgFeeAmount,
                 SifinCommission = createLoanDto.SifinCommission,
@@ -137,7 +138,21 @@ public class LoanService : ILoanService
                 ProcessingFee = createLoanDto.ProcessingFee,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = _ctx.UserId,
-                AuthStatus = false
+                AuthStatus = false,
+
+
+                LoanRemark = createLoanDto.LoanRemark ?? "LOAN Creation",
+                LoanApplicationStatus = createLoanDto.LoanApplicationStatus,
+                SecurityDocStatus = createLoanDto.SecurityDocStatus,
+                SecurityDocRemarks = createLoanDto.SecurityDocRemarks,
+                ChequeObtained = createLoanDto.ChequeObtained,
+                ChequeAccountNo = createLoanDto.ChequeAccountNo,
+                ChequeBankName = createLoanDto.ChequeBankName,
+                ChequeNo = createLoanDto.ChequeNo,
+                ChequeDate = createLoanDto.ChequeDate,
+
+                Remarks = createLoanDto.Remarks,
+
             };
 
             _db.Loans.Add(loan);
@@ -337,6 +352,137 @@ public class LoanService : ILoanService
         _db.Loans.IgnoreQueryFilters()
             .Where(l => l.TenantId == _ctx.TenantId)
             .ToListAsync();
+
+
+    public async Task<Loan?> GetByAccountsdata(int loanId)
+    {
+        try 
+        {
+            return await _db.Loans
+                .IgnoreQueryFilters()
+                .Include(l => l.CoBorrowerDetails)
+                .FirstOrDefaultAsync(l =>
+                    l.TenantId == _ctx.TenantId &&
+                    l.LoanId == loanId);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+    
+    //public Task<List<Loan>> GetByAccountData() =>
+    //    _db.Loans.IgnoreQueryFilters()
+    //        .Where(l => l.TenantId == _ctx.TenantId)
+    //        .ToListAsync();
+
+
+    // Most efficient approach using NOT EXISTS   
+    // Most efficient approach using NOT EXISTS 
+    public async Task<List<Account>> GetByAccountData1()
+    {
+        try
+        {
+            var tenantId = _ctx.TenantId.Value;
+
+            var query = _db.Accounts
+                .IgnoreQueryFilters()
+                .Where(a => a.TenantId == tenantId)
+                .Where(a => !_db.Loans
+                    .IgnoreQueryFilters()
+                    .Any(l => l.TenantId == tenantId && l.AccountId == a.AccountId))
+                .OrderBy(a => a.AccountId);
+
+            return await query.ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error getting accounts without loans using NOT EXISTS");
+            throw;
+        }
+    }
+
+
+    public async Task<List<BidderWithoutLoanDto>> GetByAccountData()
+    {
+        var tenantId = _ctx.TenantId ?? 0;
+
+        // Get current cycle
+        var cycle = await _db.BiddingCycles
+            .IgnoreQueryFilters()
+            .Where(c => c.TenantId == tenantId
+                       && (c.Status == CycleStatus.OPEN
+                           || c.Status == CycleStatus.CLOSED
+                           || c.Status == CycleStatus.RESOLVED
+                           || c.Status == CycleStatus.NO_BID))
+            .OrderByDescending(c => c.CycleMonth)
+            .FirstOrDefaultAsync();
+
+        if (cycle == null) return new List<BidderWithoutLoanDto>();
+
+        // Get account IDs that have loans
+        var accountIdsWithLoans = await _db.Loans
+            .IgnoreQueryFilters()
+            .Where(l => l.TenantId == tenantId)
+            .Select(l => l.AccountId)
+            .Distinct()
+            .ToListAsync();
+
+        // Get all bids for accounts WITHOUT loans using LINQ query with anti-join
+        var query = from bid in _db.Bids
+                    join account in _db.Accounts on bid.AccountId equals account.AccountId
+                    join member in _db.Members on account.MemberId equals member.MemberId
+                    where bid.CycleId == cycle.CycleId
+                          && !accountIdsWithLoans.Contains(account.AccountId) // Anti-join condition
+                    select new BidderWithoutLoanDto
+                    {
+                        BidId = bid.BidId,
+                        AccountId = bid.AccountId,
+                        AccountNumber = account.AccountNumber,
+                        MemberId = member.MemberId,
+                        MemberName = member.FullName,
+                        MemberPhone = member.Phone,
+                        Email = member.Email,
+                        BidPct = bid.BidPct,
+                        MonthlyContribution = account.MonthlyContribution,
+                        SubmittedAt = bid.SubmittedAt,
+                        IsApproved = bid.IsApproved,
+                        IsWinner = bid.IsWinner,
+                        Status = bid.IsWinner ? "Winner" : (bid.IsApproved ? "Approved" : "Pending"),
+                        StatusBadge = bid.IsWinner ? "winner" : (bid.IsApproved ? "approved" : "pending"),
+                        CycleId = cycle.CycleId,
+                        CycleMonth = cycle.CycleMonth
+                    };
+
+        var result = await query.ToListAsync();
+
+        // Calculate additional fields (forfeiture, prize) in memory
+        var scheme = await _db.SchemeConfigs
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+
+        var participants = await _db.Accounts
+            .IgnoreQueryFilters()
+            .Where(a => a.TenantId == tenantId
+                        && (a.Status == AccountStatus.ACTIVE || a.Status == AccountStatus.PRIZED)
+                        && a.AccountOpenDate <= cycle.CycleMonth
+                        && a.TenureEndDate > cycle.CycleMonth)
+            .ToListAsync();
+
+        var grossCorpus = participants.Sum(a => a.MonthlyContribution);
+        var orgFeeAmount = Math.Round(grossCorpus * (scheme?.OrgFeePct ?? 0) / 100m, 2);
+        var bidPool = grossCorpus - orgFeeAmount;
+
+        foreach (var item in result)
+        {
+            var forfeiture = Math.Round(grossCorpus * item.BidPct / 100m, 2);
+            var prizeIfWins = bidPool - forfeiture;
+            item.ForfeitureAmount = forfeiture;
+            item.PrizeIfWins = prizeIfWins < 0 ? 0 : prizeIfWins;
+        }
+
+        return result.OrderByDescending(r => r.BidPct).ToList();
+    }
 
 
     //public async Task<Loan> ApproveLoanAsync(long loanId)
@@ -1508,6 +1654,165 @@ public class LoanService : ILoanService
         var month = cycleMonth.Month.ToString("D2");
         var sequence = _db.Loans.Count(l => l.AuthorizedBy.HasValue && l.CycleId > 0) + 1;
         return $"VCH-{year}{month}-{sequence:D5}";
+    }
+    public async Task<LoanDto> UpdateLoanAsync(int id ,CreateLoanDto updateLoanDto) 
+    {
+        try 
+        {
+            // Fetch existing loan
+            var loan = await _db.Loans
+                .Include(l => l.CoBorrowerDetails)
+                .FirstOrDefaultAsync(l => l.LoanId ==id && l.TenantId == _ctx.TenantId.Value);
+
+            if (loan == null)
+                throw new DomainException($"Loan with ID {id} not found");
+
+            // Validate status transitions if needed
+            if (loan.Status == "CLOSED" || loan.Status == "RESOLVED")
+                throw new InvalidOperationException("Cannot update a closed or resolved loan");
+
+            // Update basic loan information
+            loan.PrincipalAmount = updateLoanDto.PrincipalAmount;
+            loan.DisbursedAt = updateLoanDto.DisbursedAt; 
+            //loan.OutstandingBalance = updateLoanDto.OutstandingBalance;
+            loan.Status =  loan.Status;
+            loan.PhoneNumber = updateLoanDto.PhoneNumber ?? loan.PhoneNumber;
+            loan.CustomerName = updateLoanDto.CustomerName ?? loan.CustomerName;
+            loan.BidDate = updateLoanDto.BidDate ?? loan.BidDate;
+            loan.BranchId = updateLoanDto.BranchId ?? loan.BranchId;
+            loan.OrgFeeAmount = updateLoanDto.OrgFeeAmount ?? loan.OrgFeeAmount;
+            loan.SifinCommission = updateLoanDto.SifinCommission ?? loan.SifinCommission;
+            loan.NetDisbursementAmount = updateLoanDto.NetDisbursementAmount ?? loan.NetDisbursementAmount;
+            loan.ProcessingFee = updateLoanDto.ProcessingFee ?? loan.ProcessingFee;
+            loan.LoanRemark = updateLoanDto.LoanRemark ?? loan.LoanRemark;
+            loan.LoanApplicationStatus = updateLoanDto.LoanApplicationStatus ?? loan.LoanApplicationStatus;
+            loan.SecurityDocStatus = updateLoanDto.SecurityDocStatus ?? loan.SecurityDocStatus;
+            loan.SecurityDocRemarks = updateLoanDto.SecurityDocRemarks ?? loan.SecurityDocRemarks;
+            loan.ChequeObtained = updateLoanDto.ChequeObtained ?? loan.ChequeObtained;
+            loan.ChequeAccountNo = updateLoanDto.ChequeAccountNo ?? loan.ChequeAccountNo;
+            loan.ChequeBankName = updateLoanDto.ChequeBankName ?? loan.ChequeBankName;
+            loan.ChequeNo = updateLoanDto.ChequeNo ?? loan.ChequeNo;
+            loan.ChequeDate = updateLoanDto.ChequeDate ?? loan.ChequeDate;
+            loan.Remarks = updateLoanDto.Remarks ?? loan.Remarks;
+            //loan.AuthStatus = updateLoanDto.AuthStatus;
+            //loan.UpdatedAt = DateTime.UtcNow;
+            //loan.UpdatedBy = _ctx.UserId;
+
+            // Update Co-Borrowers
+            if (updateLoanDto.CoBorrowers != null)
+            {
+                // Get existing co-borrower IDs
+                var existingCoBorrowerIds = loan.CoBorrowerDetails.Select(cb => cb.CoBorrowerId).ToHashSet();
+                var updatedCoBorrowerIds = updateLoanDto.CoBorrowers
+                    .Where(cb => cb.CoBorrowerId.HasValue)
+                    .Select(cb => cb.CoBorrowerId.Value)
+                    .ToHashSet();
+
+                // Remove co-borrowers that are not in the update list
+                var coBorrowersToRemove = loan.CoBorrowerDetails
+                    .Where(cb => !updatedCoBorrowerIds.Contains(cb.CoBorrowerId))
+                    .ToList();
+
+                if (coBorrowersToRemove.Any())
+                {
+                    _db.CoBorrowers.RemoveRange(coBorrowersToRemove);
+                }
+
+                // Update or add co-borrowers
+                foreach (var cbDto in updateLoanDto.CoBorrowers)
+                {
+                    if (cbDto.CoBorrowerId.HasValue)
+                    {
+                        // Update existing co-borrower
+                        var existingCoBorrower = loan.CoBorrowerDetails
+                            .FirstOrDefault(cb => cb.CoBorrowerId == cbDto.CoBorrowerId.Value);
+
+                        if (existingCoBorrower != null)
+                        {
+                            existingCoBorrower.CoBorrowerName = cbDto.CoBorrowerName;
+                            existingCoBorrower.CoBorrowerPhone = cbDto.CoBorrowerPhone;
+                            existingCoBorrower.CoBorrowerEmail = cbDto.CoBorrowerEmail;
+                            existingCoBorrower.CoBorrowerAddress = cbDto.CoBorrowerAddress;
+                            existingCoBorrower.CoBorrowerAccountNumber = cbDto.CoBorrowerAccountNumber;
+                            existingCoBorrower.CoopName = cbDto.CoopName;
+                            existingCoBorrower.CoopMobileNumber = cbDto.CoopMobileNumber;
+                            existingCoBorrower.CoopAccountId = cbDto.CoopAccountId;
+                            existingCoBorrower.CoopAccountNumber = cbDto.CoopAccountNumber;
+                            existingCoBorrower.CoBorrowerRemarks = cbDto.CoBorrowerRemarks;
+                            existingCoBorrower.IsPrimaryCoBorrower = cbDto.IsPrimaryCoBorrower;
+                            //existingCoBorrower.IsActive = cbDto.IsActive;
+                            existingCoBorrower.UpdatedAt = DateTime.UtcNow;
+                            existingCoBorrower.UpdatedBy = _ctx.UserId;
+                        }
+                    }
+                    else
+                    {
+                        // Add new co-borrower
+                        var newCoBorrower = new CoBorrower
+                        {
+                            TenantId = _ctx.TenantId.Value,
+                            LoanId = loan.LoanId,
+                            CoBorrowerName = cbDto.CoBorrowerName,
+                            CoBorrowerPhone = cbDto.CoBorrowerPhone,
+                            CoBorrowerEmail = cbDto.CoBorrowerEmail,
+                            CoBorrowerAddress = cbDto.CoBorrowerAddress,
+                            CoBorrowerAccountNumber = cbDto.CoBorrowerAccountNumber,
+                            CoopName = cbDto.CoopName,
+                            CoopMobileNumber = cbDto.CoopMobileNumber,
+                            CoopAccountId = cbDto.CoopAccountId,
+                            CoopAccountNumber = cbDto.CoopAccountNumber,
+                            CoBorrowerRemarks = cbDto.CoBorrowerRemarks,
+                            IsPrimaryCoBorrower = cbDto.IsPrimaryCoBorrower,
+                            CreatedAt = DateTime.UtcNow,
+                            CreatedBy = _ctx.UserId,
+                            //IsActive = cbDto.IsActive
+                        };
+                        _db.CoBorrowers.Add(newCoBorrower);
+                    }
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            // Create approval request for update
+            var approval = new ApprovalRequest
+            {
+                TenantId = _ctx.TenantId.Value,
+                //ActionType = ApprovalActionType.UPDATE_LOAN, // Make sure this enum exists
+                EntityType = "Loan Update",
+                EntityId = loan.LoanId,
+                Payload = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    loan.LoanId,
+                    loan.CycleId,
+                    loan.AccountId,
+                    loan.AuthStatus,
+                    loan.TenantId,
+                    //loan.UpdatedBy,
+                    loan.PrincipalAmount,
+                    loan.DisbursedAt,
+                    loan.Status,
+                    UpdateTimestamp = DateTime.UtcNow
+                }),
+                Status = ApprovalStatus.PENDING,
+                RequestedBy = _ctx.UserId.Value,
+                RequestedAt = DateTime.UtcNow
+            };
+
+            _db.ApprovalRequests.Add(approval);
+            await _db.SaveChangesAsync();
+
+            _log.LogInformation("Updated loan {LoanId} for account {AccountId}",
+                loan.LoanId, loan.AccountId);
+
+            // Return updated loan
+            return await GetLoanByIdAsync(loan.LoanId);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error updating loan {LoanId}", updateLoanDto.LoanId);
+            throw;
+        }
     }
 
 }

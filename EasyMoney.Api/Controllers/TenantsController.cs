@@ -219,6 +219,15 @@ public class TenantsController : ControllerBase
     }
 
 
+
+    [HttpGet("gl_data")]
+    [Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + "," + Roles.OrgAdmin)]
+    public async Task<ActionResult<IReadOnlyList<GeneralLedgerDto>>> GetparentGl() 
+    {
+        var result = await _tenants.GetParentGLSummariesAsync(); 
+        return Ok(result);
+    }
+
     //[HttpGet("{tenantId:long}/general_ledger")]
     ////Authorize(Roles = Roles.SifinAdmin + "," + Roles.SifinOperator + Roles.OrgAdmin + "," + Roles.OrgAuthorizer + ",")]
     //public async Task<ActionResult<GlAccountDto>> GetTenantGLAccount(long tenantId)

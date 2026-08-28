@@ -35,7 +35,9 @@ public interface ITenantService
     //Task<GeneralLedgerMaster> GetByIdAsync(int glId);
     //Task<GeneralLedgerMaster> GetGlAsync();
     Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync();
-      Task<GeneralLedgerMaster> GetGlAsync();
+    Task<IReadOnlyList<GeneralLedgerMaster>> GetParentGLSummariesAsync(); 
+
+    Task<GeneralLedgerMaster> GetGlAsync();
     Task<GeneralLedgerMaster> GetGlAsync(int glId);
 
     Task CreateGl(GeneralLedgerDto req, long? authorizedBy);  
@@ -1061,6 +1063,36 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
     public async Task<IReadOnlyList<GeneralLedgerMaster>> GetAllGLSummariesAsync()
     {
         var gl = await _db.GeneralLedgerMaster.AsNoTracking().ToListAsync();
+
+        var glDtos = gl.Select(g => new GeneralLedgerMaster
+        {
+            //GlId = g.GlId,
+            Code = g.Code,
+            Name = g.Name,
+            Description = g.Description,
+            Forbank = g.Forbank,
+            Category = g.Category,
+            IsReported = g.IsReported,
+            HasTransactions = g.HasTransactions,
+            HasGst = g.HasGst,
+            CreatedAt = g.CreatedAt,
+            CreatedBy = g.CreatedBy,
+            UpdatedAt = g.UpdatedAt,
+            UpdatedBy = g.UpdatedBy,
+            AuthorizedAt = g.AuthorizedAt,
+            AuthorizedBy = g.AuthorizedBy,
+            status = g.status,
+            ParentGl = g.ParentGl,
+            Type = g.Type
+        }).ToList();
+
+        return (IReadOnlyList<GeneralLedgerMaster>)gl;
+    }
+
+    public async Task<IReadOnlyList<GeneralLedgerMaster>> GetParentGLSummariesAsync()
+    {  
+        var gl = await _db.GeneralLedgerMaster.AsNoTracking().Where(gl => gl.ParentGl != 0)
+    .ToListAsync();
 
         var glDtos = gl.Select(g => new GeneralLedgerMaster
         {

@@ -33,14 +33,31 @@ public class LoansController : ControllerBase
         return Ok(loans);
     }
 
-    [HttpPost, Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.SifinAdmin)]
+    [HttpGet("{loanId:long}")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<IReadOnlyList<Loan>>> GetByAccountdata(int loanId) 
+    { 
+        var loans = await _loans.GetByAccountsdata(loanId);
+        return Ok(loans); 
+    }
 
-    public async Task<ActionResult<LoanDto>> CreateLoan(CreateLoanDto loan)  
+    [HttpPost, Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.SifinAdmin)]
+        public async Task<ActionResult<LoanDto>> CreateLoan(CreateLoanDto loan)  
     {
         var l = await _loans.CreateLoanAsync(loan);
         if (l is null) return NotFound();
         return Ok(l);
     }
+
+    [HttpGet("getaccounts")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<IReadOnlyList<Loan>>> GetByAccouns() 
+    {
+        var loans = await _loans.GetByAccountData(); 
+        return Ok(loans);
+    }
+
+
 
     [HttpPost("{loanId:long}/approve")]
     [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.SifinAdmin)]
@@ -154,6 +171,33 @@ public class LoansController : ControllerBase
     {
         var loans = await _loans.GetApprovedPendingDisbursementLoansAsync();
         return Ok(loans);
+    }
+
+    [HttpPut("{loanId}"), Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.SifinAdmin)]
+    public async Task<ActionResult<LoanDto>> UpdateLoan(int loanId, CreateLoanDto updateLoanDto)
+    { 
+     
+        try
+        {
+            var updatedLoan = await _loans.UpdateLoanAsync(loanId, updateLoanDto);
+            if (updatedLoan is null)
+                return NotFound($"Loan with ID {loanId} not found");
+
+            return Ok(updatedLoan);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            //_log.LogError(ex, "Error in UpdateLoan endpoint for LoanId {LoanId}", id);
+            return StatusCode(500, "An error occurred while updating the loan");
+        }
     }
 
     //private static LoanDto MapToDto(Loan l)

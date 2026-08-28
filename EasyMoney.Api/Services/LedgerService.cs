@@ -20,7 +20,8 @@ public interface ILedgerService
     //Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null);
     //Task<PaymentResultDto> RecordPaymentAsync(long accountId, RecordPaymentRequest request, PaymentMethod method);
 
-    Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null);
+    Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null , 
+        string? chequeNo = null ,string? accountNo =null ,string? bankName = null ,string? upiId = null ,DateOnly? chequeDate =null );
 
     /// <summary>
     /// Called once when an account is opened. Writes all CONTRIBUTION_DUE entries upfront
@@ -45,6 +46,156 @@ public class LedgerService : ILedgerService
     public LedgerService(EasyMoneyDbContext db, ITenantContext ctx, IAccountingService accounting, ILogger<LedgerService> log)
     {
         _db = db; _ctx = ctx; _accounting = accounting; _log = log;
+    }
+
+    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId,decimal amount, DateOnly paidDate,  PaymentMethod method, long? dueId = null, string? glCode = null,
+    string? chequeNo = null, string? accountNo = null, string? bankName = null, string? upiId = null,DateOnly? chequeDate =null  )
+    {
+        if (amount <= 0) throw new DomainException("Amount must be > 0");
+
+        var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+            ?? throw new DomainException($"Account {accountId} not found");
+
+        if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
+            throw new DomainException($"Account is {a.Status}; cannot accept payment");
+
+        var tenantId = a.TenantId;
+
+        // Get scheme configuration
+        var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+            ?? throw new DomainException($"Scheme config not found for tenant {tenantId}");
+
+        if (data.MinInstallmentsForEligibility != 0)
+        {
+            int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
+            int currentInstallments = a.InstallmentsPaid;
+            int totalInstallmentsAfterPayment = currentInstallments + delta1;
+            await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
+        }
+
+        // Validate the targeted due line belongs to this account and is not already paid
+        if (dueId.HasValue)
+        {
+            var due = await _db.LedgerEntries.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(e => e.EntryId == dueId.Value)
+                ?? throw new DomainException($"Due line {dueId} not found");
+            if (due.AccountId != accountId)
+                throw new DomainException($"Due line {dueId} does not belong to account {accountId}");
+            if (due.EntryType != LedgerEntryType.CONTRIBUTION_DUE)
+                throw new DomainException($"Entry {dueId} is not a CONTRIBUTION_DUE");
+
+            var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
+                .AnyAsync(e => e.LinkedEntryId == dueId.Value && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
+            if (alreadyPaid)
+                throw new DomainException($"Due line {dueId} already has a payment recorded");
+        }
+
+        // Determine GL code based on payment method
+        var cashCode = method switch
+        {
+            PaymentMethod.CASH => glCode,
+            PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => glCode,
+            PaymentMethod.EFT or PaymentMethod.UPI => glCode,
+            PaymentMethod.SYSTEM => throw new DomainException("SYSTEM payment method invalid for member payments"),
+            _ => throw new DomainException($"Unknown payment method {method}")
+        };
+
+        // 🔹 CREATE PAYMENT DETAILS RECORD
+        var paymentDetail = new PaymentDetail
+        {
+            TenantId = a.TenantId,
+            AccountId = a.AccountId,
+            Amount = amount,
+            PaymentDate = paidDate,
+            PaymentMethod = method,
+            PaymentStatus = (PaymentMethod)PaymentStatus.COMPLETED,
+            ReferenceNumber = GenerateReferenceNumber(), // Optional: generate unique reference
+            CreatedBy = _ctx.UserId,
+            CreatedAt = DateTime.UtcNow,
+            ChequeDate =chequeDate,
+            ChequeNumber =chequeNo,
+            UPIId =upiId
+        };
+
+        // Store method-specific details
+        switch (method)
+        {
+            case PaymentMethod.CHEQUE:
+                paymentDetail.ChequeNumber = chequeNo;
+                paymentDetail.BankName = bankName;
+                paymentDetail.AccountNumber = accountNo;
+                paymentDetail.ChequeDate = paidDate; // Optional: if you have cheque date
+                break;
+
+            case PaymentMethod.UPI:
+                paymentDetail.UPIId = upiId;
+                paymentDetail.BankName = bankName; // Optional: if UPI has bank name
+                break;
+
+            case PaymentMethod.NEFT:
+            case PaymentMethod.RTGS:
+            case PaymentMethod.BANK_TRANSFER:
+                paymentDetail.BankName = bankName;
+                paymentDetail.AccountNumber = accountNo;
+                paymentDetail.TransactionReference = chequeNo; // Can store transaction reference
+                break;
+
+            case PaymentMethod.CASH:
+                // No additional details needed, but can store remarks if any
+                paymentDetail.Remarks = "Cash payment received";
+                break; 
+        }
+
+        // Add payment detail to database
+        _db.PaymentDetail.Add(paymentDetail);
+        await _db.SaveChangesAsync(); // Save to get PaymentDetailId
+
+        var journalId = await _accounting.PostJournalAsync(
+            tenantId: a.TenantId,
+            entryDate: paidDate,
+            sourceType: JournalSourceType.CONTRIBUTION,
+            sourceId: a.AccountId,
+            paymentMethod: method,
+            description: $"Contribution from {a.AccountNumber} via {method}",
+            lines: new[]
+            {
+            new JournalLineInput(EntryTarget.GL, cashCode, null, amount, 0),
+            new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, amount)
+            },
+            createdBy: _ctx.UserId,
+            authorizedBy: _ctx.UserId);
+
+        // Create ledger entry with reference to payment detail
+        _db.LedgerEntries.Add(new LedgerEntry
+        {
+            TenantId = a.TenantId,
+            AccountId = a.AccountId,
+            CycleId = null,
+            LinkedEntryId = dueId,
+            EntryType = LedgerEntryType.PAYMENT_RECEIVED,
+            Amount = amount,
+            EntryDate = paidDate,
+            Description = $"Contribution payment via {method}",
+            CreatedBy = _ctx.UserId,
+            PaymentDetailId = paymentDetail.PaymentDetailId // Link to payment detail
+        });
+
+        // Increment installments_paid by floor(amount / monthly_contribution)
+        int delta = (int)Math.Floor(amount / a.MonthlyContribution);
+        if (delta > 0) a.InstallmentsPaid += delta;
+        await _db.SaveChangesAsync();
+
+        var corpus = await _accounting.GetMemberAccountBalanceAsync(a.AccountId);
+        _log.LogInformation("Payment {Amt} for account {Aid} (dueId={DueId}, installments={Inst}, corpus={Bal})",
+            amount, accountId, dueId, a.InstallmentsPaid, corpus);
+
+        return new PaymentResultDto(a.AccountId, amount, a.InstallmentsPaid, corpus, journalId);
+    }
+
+    private string GenerateReferenceNumber()
+    {
+        // Generate unique reference number
+        return $"PAY-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
     }
 
     //public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null)
@@ -149,145 +300,109 @@ public class LedgerService : ILedgerService
     //    return new PaymentResultDto(a.AccountId, totalAmount, a.InstallmentsPaid, corpus, journalId);
     //}
 
-    public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null)
-    {
-        if (amount <= 0) throw new DomainException("Amount must be > 0");
-
-        //   var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
-        //       ?? throw new DomainException($"Account {accountId} not found");
-        //   if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
-        //       throw new DomainException($"Account is {a.Status}; cannot accept payment");
-
-        //   var tenantId = a.TenantId;
-
-        //   var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
-        //?? throw new DomainException($"Account {accountId} not found");
-
-        //   if (data.MinInstallmentsForEligibility != 0)
-        //   { 
-        //      var data1 = await _db.MemberAccountBalances.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
-        //       ?? throw new DomainException($"Account {accountId} not found");
-        //       if(a.MonthlyContribution != 0)
-        //       {
-        //           var account = await _db.MemberAccountBalances.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
-        //            ?? throw new DomainException($"Account {accountId} not found"); 
-        //       }
-        //   }
-      var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
-        ?? throw new DomainException($"Account {accountId} not found");
-    
-    if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
-        throw new DomainException($"Account is {a.Status}; cannot accept payment");
-
-    var tenantId = a.TenantId;
-
-    // Get scheme configuration
-    var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
-        ?? throw new DomainException($"Scheme config not found for tenant {tenantId}");
-
-    // Check minimum installments for eligibility (should be 2)
-    //if (data.MinInstallmentsForEligibility != 0)
+    //public async Task<PaymentResultDto> RecordPaymentAsync(long accountId, decimal amount, DateOnly paidDate, PaymentMethod method, long? dueId = null, string? glCode = null ,
+    //    string? chequeNo = null, string? accountNo = null, string? bankName = null, string? upiId = null, DateOnly? chequeDate = null)
     //{
-    //    var memberBalance = await _db.MemberAccountBalances.IgnoreQueryFilters()
-    //        .FirstOrDefaultAsync(x => x.AccountId == accountId)
-    //        ?? throw new DomainException($"Member balance not found for account {accountId}");
+    //    if (amount <= 0) throw new DomainException("Amount must be > 0");
 
-    //    // Calculate installments
-    //    int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
-    //    int currentInstallments = a.InstallmentsPaid;
-    //    int totalInstallmentsAfterPayment = currentInstallments + delta1;
+    //  var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId)
+    //    ?? throw new DomainException($"Account {accountId} not found");
 
-    //    // UPDATE FLAGS BASED ON PAYMENT CASES
-    //    await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
+    //if (a.Status is not (AccountStatus.ACTIVE or AccountStatus.PRIZED))
+    //    throw new DomainException($"Account is {a.Status}; cannot accept payment");
+
+    //var tenantId = a.TenantId;
+
+    //// Get scheme configuration
+    //var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == tenantId)
+    //    ?? throw new DomainException($"Scheme config not found for tenant {tenantId}");
+
+    //    if (data.MinInstallmentsForEligibility != 0)
+    //    {
+    //        //var memberBalance = await _db.MemberAccountBalances.IgnoreQueryFilters()
+    //        //    .FirstOrDefaultAsync(x => x.AccountId == accountId)
+    //        //    ?? throw new DomainException($"Member balance not found for account {accountId}");
+
+    //        // Calculate installments
+    //        int delta1 = (int)Math.Floor(amount / a.MonthlyContribution);
+    //        int currentInstallments = a.InstallmentsPaid;
+    //        int totalInstallmentsAfterPayment = currentInstallments + delta1;
+
+    //        // UPDATE FLAGS BASED ON PAYMENT CASES
+    //        await UpdatePaymentFlagsAsync(a, totalInstallmentsAfterPayment);
+    //    }
+
+
+
+
+    //    // Validate the targeted due line belongs to this account and is not already paid
+    //    if (dueId.HasValue)
+    //    {
+    //        var due = await _db.LedgerEntries.IgnoreQueryFilters()
+    //            .FirstOrDefaultAsync(e => e.EntryId == dueId.Value)
+    //            ?? throw new DomainException($"Due line {dueId} not found");
+    //        if (due.AccountId != accountId)
+    //            throw new DomainException($"Due line {dueId} does not belong to account {accountId}");
+    //        if (due.EntryType != LedgerEntryType.CONTRIBUTION_DUE)
+    //            throw new DomainException($"Entry {dueId} is not a CONTRIBUTION_DUE");
+
+    //        // Check if already fully paid by looking for an existing linked payment
+    //        var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
+    //            .AnyAsync(e => e.LinkedEntryId == dueId.Value && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
+    //        if (alreadyPaid)
+    //            throw new DomainException($"Due line {dueId} already has a payment recorded");
+    //    }
+
+    //        // Fallback to automatic mapping
+    //       var cashCode = method switch
+    //        {
+    //            PaymentMethod.CASH => glCode,
+    //            PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => glCode,
+    //            PaymentMethod.EFT or PaymentMethod.UPI => glCode,
+    //            PaymentMethod.SYSTEM => throw new DomainException(
+    //                "SYSTEM payment method invalid for member payments"),
+    //            _ => throw new DomainException($"Unknown payment method {method}")
+    //        };
+
+
+    //    var journalId = await _accounting.PostJournalAsync(
+    //        tenantId: a.TenantId,
+    //        entryDate: paidDate,
+    //        sourceType: JournalSourceType.CONTRIBUTION,
+    //        sourceId: a.AccountId,
+    //        paymentMethod: method,
+    //        description: $"Contribution from {a.AccountNumber} via {method}",
+    //        lines: new[]
+    //        {
+    //            new JournalLineInput(EntryTarget.GL, cashCode, null, amount, 0),
+    //            new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, amount)
+    //        },
+    //        createdBy: _ctx.UserId,
+    //        authorizedBy: _ctx.UserId);
+
+    //    _db.LedgerEntries.Add(new LedgerEntry
+    //    {
+    //        TenantId = a.TenantId,
+    //        AccountId = a.AccountId,
+    //        CycleId = null,
+    //        LinkedEntryId = dueId,
+    //        EntryType = LedgerEntryType.PAYMENT_RECEIVED,
+    //        Amount = amount,
+    //        EntryDate = paidDate,
+    //        Description = $"Contribution payment via {method}",
+    //        CreatedBy = _ctx.UserId
+    //    });
+
+    //    // Increment installments_paid by floor(amount / monthly_contribution)
+    //    int delta = (int)Math.Floor(amount / a.MonthlyContribution);
+    //    if (delta > 0) a.InstallmentsPaid += delta;
+    //    await _db.SaveChangesAsync();
+
+    //    var corpus = await _accounting.GetMemberAccountBalanceAsync(a.AccountId);
+    //    _log.LogInformation("Payment {Amt} for account {Aid} (dueId={DueId}, installments={Inst}, corpus={Bal})",
+    //        amount, accountId, dueId, a.InstallmentsPaid, corpus);
+    //    return new PaymentResultDto(a.AccountId, amount, a.InstallmentsPaid, corpus, journalId);
     //}
-
-
-
-
-        // Validate the targeted due line belongs to this account and is not already paid
-        if (dueId.HasValue)
-        {
-            var due = await _db.LedgerEntries.IgnoreQueryFilters()
-                .FirstOrDefaultAsync(e => e.EntryId == dueId.Value)
-                ?? throw new DomainException($"Due line {dueId} not found");
-            if (due.AccountId != accountId)
-                throw new DomainException($"Due line {dueId} does not belong to account {accountId}");
-            if (due.EntryType != LedgerEntryType.CONTRIBUTION_DUE)
-                throw new DomainException($"Entry {dueId} is not a CONTRIBUTION_DUE");
-
-            // Check if already fully paid by looking for an existing linked payment
-            var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
-                .AnyAsync(e => e.LinkedEntryId == dueId.Value && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
-            if (alreadyPaid)
-                throw new DomainException($"Due line {dueId} already has a payment recorded");
-        }
-        //string cashCode;
-
-        //var cashCode = method switch
-        //{
-        //    PaymentMethod.CASH => SystemGl.CashInHand,
-        //    PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => SystemGl.Bank,
-        //    PaymentMethod.EFT or PaymentMethod.UPI => SystemGl.EftClearing,
-        //    PaymentMethod.SYSTEM => throw new DomainException("SYSTEM payment method invalid for member payments"),
-        //    _ => throw new DomainException($"Unknown payment method {method}")
-        //};
-        //}
-        
-            // Fallback to automatic mapping
-           var cashCode = method switch
-            {
-                PaymentMethod.CASH => glCode,
-                PaymentMethod.BANK_TRANSFER or PaymentMethod.CHEQUE or PaymentMethod.NEFT or PaymentMethod.RTGS => glCode,
-                PaymentMethod.EFT or PaymentMethod.UPI => glCode,
-                PaymentMethod.SYSTEM => throw new DomainException(
-                    "SYSTEM payment method invalid for member payments"),
-                _ => throw new DomainException($"Unknown payment method {method}")
-            };
-        
-
-
-        // Post the balanced GL journal:
-        //   Dr cashCode         amount
-        //   Cr MEMBER_ACCOUNT   amount (credit to member's corpus -> positive balance grows)
-        var journalId = await _accounting.PostJournalAsync(
-            tenantId: a.TenantId,
-            entryDate: paidDate,
-            sourceType: JournalSourceType.CONTRIBUTION,
-            sourceId: a.AccountId,
-            paymentMethod: method,
-            description: $"Contribution from {a.AccountNumber} via {method}",
-            lines: new[]
-            {
-                new JournalLineInput(EntryTarget.GL, cashCode, null, amount, 0),
-                new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, a.AccountId, 0, amount)
-            },
-            createdBy: _ctx.UserId,
-            authorizedBy: _ctx.UserId);
-
-        // Write subsidiary ledger_entry (PAYMENT_RECEIVED), linked to the due line if supplied
-        _db.LedgerEntries.Add(new LedgerEntry
-        {
-            TenantId = a.TenantId,
-            AccountId = a.AccountId,
-            CycleId = null,
-            LinkedEntryId = dueId,
-            EntryType = LedgerEntryType.PAYMENT_RECEIVED,
-            Amount = amount,
-            EntryDate = paidDate,
-            Description = $"Contribution payment via {method}",
-            CreatedBy = _ctx.UserId
-        });
-
-        // Increment installments_paid by floor(amount / monthly_contribution)
-        int delta = (int)Math.Floor(amount / a.MonthlyContribution);
-        if (delta > 0) a.InstallmentsPaid += delta;
-        await _db.SaveChangesAsync();
-
-        var corpus = await _accounting.GetMemberAccountBalanceAsync(a.AccountId);
-        _log.LogInformation("Payment {Amt} for account {Aid} (dueId={DueId}, installments={Inst}, corpus={Bal})",
-            amount, accountId, dueId, a.InstallmentsPaid, corpus);
-        return new PaymentResultDto(a.AccountId, amount, a.InstallmentsPaid, corpus, journalId);
-    }
     private async Task UpdatePaymentFlagsAsync(Account account, int totalInstallmentsAfterPayment)
     {
         // CASE 1: Account Creation - IsBidding = N, IsFirstPayment = Y

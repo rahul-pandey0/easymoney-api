@@ -123,11 +123,11 @@ public class AccountsController : ControllerBase
 
     [HttpPost("accounts/{accountId:long}/payments"),
      Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
-    public async Task<ActionResult<PaymentResultDto>> RecordPayment(long accountId, [FromBody] RecordPaymentRequest req)
-    {
+    public async Task<ActionResult<PaymentResultDto>> RecordPayment(long accountId, [FromBody] RecordPaymentRequest req) //chequeDate
+    { 
         if (!Enum.TryParse<PaymentMethod>(req.Method, true, out var method))
             return BadRequest(new { error = "Invalid payment method" });
-        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId ,req.GlCode)); }
+        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId ,req.GlCode,req.ChequeNo,req.AccountNo,req.BankName,req.UpiId ,req.Chequedate)); }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 

@@ -91,7 +91,10 @@ public class AccountService : IAccountService
             TotalAmount = req.TotalAmount,
             Remarks = req.Remarks,
             SchemeId = req.SchemeId,
-            CustomerCode =req.CustomerCode
+            CustomerCode =req.CustomerCode,
+            IsBidding="N",
+            FirstPaymentFlag= "N"
+
 
         };
         _db.Accounts.Add(acct);
