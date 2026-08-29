@@ -23,6 +23,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Member> Members => Set<Member>();
+    public DbSet<RelationMaster> RelationMaster => Set<RelationMaster>(); 
     public DbSet<IndividualKycDetail> IndividualKycDetails => Set<IndividualKycDetail>();
     public DbSet<CorporateKycDetail> CorporateKycDetails => Set<CorporateKycDetail>();
     public DbSet<RegisteredOffice> RegisteredOffices => Set<RegisteredOffice>();
@@ -840,6 +841,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.ChequeBankName).HasColumnName("cheque_bank_name");
             e.Property(x => x.ChequeNo).HasColumnName("cheque_no");
             e.Property(x => x.ChequeDate).HasColumnName("cheque_date");
+            e.Property(x => x.LoanReleaseStatus).HasColumnName("loan_release_status");
             e.Property(x => x.Remarks).HasColumnName("remark");
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
@@ -853,6 +855,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CoBorrowerId).HasColumnName("co_borrower_id").ValueGeneratedOnAdd();
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
             e.Property(x => x.LoanId).HasColumnName("loan_id");
+            e.Property(x => x.CoBorrowerAccountId).HasColumnName("co_borrower_account_id");
             e.Property(x => x.CoBorrowerName).HasColumnName("co_borrower_name").HasMaxLength(200);
             e.Property(x => x.CoBorrowerPhone).HasColumnName("co_borrower_phone").HasMaxLength(20);
             e.Property(x => x.CoBorrowerEmail).HasColumnName("co_borrower_email").HasMaxLength(100);
@@ -1222,6 +1225,32 @@ public class EasyMoneyDbContext : DbContext
             e.HasIndex(x => new { x.TenantId, x.BranchCode })
                 .IsUnique();
         });
+        b.Entity<RelationMaster>(e =>
+        {
+            e.ToTable("relation_master");
+            e.HasKey(x => x.RelationId);
+            e.Property(x => x.RelationId).HasColumnName("relation_id");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+            e.Property(x => x.MemberNo).HasColumnName("member_no");
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.PhoneNo).HasColumnName("phone_no").HasMaxLength(100);
+            e.Property(x => x.AccountNo).HasColumnName("account_no").HasMaxLength(500);
+            e.Property(x => x.Remarks).HasColumnName("remarks").HasMaxLength(500);
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdateBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdateAt).HasColumnName("updated_at");
+            e.Property(x => x.ApprovedBy).HasColumnName("authorized_by");
+            e.Property(x => x.ApprovedAt).HasColumnName("authorized_at");
+            e.Property(x => x.AuthStatus)
+                  .HasColumnName("status")
+                  .HasConversion<string>()  // This converts enum to string
+                  .HasColumnType("varchar(20)")
+                  .HasMaxLength(20);
+        });
+
         //b.Entity<IndividualDetail>(e =>
         //{
         //    e.ToTable("individual_detail");
@@ -1325,7 +1354,7 @@ public class EasyMoneyDbContext : DbContext
         //    e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
         //    e.Property(x => x.OfficeAddress).HasColumnName("office_address");
         //});
-    
+
     }
     private static string IncomeBandToDb(IncomeBand b) => b switch
     {

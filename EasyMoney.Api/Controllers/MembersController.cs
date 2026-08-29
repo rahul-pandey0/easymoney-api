@@ -65,4 +65,33 @@ public class MembersController : ControllerBase
         }
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
+
+
+    [HttpPost("relations"), Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    public async Task<ActionResult<RelationMaster>> CreateRealtions([FromBody] CreatememberRelationsRequest req) 
+    {
+        try
+        {
+            var m = await _members.CraeteMemberRelations(req);
+            if (m is null) return NotFound();
+            return Ok(m);
+        }
+        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    }
+    [HttpGet("{memberId:long}/relations")]
+    public async Task<ActionResult<RelationMaster>> Getbydata(long memberId) 
+    {
+        var m = await _members.GetRelationsAsync(memberId);
+        if (m is null) return NotFound();
+        return Ok(m);
+    }
+
+
+    [HttpGet("relations")]
+    public async Task<ActionResult<RelationMaster>> GetAlldata()
+    {
+        var m = await _members.GetByRelations();
+        if (m is null) return NotFound();
+        return Ok(m);
+    }
 }

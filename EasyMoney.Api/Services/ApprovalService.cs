@@ -348,6 +348,17 @@ public class ApprovalService : IApprovalService
                     break;
                 }
 
+            case ApprovalActionType.RELATIONS:
+                {
+                      var payload = JsonSerializer.Deserialize<JsonElement>(req.Payload);
+
+                    var RelationId = payload.GetProperty("RelationId").GetInt64(); 
+                    var biddingSvc = _sp.GetRequiredService<IMemberService>();
+                    await biddingSvc.ApproveMemberAsync(RelationId);
+                    req.EntityId = RelationId;
+                    break;
+                }
+
             default:
                 throw new DomainException($"Unknown action type {req.ActionType}");
         }

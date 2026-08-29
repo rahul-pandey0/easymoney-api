@@ -16,6 +16,10 @@ public interface IMemberService
     //Task<IReadOnlyList<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<PagedResult<MemberDto>> ListAsync(string? search, int skip, int take);
     Task<Member> UpdateAsync(long memberId, UpdateMemberRequest req);
+    Task<RelationMaster> CraeteMemberRelations(CreatememberRelationsRequest req);
+    Task<RelationMaster?> GetRelationsAsync(long memberId);
+    Task<List<RelationMaster>> GetByRelations();
+    Task<RelationMaster> ApproveMemberAsync(long RelationId);  
 }
 
 
@@ -220,5 +224,125 @@ public class MemberService : IMemberService
         m.BankAccountNo, m.BankIfsc, m.BankHolderName,
         m.CreatedAt
         );
+
+    public async Task<RelationMaster> CraeteMemberRelations(CreatememberRelationsRequest req)
+    {
+        if (_ctx.TenantId is null)
+            throw new DomainException("Tenant context required to create relation Member");
+
+        var tenantId = _ctx.TenantId.Value;
+        var branchId = _ctx.BranchId;
+
+        var data = new RelationMaster
+        {
+            TenantId = tenantId,
+            BranchId = branchId,
+            MemberId = req.MemberId,
+            MemberNo = req.MemberNo,
+            Name = req.Name,
+            PhoneNo = req.Phone,
+            AccountNo = req.AccountNo,
+            Remarks = req.Remarks,
+            AuthStatus = "PENDING",
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = _ctx.UserId,
+        
+        };
+
+        _db.RelationMaster.Add(data);
+        await _db.SaveChangesAsync();
+
+        // Create approval request
+        var approval = new ApprovalRequest
+        {
+            TenantId = _ctx.TenantId.Value,
+            ActionType = ApprovalActionType.RELATIONS,
+            EntityType = "Relations Create",
+            EntityId = data.MemberId,
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                data.RelationId,
+                data.MemberNo,
+                data.AccountNo,
+                data.AuthStatus,
+                data.TenantId,
+                data.CreatedBy,
+                data.Name,
+                data.PhoneNo,
+            }),
+            Status = ApprovalStatus.PENDING,
+            RequestedBy = _ctx.UserId.Value,
+            RequestedAt = DateTime.UtcNow
+        };
+
+        _db.ApprovalRequests.Add(approval);
+        await _db.SaveChangesAsync();
+
+        _log.LogInformation(
+            "Created Realtions {Mid} with code {Code} (tenant {Tid}, type {Type})",
+            data.MemberId,
+            data.MemberNo,
+            data.TenantId,
+            data.Name);
+
+        return data;
+    }
+    public Task<RelationMaster?> GetRelationsAsync(long memberId) => 
+    _db.RelationMaster.FirstOrDefaultAsync(m => m.MemberId == memberId);
+
+
+
+
+
+
+    public async Task<List<RelationMaster>> GetByRelations()
+    {
+        try
+        {
+            if (_ctx.TenantId is null)
+                throw new DomainException("Tenant context required to get relations");
+
+            var relations = await _db.RelationMaster
+                .IgnoreQueryFilters()
+                .Where(l => l.TenantId == _ctx.TenantId)
+                .OrderByDescending(l => l.RelationId)
+                .ToListAsync();
+            return relations;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error retrieving relations for tenant {TenantId}", _ctx.TenantId);
+            throw;
+        }
+    }
+
+
+    public async Task<RelationMaster> ApproveMemberAsync(long RelationId) 
+    {
+        var loan = await _db.RelationMaster.IgnoreQueryFilters() 
+            .FirstOrDefaultAsync(x => x.RelationId == RelationId)
+            ?? throw new DomainException($"Loan {RelationId} not found."); 
+
+
+        // Approve the loan
+        loan.AuthStatus = "APPROVED";
+        loan.ApprovedAt = DateTime.UtcNow;
+        loan.ApprovedBy = _ctx.UserId;
+        loan.BranchId = _ctx.BranchId;
          
+        await _db.SaveChangesAsync();
+
+        var approvalRequest = await _db.ApprovalRequests
+            .FirstOrDefaultAsync(a => a.EntityType == "RELATIONS" && a.EntityId == RelationId && a.Status == ApprovalStatus.PENDING);
+        if (approvalRequest != null)
+        {
+            approvalRequest.Status = ApprovalStatus.APPROVED;
+            await _db.SaveChangesAsync();
+        }
+
+
+        _log.LogInformation("Relation approved by user {UserId}", RelationId, _ctx.UserId);
+        return loan;
+    }
+
 }

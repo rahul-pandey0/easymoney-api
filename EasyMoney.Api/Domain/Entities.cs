@@ -269,6 +269,28 @@ public class Member
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+
+public class RelationMaster
+{
+    public long RelationId { get; set; }  
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long? MemberId { get; set; }
+    public long? MemberNo { get; set; }
+    public string? Name { get; set; }
+    public string? PhoneNo { get; set; } 
+    public string? AccountNo { get; set; }
+    public string? Remarks { get; set; } 
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? CreatedBy { get; set; }
+    public long? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public long? UpdateBy { get; set; }  // ✅ This should be long? to match database
+    public DateTime? UpdateAt { get; set; } 
+    public string? AuthStatus { get; set; } 
+
+}
+
 //public class IndividualKycDetail
 //{
 //    public long MemberId { get; set; }
@@ -664,7 +686,8 @@ public class Loan
     public string? ChequeObtained { get; set; }
     public string? ChequeAccountNo { get; set; }
     public string? ChequeBankName { get; set; }
-    public string? ChequeNo { get; set; }
+    public string? ChequeNo { get; set; } 
+    public string? LoanReleaseStatus { get; set; }
     public DateTime? ChequeDate { get; set; }
 
     public string ? Remarks { get; set; } 
@@ -681,7 +704,7 @@ public class CoBorrower
     public string? CoBorrowerPhone { get; set; }
     public string? CoBorrowerEmail { get; set; }
     public string? CoBorrowerAddress { get; set; }
-    //public long? CoBorrowerAccountId { get; set; }
+    public long? CoBorrowerAccountId { get; set; }
     public string? CoBorrowerAccountNumber { get; set; }
      public string? CoopName { get; set; }
     public string? CoopMobileNumber { get; set; }

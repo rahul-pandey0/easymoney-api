@@ -207,6 +207,7 @@ public record CoBorrowerDto(
     long CoBorrowerId,
     long? loanId, 
     string? CoBorrowerName,
+    long? CoBorrowerAccountId,
     string? CoBorrowerPhone,
     string? CoBorrowerEmail,
     string? CoBorrowerAddress,
@@ -248,6 +249,8 @@ public record CreateLoanDto(
     string? ChequeNo,                  
     DateTime? ChequeDate,
     string? Remarks,
+        string? LoanReleaseStatus, 
+
     long? LoanId
 );
 
@@ -255,6 +258,8 @@ public record CreateLoanDto(
 public record CreateCoBorrowerDto(
     long ? CoBorrowerId,
     string? CoBorrowerName,
+              long? CoBorrowerAccountId,
+
     string? CoBorrowerPhone,
     string? CoBorrowerEmail,
     string? CoBorrowerAddress,

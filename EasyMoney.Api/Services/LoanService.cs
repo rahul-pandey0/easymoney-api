@@ -150,7 +150,7 @@ public class LoanService : ILoanService
                 ChequeBankName = createLoanDto.ChequeBankName,
                 ChequeNo = createLoanDto.ChequeNo,
                 ChequeDate = createLoanDto.ChequeDate,
-
+                LoanReleaseStatus =createLoanDto.LoanReleaseStatus,
                 Remarks = createLoanDto.Remarks,
 
             };
@@ -166,6 +166,7 @@ public class LoanService : ILoanService
                     TenantId = _ctx.TenantId.Value,
                     LoanId = loan.LoanId,
                     //BranchId = loan.BranchId,
+                    CoBorrowerAccountId=cb.CoBorrowerAccountId,
                     CoBorrowerName = cb.CoBorrowerName,
                     CoBorrowerPhone = cb.CoBorrowerPhone,
                     CoBorrowerEmail = cb.CoBorrowerEmail,
@@ -262,6 +263,7 @@ public class LoanService : ILoanService
                 cb.CoBorrowerId,
                 cb.LoanId,
                 cb.CoBorrowerName,
+                cb.CoBorrowerAccountId,
                 cb.CoBorrowerPhone,
                 cb.CoBorrowerEmail,
                 cb.CoBorrowerAddress,
@@ -1694,6 +1696,7 @@ public class LoanService : ILoanService
             loan.ChequeNo = updateLoanDto.ChequeNo ?? loan.ChequeNo;
             loan.ChequeDate = updateLoanDto.ChequeDate ?? loan.ChequeDate;
             loan.Remarks = updateLoanDto.Remarks ?? loan.Remarks;
+            loan.LoanReleaseStatus = updateLoanDto.LoanReleaseStatus ?? loan.LoanReleaseStatus;
             //loan.AuthStatus = updateLoanDto.AuthStatus;
             //loan.UpdatedAt = DateTime.UtcNow;
             //loan.UpdatedBy = _ctx.UserId;
@@ -1740,7 +1743,7 @@ public class LoanService : ILoanService
                             existingCoBorrower.CoopAccountNumber = cbDto.CoopAccountNumber;
                             existingCoBorrower.CoBorrowerRemarks = cbDto.CoBorrowerRemarks;
                             existingCoBorrower.IsPrimaryCoBorrower = cbDto.IsPrimaryCoBorrower;
-                            //existingCoBorrower.IsActive = cbDto.IsActive;
+                            existingCoBorrower.CoBorrowerAccountId = cbDto.CoBorrowerAccountId;
                             existingCoBorrower.UpdatedAt = DateTime.UtcNow;
                             existingCoBorrower.UpdatedBy = _ctx.UserId;
                         }
@@ -1752,6 +1755,7 @@ public class LoanService : ILoanService
                         {
                             TenantId = _ctx.TenantId.Value,
                             LoanId = loan.LoanId,
+                            CoBorrowerAccountId = cbDto.CoBorrowerAccountId,
                             CoBorrowerName = cbDto.CoBorrowerName,
                             CoBorrowerPhone = cbDto.CoBorrowerPhone,
                             CoBorrowerEmail = cbDto.CoBorrowerEmail,

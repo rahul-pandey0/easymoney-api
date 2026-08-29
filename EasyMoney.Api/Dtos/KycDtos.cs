@@ -386,3 +386,51 @@ public record KycReviewDto(
 public record PromoteToFullKycRequest(); // no body; presence of detail row + docs is the condition  it is correct 
 
 
+public record RelationRequest(
+      long RelationId,
+     long TenantId,
+     long? BranchId ,
+     long MemberId ,
+     long MemberNo,
+     string Name,
+     string Phone, 
+     string? AccountNo,
+     string? Remarks, 
+     string? AuthStatus,
+     long? CreatedBy,
+     DateTime CreatedAt
+
+    );
+
+
+public record RelationsDto(
+    long RelationId,
+     long TenantId,
+     long? BranchId,
+     long? MemberId,
+     long? MemberNo,
+     string? Name,
+     string? Phone,
+     string? AccountNo,
+     string? Remarks,
+     string? AuthStatus,
+     long? CreatedBy,
+     DateTime? CreatedAt
+
+    );
+
+public record CreatememberRelationsRequest(
+       long RelationId,
+     long TenantId,
+     long? BranchId,
+     long? MemberId,
+     long? MemberNo,
+     string? Name,
+     string? Phone,
+     string? AccountNo,
+     string? Remarks,
+     string? AuthStatus,
+     long? CreatedBy,
+     DateTime CreatedAt
+
+    );
