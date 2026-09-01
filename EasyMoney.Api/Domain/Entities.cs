@@ -619,6 +619,8 @@ public class BiddingCycle
     public long BranchId { get; set; }
     public decimal OrgFeePct { get; set; } = 5.00m;
     public decimal SifinCommissionPct { get; set; }
+    public decimal TenantCommissionPct { get; set; } 
+
     //public long? BidRefNo { get; set; }
 
 }
@@ -643,7 +645,7 @@ public class Bid
     public decimal TotalBid { get; set; }
     public decimal TragetAmount { get; set; }
     public decimal AllotmentAmount { get; set; }
-
+    public decimal TenantCommissionPct { get; set; }
     //public long? BidRefNo { get; set; }
 
 }
@@ -690,8 +692,9 @@ public class Loan
     public string? LoanReleaseStatus { get; set; }
     public DateTime? ChequeDate { get; set; }
 
-    public string ? Remarks { get; set; } 
+    public string ? Remarks { get; set; }
 
+    public string? DisbursementStatus { get; set; } 
 
 }
 
@@ -1267,6 +1270,13 @@ public class DisbursementRequestDto
     public decimal? TenantCommission { get; set; }
     public decimal? TdsAmount { get; set; }
     public decimal? OtherDeductions { get; set; }
+    public decimal? TenantCommissionPct { get; set; }
+    public decimal? BonusPct { get; set; }
+    public decimal? SifinCommissionPct { get; set; }
+    public decimal? ProcessingFeePct { get; set; }
+    public decimal? TdsPct { get; set; }
+
+
 }
 
 // Dtos/DisbursementVoucherDto.cs
@@ -1304,6 +1314,14 @@ public class DisbursementVoucherDto
     public DateTime CreatedAt { get; set; }
     public string CreatedBy { get; set; }
     public string AuthorizedBy { get; set; }
+    public decimal TenantCommissionPct { get; set; }
+    public decimal BonusAmount { get; set; }
+    public decimal BonusPct { get; set; }
+    public decimal SifinCommissionPct { get; set; }
+    public decimal ProcessingFeePct { get; set; }
+    public decimal TdsPct { get; set; }
+    public decimal TotalDeductions { get; set; }
+
 }
 
 public class VoucherLineDto
@@ -1313,6 +1331,7 @@ public class VoucherLineDto
     public string AccountType { get; set; } // "Asset", "Liability", "Income", "Expense"
     public decimal Amount { get; set; }
     public string Narration { get; set; }
+    public string EntryType {  get; set; }
 }
 
 

@@ -118,9 +118,7 @@ public class LoansController : ControllerBase
     //}
     [HttpPost("{loanId:long}/disburse")]
     [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.SifinAdmin)]
-    public async Task<ActionResult<DisbursementVoucherDto>> DisburseLoan(
-        long loanId,
-        [FromBody] DisbursementRequestDto request)
+    public async Task<ActionResult<DisbursementVoucherDto>> DisburseLoan( long loanId, [FromBody] DisbursementRequestDto request)
     {
         try
         {
@@ -135,8 +133,7 @@ public class LoansController : ControllerBase
             //    return BadRequest(new { error = "TransactionReference is required" });
 
             request.LoanId = loanId;
-
-            var voucher = await _loans.DisburseLoanAsync(loanId, request);
+                var voucher = await _loans.DisburseLoanAsync(loanId, request);
 
             return Ok(new
             {

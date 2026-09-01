@@ -150,8 +150,9 @@ public class LoanService : ILoanService
                 ChequeBankName = createLoanDto.ChequeBankName,
                 ChequeNo = createLoanDto.ChequeNo,
                 ChequeDate = createLoanDto.ChequeDate,
-                LoanReleaseStatus =createLoanDto.LoanReleaseStatus,
+                LoanReleaseStatus =createLoanDto.LoanReleaseStatus ?? "N" ,
                 Remarks = createLoanDto.Remarks,
+                DisbursementStatus = "N",
 
             };
 
@@ -585,7 +586,7 @@ public class LoanService : ILoanService
         loan.OrgFeeAmount = orgFeeAmount;
         loan.SifinCommission = sifinShare;
         loan.NetDisbursementAmount = netAmount;
-
+        loan.LoanReleaseStatus = "Y";
         await _db.SaveChangesAsync();
 
         return loan;
@@ -1049,13 +1050,614 @@ public class LoanService : ILoanService
     //}
 
 
+    //public async Task<DisbursementVoucherDto> DisburseLoanAsync(long loanId, DisbursementRequestDto request)
+    //{
+    //    try
+    //    {
+    //        var loan = await GetLoanAsync(loanId);
+
+    //        // Validate loan is approved
+    //        if (!loan.AuthStatus)
+    //            throw new DomainException($"Loan {loanId} is not approved yet");
+
+    //        var account = await _db.Accounts.IgnoreQueryFilters()
+    //            .FirstOrDefaultAsync(a => a.AccountId == loan.AccountId)
+    //            ?? throw new DomainException($"Account {loan.AccountId} not found");
+
+    //        var cycle = await _db.BiddingCycles.IgnoreQueryFilters()
+    //            .FirstOrDefaultAsync(c => c.CycleId == loan.CycleId)
+    //            ?? throw new DomainException($"Cycle {loan.CycleId} not found");
+
+    //        // Get scheme config for GL accounts and fees
+    //        var scheme = await _db.SchemeConfigs.IgnoreQueryFilters()
+    //            .FirstOrDefaultAsync(s => s.TenantId == loan.TenantId)
+    //            ?? throw new DomainException($"Scheme config not found for tenant {loan.TenantId}");
+
+    //        // ============================================================
+    //        // STEP 1: GET ALL GL ACCOUNT CODES FROM GENERAL LEDGER MASTER
+    //        // ============================================================
+
+    //        // Collect all GL account names from scheme config
+    //        var glNames = new List<string>();
+    //        if (!string.IsNullOrEmpty(scheme.LoanAssetGL)) glNames.Add(scheme.LoanAssetGL);
+    //        if (!string.IsNullOrEmpty(scheme.BankName)) glNames.Add(scheme.BankName);
+    //        if (!string.IsNullOrEmpty(scheme.Reserve1)) glNames.Add(scheme.Reserve1);
+    //        if (!string.IsNullOrEmpty(scheme.Reserve2)) glNames.Add(scheme.Reserve2);
+    //        if (!string.IsNullOrEmpty(scheme.PoolMoney)) glNames.Add(scheme.PoolMoney);
+    //        if (!string.IsNullOrEmpty(scheme.SifinPayable)) glNames.Add(scheme.SifinPayable);
+    //        if (!string.IsNullOrEmpty(scheme.PenaltyAcc)) glNames.Add(scheme.PenaltyAcc);
+    //        if (!string.IsNullOrEmpty(scheme.NMPenaltyAcc)) glNames.Add(scheme.NMPenaltyAcc);
+    //        if (!string.IsNullOrEmpty(scheme.TdsAc)) glNames.Add(scheme.TdsAc);
+    //        if (!string.IsNullOrEmpty(scheme.ServicesTax)) glNames.Add(scheme.ServicesTax);
+    //        if (!string.IsNullOrEmpty(scheme.GstGl)) glNames.Add(scheme.GstGl);
+
+    //        // Get GL accounts by their names
+    //        var glAccountsByName = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
+    //            .Where(g => glNames.Contains(g.Name))
+    //            .ToDictionaryAsync(g => g.Name, g => new { g.Code, g.GlId, g.Category });
+
+    //        // Also get GL accounts by ID for OrgFee and SifinCommission
+    //        var glIds = new List<int?>();
+    //        if (scheme.OrgFeeGlId.HasValue) glIds.Add(scheme.OrgFeeGlId.Value);
+    //        if (scheme.SifinCommissionGlId.HasValue) glIds.Add(scheme.SifinCommissionGlId.Value);
+
+    //        var glAccountsById = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
+    //            .Where(g => glIds.Contains(g.GlId))
+    //            .ToDictionaryAsync(g => g.GlId, g => new { g.Code, g.Name, g.Category });
+
+    //        // Helper function to get GL code safely
+    //        string GetGlCode(string glName)
+    //        {
+    //            if (string.IsNullOrEmpty(glName))
+    //                throw new DomainException($"GL account name is null or empty");
+
+    //            if (!glAccountsByName.TryGetValue(glName, out var accountInfo))
+    //                throw new DomainException($"GL account '{glName}' not found in GeneralLedgerMaster");
+
+    //            return accountInfo.Code;
+    //        }
+
+    //        string GetGlCodeById(int glId)
+    //        {
+    //            if (!glAccountsById.TryGetValue(glId, out var accountInfo))
+    //                throw new DomainException($"GL account with ID '{glId}' not found in GeneralLedgerMaster");
+
+    //            return accountInfo.Code;
+    //        }
+
+    //        string GetGlNameById(int glId)
+    //        {
+    //            if (!glAccountsById.TryGetValue(glId, out var accountInfo))
+    //                throw new DomainException($"GL account with ID '{glId}' not found in GeneralLedgerMaster");
+
+    //            return accountInfo.Name;
+    //        }
+
+    //        // ============================================================
+    //        // STEP 2: CALCULATE ALL AMOUNTS
+    //        // ============================================================
+
+    //        // Get participants and gross corpus
+    //        var participants = await _db.Accounts.IgnoreQueryFilters()
+    //            .Where(p => p.TenantId == loan.TenantId
+    //                        && (p.Status == AccountStatus.ACTIVE || p.Status == AccountStatus.PRIZED)
+    //                        && p.AccountOpenDate <= cycle.CycleMonth
+    //                        && p.TenureEndDate > cycle.CycleMonth)
+    //            .ToListAsync();
+
+    //        var grossCorpus = participants.Sum(p => p.MonthlyContribution);
+
+    //        // 1.1 Calculate Fixed Rate Amount (if bid has fixed rate)
+    //        //var fixedRateAmount = request.FixedRateAmount ??
+    //        //    Math.Round(grossCorpus * (scheme.FixedRate / 100m), 2);
+
+    //        // 1.2 Calculate Tenant Commission (Org Fee)
+    //        var tenantCommission = request.TenantCommission ??
+    //            Math.Round(grossCorpus * (scheme.OrgFeePct / 100m), 2);
+
+    //        // 1.3 Calculate SIFIN Commission
+    //        //var sifinCommission = request.SifinCommission ??
+    //        //    Math.Round(tenantCommission * (scheme.SifinCommissionPct / 100m), 2);
+
+    //        // 1.4 Calculate Processing Fee
+    //        //var processingFee = request.ProcessingFee ??
+    //        //    Math.Round(loan.PrincipalAmount * (scheme.OrgFeePct / 100m), 2);
+
+    //        // 1.5 Calculate TDS (if applicable - e.g., 10% on commission)
+    //        //var tdsAmount = request.TdsAmount ??
+    //        //    Math.Round((tenantCommission + sifinCommission) * 0.10m, 2);
+
+    //        // 1.6 Other deductions (if any)
+    //        //var otherDeductions = request.OtherDeductions ?? 0;
+
+    //        // 1.7 Calculate Net Disbursement Amount
+    //        //var totalDeductions = fixedRateAmount + tenantCommission + sifinCommission +
+    //        //                      processingFee + tdsAmount + otherDeductions;
+
+    //        var totalDeductions = tenantCommission;
+    //        var grossAmount = request.Amount ?? loan.PrincipalAmount;
+    //        var netAmount = grossAmount - totalDeductions;
+
+    //        if (netAmount < 0) netAmount = 0;
+
+    //        // ============================================================
+    //        // STEP 3: UPDATE LOAN WITH ALL CALCULATED VALUES
+    //        // ============================================================
+
+    //        loan.Status = "ACTIVE";
+    //        loan.DisbursedAt = request.DisbursedAt ?? DateTime.UtcNow;
+    //        loan.OutstandingBalance = netAmount;
+    //        loan.NetDisbursementAmount = netAmount;
+
+    //        var voucherNumber = GenerateVoucherNumber(cycle.CycleMonth);
+
+    //        await _db.SaveChangesAsync();
+
+    //        account.LoanAmount = (account.LoanAmount ?? 0) + netAmount;
+    //        await _db.SaveChangesAsync();
+
+    //        // ============================================================
+    //        // STEP 4: CREATE JOURNAL ENTRIES (VOUCHER) - CORRECT DOUBLE ENTRY
+    //        // ============================================================
+    //        // 
+    //        // ACCOUNTING RULES:
+    //        // 1. Dr Loan Asset (Full amount) 
+    //        //    Cr Customer Account (Full amount)
+    //        // 
+    //        // 2. Dr Customer Account (For deductions)
+    //        //    Cr SIFIN Commission Payable (SIFIN Commission)
+    //        //    Cr Processing Fee Income (Processing Fee)
+    //        //    Cr Fixed Rate Income (Fixed Rate)
+    //        //    Cr Tenant Commission (Org Fee)
+    //        //    Cr TDS Payable (TDS)
+    //        //    Cr Other Deductions (Other)
+    //        // 
+    //        // 3. Dr Bank/Cash (Net amount)
+    //        //    Cr Customer Account (Net amount)
+    //        // ============================================================
+
+    //        var journalLines = new List<JournalLineInput>();
+    //        var voucherLines = new List<VoucherLineDto>();
+
+    //        // ---- GET ALL GL CODES ----
+    //        var loanAssetGlCode = GetGlCode(scheme.LoanAssetGL);
+    //        var bankGlCode = GetGlCode(scheme.LoanAssetGL);
+    //        var fixedRateGlCode = GetGlCode(scheme.Reserve1);
+    //        var processingFeeGlCode = GetGlCode(scheme.Reserve2);
+    //        var tdsGlCode = GetGlCode(scheme.TdsAc);
+    //        var otherDeductionsGlCode = GetGlCode(scheme.PoolMoney);
+
+    //        // Get Org Fee and SIFIN GL codes
+    //        string orgFeeGlCode;
+    //        string orgFeeName;
+    //        if (scheme.OrgFeeGlId.HasValue)
+    //        {
+    //            orgFeeGlCode = GetGlCodeById(scheme.OrgFeeGlId.Value);
+    //            orgFeeName = GetGlNameById(scheme.OrgFeeGlId.Value);
+    //        }
+    //        else
+    //        {
+    //            orgFeeGlCode = GetGlCode(scheme.SifinPayable);
+    //            orgFeeName = scheme.SifinPayable;
+    //        }
+
+    //        //string sifinGlCode;
+    //        //string sifinName;
+    //        //if (scheme.SifinCommissionGlId.HasValue)
+    //        //{
+    //        //    sifinGlCode = GetGlCodeById(scheme.SifinCommissionGlId.Value);
+    //        //    sifinName = GetGlNameById(scheme.SifinCommissionGlId.Value);
+    //        //}
+    //        //else
+    //        //{
+    //        //    sifinGlCode = GetGlCode(scheme.SifinPayable);
+    //        //    sifinName = scheme.SifinPayable;
+    //        //}
+
+    //        // ---- ENTRY 1: Dr Loan Asset, Cr Customer Account (Full Amount) ----
+    //        // This records the loan receivable from the customer
+
+    //        // Dr Loan Asset
+    //        journalLines.Add(new JournalLineInput(
+    //            EntryTarget.GL,
+    //            loanAssetGlCode,
+    //            null,
+    //            grossAmount,  // DEBIT
+    //            0
+    //        ));
+    //        voucherLines.Add(new VoucherLineDto
+    //        {
+    //            AccountCode = loanAssetGlCode,
+    //            AccountName = scheme.LoanAssetGL,
+    //            AccountType = "Asset",
+    //            Amount = grossAmount,
+    //            Narration = "Loan disbursement - principal amount",
+    //            //EntryType = "DEBIT"
+    //        });
+
+    //        // Cr Customer Account (using Member Account)
+    //        journalLines.Add(new JournalLineInput(
+    //            EntryTarget.MEMBER_ACCOUNT,
+    //            null,
+    //            account.AccountId,
+    //            0,  // DEBIT
+    //            grossAmount  // CREDIT
+    //        ));
+    //        voucherLines.Add(new VoucherLineDto
+    //        {
+    //            AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //            AccountName = account.CustomerName ?? "Customer Account",
+    //            AccountType = "Liability",
+    //            Amount = grossAmount,
+    //            Narration = "Loan disbursement - customer account",
+    //            //EntryType = "CREDIT"
+    //        });
+
+    //        // ---- ENTRY 2: Dr Customer Account (for deductions), Cr Fee Accounts ----
+    //        // This records the deductions from the customer's account
+
+    //        // 2a. Dr Customer Account (for SIFIN Commission)
+    //        //if (sifinCommission > 0)
+    //        //{
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.MEMBER_ACCOUNT,
+    //        //        null,
+    //        //        account.AccountId,
+    //        //        sifinCommission,  // DEBIT
+    //        //        0
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //        //        AccountName = account.CustomerName ?? "Customer Account",
+    //        //        AccountType = "Liability",
+    //        //        Amount = sifinCommission,
+    //        //        Narration = "SIFIN commission deduction",
+    //        //        //EntryType = "DEBIT"
+    //        //    });
+
+    //        //    // Cr SIFIN Commission Payable
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.GL,
+    //        //        sifinGlCode,
+    //        //        null,
+    //        //        0,  // DEBIT
+    //        //        sifinCommission  // CREDIT
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = sifinGlCode,
+    //        //        AccountName = sifinName,
+    //        //        AccountType = "Liability",
+    //        //        Amount = sifinCommission,
+    //        //        Narration = "SIFIN platform commission payable",
+    //        //        //EntryType = "CREDIT"
+    //        //    });
+    //        //}
+
+    //        // 2b. Dr Customer Account (for Processing Fee)
+    //        //if (processingFee > 0)
+    //        //{
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.MEMBER_ACCOUNT,
+    //        //        null,
+    //        //        account.AccountId,
+    //        //        processingFee,  // DEBIT
+    //        //        0
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //        //        AccountName = account.CustomerName ?? "Customer Account",
+    //        //        AccountType = "Liability",
+    //        //        Amount = processingFee,
+    //        //        Narration = "Processing fee deduction",
+    //        //        //EntryType = "DEBIT"
+    //        //    });
+
+    //        //    // Cr Processing Fee Income
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.GL,
+    //        //        processingFeeGlCode,
+    //        //        null,
+    //        //        0,  // DEBIT
+    //        //        processingFee  // CREDIT
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = processingFeeGlCode,
+    //        //        AccountName = scheme.Reserve2,
+    //        //        AccountType = "Income",
+    //        //        Amount = processingFee,
+    //        //        Narration = "Processing fee income",
+    //        //        //EntryType = "CREDIT"
+    //        //    });
+    //        //}
+
+    //        // 2c. Dr Customer Account (for Fixed Rate)
+    //        //if (fixedRateAmount > 0)
+    //        //{
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.MEMBER_ACCOUNT,
+    //        //        null,
+    //        //        account.AccountId,
+    //        //        fixedRateAmount,  // DEBIT
+    //        //        0
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //        //        AccountName = account.CustomerName ?? "Customer Account",
+    //        //        AccountType = "Liability",
+    //        //        Amount = fixedRateAmount,
+    //        //        Narration = "Fixed rate amount deduction",
+    //        //        //EntryType = "DEBIT"
+    //        //    });
+
+    //        //    // Cr Fixed Rate Income
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.GL,
+    //        //        fixedRateGlCode,
+    //        //        null,
+    //        //        0,  // DEBIT
+    //        //        fixedRateAmount  // CREDIT
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = fixedRateGlCode,
+    //        //        AccountName = scheme.Reserve1,
+    //        //        AccountType = "Income",
+    //        //        Amount = fixedRateAmount,
+    //        //        Narration = "Fixed rate income",
+    //        //        //EntryType = "CREDIT"
+    //        //    });
+    //        //}
+
+    //        // 2d. Dr Customer Account (for Tenant Commission)
+    //        if (tenantCommission > 0)
+    //        {
+    //            journalLines.Add(new JournalLineInput(
+    //                EntryTarget.MEMBER_ACCOUNT,
+    //                null,
+    //                account.AccountId,
+    //                tenantCommission,  // DEBIT
+    //                0
+    //            ));
+    //            voucherLines.Add(new VoucherLineDto
+    //            {
+    //                AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //                AccountName = account.CustomerName ?? "Customer Account",
+    //                AccountType = "Liability",
+    //                Amount = tenantCommission,
+    //                Narration = "Tenant commission deduction",
+    //                //EntryType = "DEBIT"
+    //            });
+
+    //            // Cr Tenant Commission Income
+    //            journalLines.Add(new JournalLineInput(
+    //                EntryTarget.GL,
+    //                orgFeeGlCode,
+    //                null,
+    //                0,  // DEBIT
+    //                tenantCommission  // CREDIT
+    //            ));
+    //            voucherLines.Add(new VoucherLineDto
+    //            {
+    //                AccountCode = orgFeeGlCode,
+    //                AccountName = orgFeeName,
+    //                AccountType = "Income",
+    //                Amount = tenantCommission,
+    //                Narration = "Tenant commission / Org fee",
+    //                //EntryType = "CREDIT"
+    //            });
+    //        }
+
+    //        // 2e. Dr Customer Account (for TDS)
+    //        //if (tdsAmount > 0)
+    //        //{
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.MEMBER_ACCOUNT,
+    //        //        null,
+    //        //        account.AccountId,
+    //        //        tdsAmount,  // DEBIT
+    //        //        0
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //        //        AccountName = account.CustomerName ?? "Customer Account",
+    //        //        AccountType = "Liability",
+    //        //        Amount = tdsAmount,
+    //        //        Narration = "TDS deduction",
+    //        //        //EntryType = "DEBIT"
+    //        //    });
+
+    //        //    // Cr TDS Payable
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.GL,
+    //        //        tdsGlCode,
+    //        //        null,
+    //        //        0,  // DEBIT
+    //        //        tdsAmount  // CREDIT
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = tdsGlCode,
+    //        //        AccountName = scheme.TdsAc,
+    //        //        AccountType = "Liability",
+    //        //        Amount = tdsAmount,
+    //        //        Narration = "TDS payable",
+    //        //        //EntryType = "CREDIT"
+    //        //    });
+    //        //}
+
+    //        // 2f. Dr Customer Account (for Other Deductions)
+    //        //if (otherDeductions > 0)
+    //        //{
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.MEMBER_ACCOUNT,
+    //        //        null,
+    //        //        account.AccountId,
+    //        //        otherDeductions,  // DEBIT
+    //        //        0
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //        //        AccountName = account.CustomerName ?? "Customer Account",
+    //        //        AccountType = "Liability",
+    //        //        Amount = otherDeductions,
+    //        //        Narration = "Other deductions",
+    //        //        //EntryType = "DEBIT"
+    //        //    });
+
+    //        //    // Cr Other Deductions
+    //        //    journalLines.Add(new JournalLineInput(
+    //        //        EntryTarget.GL,
+    //        //        otherDeductionsGlCode,
+    //        //        null,
+    //        //        0,  // DEBIT
+    //        //        otherDeductions  // CREDIT
+    //        //    ));
+    //        //    voucherLines.Add(new VoucherLineDto
+    //        //    {
+    //        //        AccountCode = otherDeductionsGlCode,
+    //        //        AccountName = scheme.PoolMoney,
+    //        //        AccountType = "Liability",
+    //        //        Amount = otherDeductions,
+    //        //        Narration = "Other deductions payable",
+    //        //        //EntryType = "CREDIT"
+    //        //    });
+    //        //}
+
+    //        // ---- ENTRY 3: Dr Bank/Cash, Cr Customer Account (Net Amount) ----
+    //        // This records the actual cash/bank disbursement to the customer
+
+    //        // Dr Bank/Cash
+    //        journalLines.Add(new JournalLineInput(
+    //            EntryTarget.GL,
+    //            bankGlCode,
+    //            null,
+    //            netAmount,  // DEBIT
+    //            0
+    //        ));
+    //        voucherLines.Add(new VoucherLineDto
+    //        {
+    //            AccountCode = bankGlCode,
+    //            AccountName = scheme.BankName,
+    //            AccountType = "Asset",
+    //            Amount = netAmount,
+    //            Narration = "Net cash disbursement",
+    //            //EntryType = "DEBIT"
+    //        });
+
+    //        // Cr Customer Account (Net Amount)
+    //        journalLines.Add(new JournalLineInput(
+    //            EntryTarget.MEMBER_ACCOUNT,
+    //            null,
+    //            account.AccountId,
+    //            0,  // DEBIT
+    //            netAmount  // CREDIT
+    //        ));
+    //        voucherLines.Add(new VoucherLineDto
+    //        {
+    //            AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+    //            AccountName = account.CustomerName ?? "Customer Account",
+    //            AccountType = "Liability",
+    //            Amount = netAmount,
+    //            Narration = "Net disbursement to customer",
+    //            //EntryType = "CREDIT"
+    //        });
+
+    //        // ============================================================
+    //        // STEP 5: VALIDATE JOURNAL ENTRIES
+    //        // ============================================================
+
+    //        var totalDebit = journalLines.Sum(l => l.Debit);
+    //        var totalCredit = journalLines.Sum(l => l.Credit);
+
+    //        _log.LogInformation($"Journal Validation - Total Debit: {totalDebit}, Total Credit: {totalCredit}, Difference: {totalDebit - totalCredit}");
+
+    //        if (Math.Round(totalDebit, 2) != Math.Round(totalCredit, 2))
+    //        {
+    //            throw new DomainException($"Journal is unbalanced! Debit: {totalDebit}, Credit: {totalCredit}, Difference: {totalDebit - totalCredit}");
+    //        }
+
+    //        // Post journal
+    //        await _accounting.PostJournalAsync(
+    //            account.TenantId,
+    //            cycle.CycleMonth,
+    //            JournalSourceType.LOAN_DISBURSEMENT,
+    //            sourceId: loan.LoanId,
+    //            PaymentMethod.BANK_TRANSFER,
+    //            description: $"Loan disbursement voucher - {voucherNumber} - {account.AccountNumber} (cycle {cycle.CycleMonth:yyyy-MM})",
+    //            lines: journalLines,
+    //            createdBy: _ctx.UserId,
+    //            authorizedBy: _ctx.UserId);
+
+    //        // Add ledger entry
+    //        _db.LedgerEntries.Add(new LedgerEntry
+    //        {
+    //            TenantId = account.TenantId,
+    //            AccountId = account.AccountId,
+    //            CycleId = cycle.CycleId,
+    //            EntryType = LedgerEntryType.LOAN_DISBURSEMENT,
+    //            Amount = netAmount,
+    //            EntryDate = cycle.CycleMonth,
+    //            Description = $"Loan disbursed (cycle {cycle.CycleMonth:yyyy-MM}) - Voucher: {voucherNumber}",
+    //            CreatedBy = _ctx.UserId
+    //        });
+
+    //        await _db.SaveChangesAsync();
+
+    //        // ============================================================
+    //        // STEP 6: RETURN VOUCHER DETAILS
+    //        // ============================================================
+
+    //        var voucher = new DisbursementVoucherDto
+    //        {
+    //            VoucherId = loan.LoanId,
+    //            LoanId = loan.LoanId,
+    //            VoucherNumber = voucherNumber,
+    //            VoucherDate = loan.DisbursedAt,
+    //            TransactionType = "LOAN_DISBURSEMENT",
+
+    //            GrossAmount = grossAmount,
+    //            //FixedRateAmount = fixedRateAmount,
+    //            TenantCommission = tenantCommission,
+    //            //SifinCommission = sifinCommission,
+    //            //ProcessingFee = processingFee,
+    //            //TdsAmount = tdsAmount,
+    //            //OtherDeductions = otherDeductions,
+    //            NetAmount = netAmount,
+
+    //            //DebitEntries = voucherLines.Where(v => v.EntryType == "DEBIT").ToList(),
+    //            //CreditEntries = voucherLines.Where(v => v.EntryType == "CREDIT").ToList(),
+
+    //            AccountNumber = account.AccountNumber,
+    //            Status = "COMPLETED",
+    //            CreatedAt = DateTime.UtcNow,
+    //        };
+
+    //        _log.LogInformation("Disbursed loan {LoanId} ₹{Amount} to account {AccountId}. Voucher: {Voucher}",
+    //            loan.LoanId, netAmount, loan.AccountId, voucherNumber);
+
+    //        return voucher;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _log.LogError(ex, "Error disbursing loan {LoanId}", loanId);
+    //        throw;
+    //    }
+    //}    // Helper method to generate voucher number
+
     public async Task<DisbursementVoucherDto> DisburseLoanAsync(long loanId, DisbursementRequestDto request)
     {
         try
         {
-            var loan = await GetLoanAsync(loanId);
+            var loan = await GetLoanAsync(loanId); 
 
-            // Validate loan is approved
+
             if (!loan.AuthStatus)
                 throw new DomainException($"Loan {loanId} is not approved yet");
 
@@ -1099,6 +1701,7 @@ public class LoanService : ILoanService
             var glIds = new List<int?>();
             if (scheme.OrgFeeGlId.HasValue) glIds.Add(scheme.OrgFeeGlId.Value);
             if (scheme.SifinCommissionGlId.HasValue) glIds.Add(scheme.SifinCommissionGlId.Value);
+            //if (scheme.BonusGlId.HasValue) glIds.Add(scheme.BonusGlId.Value); // NEW: Bonus GL
 
             var glAccountsById = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
                 .Where(g => glIds.Contains(g.GlId))
@@ -1133,49 +1736,42 @@ public class LoanService : ILoanService
             }
 
             // ============================================================
-            // STEP 2: CALCULATE ALL AMOUNTS
+            // STEP 2: CALCULATE ALL AMOUNTS WITH PERCENTAGES
             // ============================================================
 
-            // Get participants and gross corpus
-            var participants = await _db.Accounts.IgnoreQueryFilters()
-                .Where(p => p.TenantId == loan.TenantId
-                            && (p.Status == AccountStatus.ACTIVE || p.Status == AccountStatus.PRIZED)
-                            && p.AccountOpenDate <= cycle.CycleMonth
-                            && p.TenureEndDate > cycle.CycleMonth)
-                .ToListAsync();
+            // GROSS AMOUNT = Total loan amount to be disbursed
+            var grossAmount = request.Amount ?? loan.PrincipalAmount;
 
-            var grossCorpus = participants.Sum(p => p.MonthlyContribution);
+            // 1. TENANT COMMISSION (Org Fee) - Percentage of Gross Amount
+            var tenantCommissionPct = request.TenantCommissionPct ?? scheme.OrgFeePct;
+            var tenantCommission = Math.Round(grossAmount * (tenantCommissionPct / 100m), 2);
 
-            // 1.1 Calculate Fixed Rate Amount (if bid has fixed rate)
-            var fixedRateAmount = request.FixedRateAmount ??
-                Math.Round(grossCorpus * (scheme.FixedRate / 100m), 2);
+            // 2. BONUS AMOUNT - Percentage of Gross Amount
+            //var bonusPct = request.BonusPct ?? scheme.BonusPct; // Need to add BonusPct to SchemeConfig
+            //var bonusAmount = Math.Round(grossAmount * (bonusPct / 100m), 2);
 
-            // 1.2 Calculate Tenant Commission (Org Fee)
-            var tenantCommission = request.OrgFeeAmount ??
-                Math.Round(grossCorpus * (scheme.OrgFeePct / 100m), 2);
+            // 3. SIFIN Commission - Percentage of Tenant Commission (optional)
+            var sifinCommissionPct = request.SifinCommissionPct ?? scheme.SifinCommissionPct;
+            var sifinCommission = Math.Round(tenantCommission * (sifinCommissionPct / 100m), 2);
 
-            // 1.3 Calculate SIFIN Commission
-            var sifinCommission = request.SifinCommission ??
-                Math.Round(tenantCommission * (scheme.SifinCommissionPct / 100m), 2);
+            //// 4. Processing Fee - Percentage of Gross Amount (optional)
+            //var processingFeePct = request.ProcessingFeePct ?? scheme.ProcessingFeePct; // Add to SchemeConfig
+            //var processingFee = Math.Round(grossAmount * (processingFeePct / 100m), 2);
 
-            // 1.4 Calculate Processing Fee
-            var processingFee = request.ProcessingFee ??
-                Math.Round(loan.PrincipalAmount * (scheme.OrgFeePct / 100m), 2);
+            // 5. TDS - Percentage of Commissions (e.g., 10% of total commissions)
+            //var tdsPct = request.TdsPct ?? scheme.TdsPct; // Add to SchemeConfig, default 10%
+            //var totalCommission = tenantCommission + sifinCommission;
+            //var tdsAmount = Math.Round(totalCommission * (tdsPct / 100m), 2);
 
-            // 1.5 Calculate TDS (if applicable - e.g., 10% on commission)
-            var tdsAmount = request.TdsAmount ??
-                Math.Round((tenantCommission + sifinCommission) * 0.10m, 2);
-
-            // 1.6 Other deductions (if any)
+            // 6. Other Deductions (fixed amount or percentage)
             var otherDeductions = request.OtherDeductions ?? 0;
 
-            // 1.7 Calculate Net Disbursement Amount
-            var totalDeductions = fixedRateAmount + tenantCommission + sifinCommission +
-                                  processingFee + tdsAmount + otherDeductions;
+            // TOTAL DEDUCTIONS
+            //var totalDeductions = tenantCommission;
+                                 //+ bonusAmount + sifinCommission + processingFee + tdsAmount + otherDeductions;
 
-            var grossAmount = request.Amount ?? loan.PrincipalAmount;
-            var netAmount = grossAmount - totalDeductions;
-
+            // NET DISBURSEMENT AMOUNT
+            var netAmount = grossAmount;
             if (netAmount < 0) netAmount = 0;
 
             // ============================================================
@@ -1186,34 +1782,37 @@ public class LoanService : ILoanService
             loan.DisbursedAt = request.DisbursedAt ?? DateTime.UtcNow;
             loan.OutstandingBalance = netAmount;
             loan.NetDisbursementAmount = netAmount;
+            loan.DisbursementStatus = "Y";
+            //loan.TenantCommission = tenantCommission;
+            //loan.BonusAmount = bonusAmount;
+            //loan.TotalDeductions = totalDeductions;
 
-            // Generate voucher number
             var voucherNumber = GenerateVoucherNumber(cycle.CycleMonth);
 
             await _db.SaveChangesAsync();
 
-            // Update account balance
             account.LoanAmount = (account.LoanAmount ?? 0) + netAmount;
+
+
             await _db.SaveChangesAsync();
 
             // ============================================================
-            // STEP 4: CREATE JOURNAL ENTRIES (VOUCHER) - CORRECT DOUBLE ENTRY
+            // STEP 4: CREATE JOURNAL ENTRIES (VOUCHER)
             // ============================================================
-            // 
             // ACCOUNTING RULES:
-            // 1. Dr Loan Asset (Full amount) 
-            //    Cr Customer Account (Full amount)
-            // 
+            // 1. Dr Loan Asset (Gross Amount)
+            //    Cr Customer Account (Gross Amount)
+            //
             // 2. Dr Customer Account (For deductions)
-            //    Cr SIFIN Commission Payable (SIFIN Commission)
-            //    Cr Processing Fee Income (Processing Fee)
-            //    Cr Fixed Rate Income (Fixed Rate)
-            //    Cr Tenant Commission (Org Fee)
-            //    Cr TDS Payable (TDS)
-            //    Cr Other Deductions (Other)
-            // 
-            // 3. Dr Bank/Cash (Net amount)
-            //    Cr Customer Account (Net amount)
+            //    Cr Tenant Commission Income
+            //    Cr Bonus Income
+            //    Cr SIFIN Commission Payable
+            //    Cr Processing Fee Income
+            //    Cr TDS Payable
+            //    Cr Other Deductions
+            //
+            // 3. Dr Bank/Cash (Net Amount)
+            //    Cr Customer Account (Net Amount)
             // ============================================================
 
             var journalLines = new List<JournalLineInput>();
@@ -1221,13 +1820,12 @@ public class LoanService : ILoanService
 
             // ---- GET ALL GL CODES ----
             var loanAssetGlCode = GetGlCode(scheme.LoanAssetGL);
-            var bankGlCode = GetGlCode(scheme.LoanAssetGL);
-            var fixedRateGlCode = GetGlCode(scheme.Reserve1);
+            var bankGlCode = GetGlCode(scheme.Reserve1); // FIX: Use BankName, not LoanAssetGL
             var processingFeeGlCode = GetGlCode(scheme.Reserve2);
             var tdsGlCode = GetGlCode(scheme.TdsAc);
             var otherDeductionsGlCode = GetGlCode(scheme.PoolMoney);
 
-            // Get Org Fee and SIFIN GL codes
+            // Get Org Fee (Tenant Commission) GL
             string orgFeeGlCode;
             string orgFeeName;
             if (scheme.OrgFeeGlId.HasValue)
@@ -1241,30 +1839,37 @@ public class LoanService : ILoanService
                 orgFeeName = scheme.SifinPayable;
             }
 
-            string sifinGlCode;
-            string sifinName;
-            if (scheme.SifinCommissionGlId.HasValue)
-            {
-                sifinGlCode = GetGlCodeById(scheme.SifinCommissionGlId.Value);
-                sifinName = GetGlNameById(scheme.SifinCommissionGlId.Value);
-            }
-            else
-            {
-                sifinGlCode = GetGlCode(scheme.SifinPayable);
-                sifinName = scheme.SifinPayable;
-            }
+            // Get Bonus GL
+            //string bonusGlCode;
+            //string bonusGlName;
+            //if (scheme.BonusGlId.HasValue)
+            //{
+            //    bonusGlCode = GetGlCodeById(scheme.BonusGlId.Value);
+            //    bonusGlName = GetGlNameById(scheme.BonusGlId.Value);
+            //}
+            //else
+            //{
+            //    bonusGlCode = GetGlCode(scheme.Reserve1); // Fallback to Reserve1
+            //    bonusGlName = scheme.Reserve1;
+            //}
 
-            // ---- ENTRY 1: Dr Loan Asset, Cr Customer Account (Full Amount) ----
-            // This records the loan receivable from the customer
+            // Get SIFIN GL
+            //string sifinGlCode;
+            //string sifinName;
+            //if (scheme.SifinCommissionGlId.HasValue)
+            //{
+            //    sifinGlCode = GetGlCodeById(scheme.SifinCommissionGlId.Value);
+            //    sifinName = GetGlNameById(scheme.SifinCommissionGlId.Value);
+            //}
+            //else
+            //{
+            //    sifinGlCode = GetGlCode(scheme.SifinPayable);
+            //    sifinName = scheme.SifinPayable;
+            //}
 
+            // ---- ENTRY 1: Dr Loan Asset, Cr Customer Account (Gross Amount) ----
             // Dr Loan Asset
-            journalLines.Add(new JournalLineInput(
-                EntryTarget.GL,
-                loanAssetGlCode,
-                null,
-                grossAmount,  // DEBIT
-                0
-            ));
+            journalLines.Add(new JournalLineInput(EntryTarget.GL, loanAssetGlCode, null, grossAmount, 0));
             voucherLines.Add(new VoucherLineDto
             {
                 AccountCode = loanAssetGlCode,
@@ -1272,17 +1877,11 @@ public class LoanService : ILoanService
                 AccountType = "Asset",
                 Amount = grossAmount,
                 Narration = "Loan disbursement - principal amount",
-                //EntryType = "DEBIT"
+                EntryType = "DEBIT"
             });
 
-            // Cr Customer Account (using Member Account)
-            journalLines.Add(new JournalLineInput(
-                EntryTarget.MEMBER_ACCOUNT,
-                null,
-                account.AccountId,
-                0,  // DEBIT
-                grossAmount  // CREDIT
-            ));
+            // Cr Customer Account
+            journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, 0, grossAmount));
             voucherLines.Add(new VoucherLineDto
             {
                 AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
@@ -1290,257 +1889,174 @@ public class LoanService : ILoanService
                 AccountType = "Liability",
                 Amount = grossAmount,
                 Narration = "Loan disbursement - customer account",
-                //EntryType = "CREDIT"
+                EntryType = "CREDIT"
             });
 
             // ---- ENTRY 2: Dr Customer Account (for deductions), Cr Fee Accounts ----
-            // This records the deductions from the customer's account
 
-            // 2a. Dr Customer Account (for SIFIN Commission)
-            if (sifinCommission > 0)
-            {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    sifinCommission,  // DEBIT
-                    0
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-                    AccountName = account.CustomerName ?? "Customer Account",
-                    AccountType = "Liability",
-                    Amount = sifinCommission,
-                    Narration = "SIFIN commission deduction",
-                    //EntryType = "DEBIT"
-                });
-
-                // Cr SIFIN Commission Payable
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    sifinGlCode,
-                    null,
-                    0,  // DEBIT
-                    sifinCommission  // CREDIT
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = sifinGlCode,
-                    AccountName = sifinName,
-                    AccountType = "Liability",
-                    Amount = sifinCommission,
-                    Narration = "SIFIN platform commission payable",
-                    //EntryType = "CREDIT"
-                });
-            }
-
-            // 2b. Dr Customer Account (for Processing Fee)
-            if (processingFee > 0)
-            {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    processingFee,  // DEBIT
-                    0
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-                    AccountName = account.CustomerName ?? "Customer Account",
-                    AccountType = "Liability",
-                    Amount = processingFee,
-                    Narration = "Processing fee deduction",
-                    //EntryType = "DEBIT"
-                });
-
-                // Cr Processing Fee Income
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    processingFeeGlCode,
-                    null,
-                    0,  // DEBIT
-                    processingFee  // CREDIT
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = processingFeeGlCode,
-                    AccountName = scheme.Reserve2,
-                    AccountType = "Income",
-                    Amount = processingFee,
-                    Narration = "Processing fee income",
-                    //EntryType = "CREDIT"
-                });
-            }
-
-            // 2c. Dr Customer Account (for Fixed Rate)
-            if (fixedRateAmount > 0)
-            {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    fixedRateAmount,  // DEBIT
-                    0
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-                    AccountName = account.CustomerName ?? "Customer Account",
-                    AccountType = "Liability",
-                    Amount = fixedRateAmount,
-                    Narration = "Fixed rate amount deduction",
-                    //EntryType = "DEBIT"
-                });
-
-                // Cr Fixed Rate Income
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    fixedRateGlCode,
-                    null,
-                    0,  // DEBIT
-                    fixedRateAmount  // CREDIT
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = fixedRateGlCode,
-                    AccountName = scheme.Reserve1,
-                    AccountType = "Income",
-                    Amount = fixedRateAmount,
-                    Narration = "Fixed rate income",
-                    //EntryType = "CREDIT"
-                });
-            }
-
-            // 2d. Dr Customer Account (for Tenant Commission)
+            // 2a. Tenant Commission Deduction
             if (tenantCommission > 0)
             {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    tenantCommission,  // DEBIT
-                    0
-                ));
+                // Dr Customer Account
+                journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, tenantCommission, 0));
                 voucherLines.Add(new VoucherLineDto
                 {
                     AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
                     AccountName = account.CustomerName ?? "Customer Account",
                     AccountType = "Liability",
                     Amount = tenantCommission,
-                    Narration = "Tenant commission deduction",
-                    //EntryType = "DEBIT"
+                    Narration = $"Tenant commission deduction ({tenantCommissionPct}%)",
+                    EntryType = "DEBIT"
                 });
 
                 // Cr Tenant Commission Income
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    orgFeeGlCode,
-                    null,
-                    0,  // DEBIT
-                    tenantCommission  // CREDIT
-                ));
+                journalLines.Add(new JournalLineInput(EntryTarget.GL, orgFeeGlCode, null, 0, tenantCommission));
                 voucherLines.Add(new VoucherLineDto
                 {
                     AccountCode = orgFeeGlCode,
                     AccountName = orgFeeName,
                     AccountType = "Income",
                     Amount = tenantCommission,
-                    Narration = "Tenant commission / Org fee",
-                    //EntryType = "CREDIT"
+                    Narration = $"Tenant commission income ({tenantCommissionPct}%)",
+                    EntryType = "CREDIT"
                 });
             }
 
-            // 2e. Dr Customer Account (for TDS)
-            if (tdsAmount > 0)
-            {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    tdsAmount,  // DEBIT
-                    0
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-                    AccountName = account.CustomerName ?? "Customer Account",
-                    AccountType = "Liability",
-                    Amount = tdsAmount,
-                    Narration = "TDS deduction",
-                    //EntryType = "DEBIT"
-                });
+            // 2b. Bonus Deduction
+            //if (bonusAmount > 0)
+            //{
+            //    // Dr Customer Account
+            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, bonusAmount, 0));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+            //        AccountName = account.CustomerName ?? "Customer Account",
+            //        AccountType = "Liability",
+            //        Amount = bonusAmount,
+            //        Narration = $"Bonus deduction ({bonusPct}%)",
+            //        EntryType = "DEBIT"
+            //    });
 
-                // Cr TDS Payable
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    tdsGlCode,
-                    null,
-                    0,  // DEBIT
-                    tdsAmount  // CREDIT
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = tdsGlCode,
-                    AccountName = scheme.TdsAc,
-                    AccountType = "Liability",
-                    Amount = tdsAmount,
-                    Narration = "TDS payable",
-                    //EntryType = "CREDIT"
-                });
-            }
+            //    // Cr Bonus Income
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, bonusGlCode, null, 0, bonusAmount));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = bonusGlCode,
+            //        AccountName = bonusGlName,
+            //        AccountType = "Income",
+            //        Amount = bonusAmount,
+            //        Narration = $"Bonus income ({bonusPct}%)",
+            //        EntryType = "CREDIT"
+            //    });
+            //}
 
-            // 2f. Dr Customer Account (for Other Deductions)
-            if (otherDeductions > 0)
-            {
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.MEMBER_ACCOUNT,
-                    null,
-                    account.AccountId,
-                    otherDeductions,  // DEBIT
-                    0
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-                    AccountName = account.CustomerName ?? "Customer Account",
-                    AccountType = "Liability",
-                    Amount = otherDeductions,
-                    Narration = "Other deductions",
-                    //EntryType = "DEBIT"
-                });
+            // 2c. SIFIN Commission (if applicable)
+            //if (sifinCommission > 0)
+            //{
+            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, sifinCommission, 0));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+            //        AccountName = account.CustomerName ?? "Customer Account",
+            //        AccountType = "Liability",
+            //        Amount = sifinCommission,
+            //        Narration = $"SIFIN commission deduction ({sifinCommissionPct}%)",
+            //        EntryType = "DEBIT"
+            //    });
 
-                // Cr Other Deductions
-                journalLines.Add(new JournalLineInput(
-                    EntryTarget.GL,
-                    otherDeductionsGlCode,
-                    null,
-                    0,  // DEBIT
-                    otherDeductions  // CREDIT
-                ));
-                voucherLines.Add(new VoucherLineDto
-                {
-                    AccountCode = otherDeductionsGlCode,
-                    AccountName = scheme.PoolMoney,
-                    AccountType = "Liability",
-                    Amount = otherDeductions,
-                    Narration = "Other deductions payable",
-                    //EntryType = "CREDIT"
-                });
-            }
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, sifinGlCode, null, 0, sifinCommission));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = sifinGlCode,
+            //        AccountName = sifinName,
+            //        AccountType = "Liability",
+            //        Amount = sifinCommission,
+            //        Narration = "SIFIN platform commission payable",
+            //        EntryType = "CREDIT"
+            //    });
+            //}
+
+            // 2d. Processing Fee (if applicable)
+            //if (processingFee > 0)
+            //{
+            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, processingFee, 0));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+            //        AccountName = account.CustomerName ?? "Customer Account",
+            //        AccountType = "Liability",
+            //        Amount = processingFee,
+            //        Narration = $"Processing fee deduction ({processingFeePct}%)",
+            //        EntryType = "DEBIT"
+            //    });
+
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, processingFeeGlCode, null, 0, processingFee));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = processingFeeGlCode,
+            //        AccountName = scheme.Reserve2,
+            //        AccountType = "Income",
+            //        Amount = processingFee,
+            //        Narration = "Processing fee income",
+            //        EntryType = "CREDIT"
+            //    });
+            //}
+
+            // 2e. TDS Deduction
+            //if (tdsAmount > 0)
+            //{
+            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, tdsAmount, 0));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+            //        AccountName = account.CustomerName ?? "Customer Account",
+            //        AccountType = "Liability",
+            //        Amount = tdsAmount,
+            //        Narration = $"TDS deduction ({tdsPct}%)",
+            //        EntryType = "DEBIT"
+            //    });
+
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, tdsGlCode, null, 0, tdsAmount));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = tdsGlCode,
+            //        AccountName = scheme.TdsAc,
+            //        AccountType = "Liability",
+            //        Amount = tdsAmount,
+            //        Narration = "TDS payable",
+            //        EntryType = "CREDIT"
+            //    });
+            //}
+
+            // 2f. Other Deductions
+            //if (otherDeductions > 0)
+            //{
+            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, otherDeductions, 0));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+            //        AccountName = account.CustomerName ?? "Customer Account",
+            //        AccountType = "Liability",
+            //        Amount = otherDeductions,
+            //        Narration = "Other deductions",
+            //        EntryType = "DEBIT"
+            //    });
+
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, otherDeductionsGlCode, null, 0, otherDeductions));
+            //    voucherLines.Add(new VoucherLineDto
+            //    {
+            //        AccountCode = otherDeductionsGlCode,
+            //        AccountName = scheme.PoolMoney,
+            //        AccountType = "Liability",
+            //        Amount = otherDeductions,
+            //        Narration = "Other deductions payable",
+            //        EntryType = "CREDIT"
+            //    });
+            //}
 
             // ---- ENTRY 3: Dr Bank/Cash, Cr Customer Account (Net Amount) ----
-            // This records the actual cash/bank disbursement to the customer
-
             // Dr Bank/Cash
-            journalLines.Add(new JournalLineInput(
-                EntryTarget.GL,
-                bankGlCode,
-                null,
-                netAmount,  // DEBIT
-                0
-            ));
+            journalLines.Add(new JournalLineInput(EntryTarget.GL, bankGlCode, null, netAmount, 0));
             voucherLines.Add(new VoucherLineDto
             {
                 AccountCode = bankGlCode,
@@ -1548,17 +2064,11 @@ public class LoanService : ILoanService
                 AccountType = "Asset",
                 Amount = netAmount,
                 Narration = "Net cash disbursement",
-                //EntryType = "DEBIT"
+                EntryType = "DEBIT"
             });
 
             // Cr Customer Account (Net Amount)
-            journalLines.Add(new JournalLineInput(
-                EntryTarget.MEMBER_ACCOUNT,
-                null,
-                account.AccountId,
-                0,  // DEBIT
-                netAmount  // CREDIT
-            ));
+            journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, 0, netAmount));
             voucherLines.Add(new VoucherLineDto
             {
                 AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
@@ -1566,7 +2076,7 @@ public class LoanService : ILoanService
                 AccountType = "Liability",
                 Amount = netAmount,
                 Narration = "Net disbursement to customer",
-                //EntryType = "CREDIT"
+                EntryType = "CREDIT"
             });
 
             // ============================================================
@@ -1575,6 +2085,7 @@ public class LoanService : ILoanService
 
             var totalDebit = journalLines.Sum(l => l.Debit);
             var totalCredit = journalLines.Sum(l => l.Credit);
+
 
             _log.LogInformation($"Journal Validation - Total Debit: {totalDebit}, Total Credit: {totalCredit}, Difference: {totalDebit - totalCredit}");
 
@@ -1623,16 +2134,22 @@ public class LoanService : ILoanService
                 TransactionType = "LOAN_DISBURSEMENT",
 
                 GrossAmount = grossAmount,
-                FixedRateAmount = fixedRateAmount,
                 TenantCommission = tenantCommission,
+                TenantCommissionPct = tenantCommissionPct,
+                //BonusAmount = bonusAmount,
+                //BonusPct = bonusPct,
                 SifinCommission = sifinCommission,
-                ProcessingFee = processingFee,
-                TdsAmount = tdsAmount,
+                SifinCommissionPct = sifinCommissionPct,
+                //ProcessingFee = processingFee,
+                //ProcessingFeePct = processingFeePct,
+                //TdsAmount = tdsAmount,
+                //TdsPct = tdsPct,
                 OtherDeductions = otherDeductions,
+                TotalDeductions = netAmount,
                 NetAmount = netAmount,
 
-                //DebitEntries = voucherLines.Where(v => v.EntryType == "DEBIT").ToList(),
-                //CreditEntries = voucherLines.Where(v => v.EntryType == "CREDIT").ToList(),
+                DebitEntries = voucherLines.Where(v => v.EntryType == "DEBIT").ToList(),
+                CreditEntries = voucherLines.Where(v => v.EntryType == "CREDIT").ToList(),
 
                 AccountNumber = account.AccountNumber,
                 Status = "COMPLETED",
@@ -1649,7 +2166,8 @@ public class LoanService : ILoanService
             _log.LogError(ex, "Error disbursing loan {LoanId}", loanId);
             throw;
         }
-    }    // Helper method to generate voucher number
+    }
+
     private string GenerateVoucherNumber(DateOnly cycleMonth)
     {
         var year = cycleMonth.Year;

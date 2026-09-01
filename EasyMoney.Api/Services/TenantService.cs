@@ -861,7 +861,9 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
             scheme.FixedRate, 
             scheme.Email,
             scheme.GstGl,
-            scheme.SchemeCode
+            scheme.SchemeCode,
+            scheme.MinimumInstallmentAmount,
+            scheme.MaximumInstallmentAmount
 
         );
     }
@@ -916,7 +918,7 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
                         s.FixedRate,
                         s.Email,
                         s.GstGl,
-                        s.SchemeCode
+                        s.SchemeCode,s.MinimumInstallmentAmount,s.MaximumInstallmentAmount
                     );
 
         var schemes = await query.ToListAsync();

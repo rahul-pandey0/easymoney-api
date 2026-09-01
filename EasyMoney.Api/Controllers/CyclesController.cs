@@ -53,6 +53,12 @@ public class CyclesController : ControllerBase
         var c = await _bidding.GetCycleAsync(cycleId);
         return c is null ? NotFound() : Ok(ToDto(c));
     }
+    [HttpGet("{accountId:long}/accounts")]
+    public async Task<ActionResult<CycleDto>> GetAccountdata(long accountId)  
+    {
+        var c = await _bidding.GetbidAsync(accountId);
+        return c is null ? NotFound() : Ok(c);
+    }
 
     [HttpGet,
      Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgAuthorizer + "," + Roles.Auditor + "," + Roles.SifinAdmin)]

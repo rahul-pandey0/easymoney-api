@@ -1,4 +1,6 @@
-﻿public record SchemeSummaryDto(
+﻿using MySqlX.XDevAPI;
+
+public record SchemeSummaryDto(
     long TenantId,
 
     // Tenant Details
@@ -116,5 +118,11 @@ public record ProductSummaryDto(
    decimal? FixedRate,
    string? Email,
    string? GstGl,
-    string?SchemeCode
+    string?SchemeCode,
+    decimal ? MinimumInstallmentAmount,
+    decimal? MaximumInstallmentAmount
+
+
+       
+
 );

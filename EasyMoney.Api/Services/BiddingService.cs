@@ -13,6 +13,7 @@ public interface IBiddingService
     Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate);
     Task<BiddingCycle?> GetCurrentCycleAsync(long tenantId);
     Task<BiddingCycle?> GetCycleAsync(long cycleId);
+    Task<Bid?> GetbidAsync(long accountid);
     Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId);
     Task<IReadOnlyList<Bid>> GetByData();
 
@@ -120,7 +121,8 @@ public class BiddingService : IBiddingService
         await _db.Bids.Where(b => b.CycleId == cycleId)
             .OrderByDescending(b => b.BidPct).ToListAsync();
 
-     
+    public Task<Bid?> GetbidAsync(long accountId) =>  
+   _db.Bids.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AccountId == accountId); 
     public async Task<IReadOnlyList<Bid>> GetByData() =>
     await _db.Bids.Where(b => b.TenantId == _ctx.TenantId && b.IsApproved==false).OrderByDescending(b => b.BidPct).ToListAsync();
     //public async Task<Bid> SubmitOrUpdateBidAsync(long accountId, decimal bidPct)
@@ -221,7 +223,8 @@ public class BiddingService : IBiddingService
                 //TotalBid=req.TotalBid,
                 TragetAmount = req.TargetAmount,
                 AllotmentAmount = req.AllotmentAmount,
-                TotalBid = req.BidPct + req.FixedRate,
+                TotalBid = req.BidPct + data.TenantCommission,
+                TenantCommissionPct = data.TenantCommission,
 
             };
             _db.Bids.Add(bid);
