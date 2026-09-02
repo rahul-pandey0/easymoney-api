@@ -745,6 +745,10 @@ public class LedgerEntry
 
 
     public long? PaymentDetailId { get; set; } // Link to payment detail
+    public long? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public bool? PaymentStatus { get; set; }
+    public DateTime? PaymentDate { get; set; }
 }
 
 public class Dividend
@@ -1111,6 +1115,8 @@ public class ReportFilterPayload
     public decimal? Credit { get; set; }
     public string? CustomerName { get; set; }
     public string? AccountNo { get; set; }
+    public string? Status { get; set; } 
+
     public ReportsType ReportType { get; set; }
     //public string Filters { get; internal set; }
 }

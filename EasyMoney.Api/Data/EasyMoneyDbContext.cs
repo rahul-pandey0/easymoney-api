@@ -902,6 +902,10 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.GlAccountName).HasColumnName("gl_account_name");
             e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
             e.Property(x => x.PaymentDetailId).HasColumnName("payment_detail_id");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.PaymentStatus).HasColumnName("payment_status");
+            e.Property(x => x.PaymentDate).HasColumnName("payment_date");
 
         });
 

@@ -101,5 +101,9 @@ public enum ReportsType
     CustomerAccountReport = 2,
     AccountsTranactionReports = 3,
     GetChartOfAccounts = 4,
-    GeneralLedegerReport =5,   
+    GeneralLedegerReport =5,
+    CustomerAccountsReport = 6,
+    LoanReport=7,
+    BiddingReports= 8,
+    InstallmentPayments=9,
 }

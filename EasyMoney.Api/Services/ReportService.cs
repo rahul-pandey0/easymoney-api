@@ -23,9 +23,9 @@ namespace EasyMoney.Api.Services
         private readonly ITenantContext _ctx;
         private readonly ILogger<ReportService> _logger;
 
-        public ReportService(IConfiguration configuration,ITenantContext ctx,ILogger<ReportService> logger)
+        public ReportService(IConfiguration configuration, ITenantContext ctx, ILogger<ReportService> logger)
         {
-            _configuration = configuration; _ctx = ctx;  _logger = logger;
+            _configuration = configuration; _ctx = ctx; _logger = logger;
         }
 
         public async Task<ReportResponse> GenerateReportAsync(ReportFilterPayload request)
@@ -45,9 +45,13 @@ namespace EasyMoney.Api.Services
                 {
                     ReportsType.KycReports => await GetKycReportAsync(request),
                     ReportsType.CustomerAccountReport => await GetCustomerAccountReportAsync(request),
+                    ReportsType.CustomerAccountsReport => await GetAccountReportAsync(request),
                     ReportsType.AccountsTranactionReports => await GetCustomerTranscationReport(request),
                     ReportsType.GetChartOfAccounts => await GetChartOfAccounts(request),
                     ReportsType.GeneralLedegerReport => await GetGlLedgerById(request),
+                    ReportsType.LoanReport => await GetLoanAccountReportAsync(request),
+                    ReportsType.BiddingReports => await GetBiddingReports(request),
+                    ReportsType.InstallmentPayments => await GetInstallmentPaymentsReports(request),
 
 
                     _ => throw new Exception("Report type not implemented.")
@@ -58,7 +62,7 @@ namespace EasyMoney.Api.Services
                     Success = true,
                     ReportType = request.ReportType,
                     Data = result,
-         
+
                 };
             }
             catch (Exception ex)
@@ -90,8 +94,8 @@ namespace EasyMoney.Api.Services
             command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
             command.Parameters.AddWithValue("@p_Type", filters.Type);
 
-            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue  ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue): DBNull.Value;
-            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue  ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
             using var reader = await command.ExecuteReaderAsync();
 
             while (await reader.ReadAsync())
@@ -146,37 +150,56 @@ namespace EasyMoney.Api.Services
         private async Task<IEnumerable<Dictionary<string, object>>> GetCustomerTranscationReport(ReportFilterPayload filters)
         {
             var result = new List<Dictionary<string, object>>();
-             
-            string connectionString = _configuration.GetConnectionString("Default");
 
-            using var connection = new MySqlConnection(connectionString);
-            await connection.OpenAsync();
-
-            using var command = new MySqlCommand("p_GetPaymentReport", connection);
-
-            command.CommandType = CommandType.StoredProcedure;
-
-            command.Parameters.AddWithValue("@p_TenantId", filters.TenantId);
-            command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
-            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
-            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
-            using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
+            try
             {
-                var row = new Dictionary<string, object>();
+                string connectionString = _configuration.GetConnectionString("Default");
 
-                for (int i = 0; i < reader.FieldCount; i++)
+                using var connection = new MySqlConnection(connectionString);
+                await connection.OpenAsync();
+
+                using var command = new MySqlCommand("p_GetPaymentReport", connection);
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 300; // Add timeout for large queries
+
+                command.Parameters.AddWithValue("@p_TenantId", filters.TenantId > 0 ? filters.TenantId : 0);
+                command.Parameters.AddWithValue("@p_BranchId", filters.BranchId > 0 ? filters.BranchId : 0);
+                command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+                command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+                command.Parameters.Add("@p_AccountNo", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.AccountNo) ? filters.AccountNo.Trim() : DBNull.Value;
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
                 {
-                    row[reader.GetName(i)] =  reader.GetValue(i);
-                }
+                    var row = new Dictionary<string, object>();
 
-                result.Add(row);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var columnName = reader.GetName(i);
+                        var value = reader.GetValue(i);
+
+                        // Handle DBNull values
+                        row[columnName] = value == DBNull.Value ? null : value;
+                    }
+
+                    result.Add(row);
+                }
+            }
+            catch (MySqlException ex)
+            {
+                // Handle MySQL specific errors
+                Console.WriteLine($"MySQL Error: {ex.Message}");
+                throw new Exception($"Database error: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
             }
 
             return result;
         }
-         
         private async Task<IEnumerable<Dictionary<string, object>>> GetChartOfAccounts(ReportFilterPayload filters)
         {
             var result = new List<Dictionary<string, object>>();
@@ -208,8 +231,8 @@ namespace EasyMoney.Api.Services
             }
 
             return result;
-        } 
-private async Task<IEnumerable<Dictionary<string, object>>> GetGlLedgerById(ReportFilterPayload filters)
+        }
+        private async Task<IEnumerable<Dictionary<string, object>>> GetGlLedgerById(ReportFilterPayload filters)
         {
             var result = new List<Dictionary<string, object>>();
 
@@ -243,5 +266,164 @@ private async Task<IEnumerable<Dictionary<string, object>>> GetGlLedgerById(Repo
             }
             return result;
         }
+
+
+        private async Task<IEnumerable<Dictionary<string, object>>> GetAccountReportAsync(ReportFilterPayload filters)
+        {
+            var result = new List<Dictionary<string, object>>();
+
+            string connectionString = _configuration.GetConnectionString("Default");
+
+            using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var command = new MySqlCommand("p_GetAccountReport", connection);
+
+            command.CommandType = CommandType.StoredProcedure;
+
+            command.Parameters.AddWithValue("@p_TenantId", filters.TenantId);
+            command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
+            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_Status", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.Status) ? filters.Status.Trim() : DBNull.Value;
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.GetValue(i);
+
+                }
+
+                result.Add(row);
+            }
+
+            return result;
+        }
+
+    
+
+
+       private async Task<IEnumerable<Dictionary<string, object>>> GetLoanAccountReportAsync(ReportFilterPayload filters)
+        {
+            var result = new List<Dictionary<string, object>>();
+
+            string connectionString = _configuration.GetConnectionString("Default");
+
+            using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var command = new MySqlCommand("p_GetLoanReport", connection);
+
+            command.CommandType = CommandType.StoredProcedure;
+
+            command.Parameters.AddWithValue("@p_TenantId", filters.TenantId);
+            command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
+            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_AccountNo", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.AccountNo) ? filters.AccountNo.Trim() : DBNull.Value;
+            command.Parameters.Add("@p_Status", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.Status) ? filters.Status.Trim() : DBNull.Value;
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.GetValue(i);
+
+                }
+
+                result.Add(row);
+            }
+
+            return result;
+        }
+
+       private async Task<IEnumerable<Dictionary<string, object>>> GetBiddingReports(ReportFilterPayload filters)
+        {
+            var result = new List<Dictionary<string, object>>();
+             
+            string connectionString = _configuration.GetConnectionString("Default");
+
+            using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var command = new MySqlCommand("p_GetBiddingReport", connection);
+
+            command.CommandType = CommandType.StoredProcedure;
+
+            command.Parameters.AddWithValue("@p_TenantId", filters.TenantId);
+            command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
+            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_AccountNo", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.AccountNo) ? filters.AccountNo.Trim() : DBNull.Value;
+            command.Parameters.Add("@p_Status", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.Status) ? filters.Status.Trim() : DBNull.Value;
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.GetValue(i);
+
+                }
+
+                result.Add(row);
+            }
+
+            return result;
+        }
+
+        private async Task<IEnumerable<Dictionary<string, object>>> GetInstallmentPaymentsReports(ReportFilterPayload filters)
+        {
+            var result = new List<Dictionary<string, object>>();
+
+            string connectionString = _configuration.GetConnectionString("Default");
+
+            using var connection = new MySqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var command = new MySqlCommand("p_GetInstallmentPaymentReport", connection);
+
+            command.CommandType = CommandType.StoredProcedure;
+
+            command.Parameters.AddWithValue("@p_TenantId", filters.TenantId);
+            command.Parameters.AddWithValue("@p_BranchId", filters.BranchId);
+            command.Parameters.Add("@p_FromDate", MySqlDbType.Date).Value = filters.FromDate.HasValue ? filters.FromDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_ToDate", MySqlDbType.Date).Value = filters.ToDate.HasValue ? filters.ToDate.Value.ToDateTime(TimeOnly.MinValue) : DBNull.Value;
+            command.Parameters.Add("@p_AccountNo", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.AccountNo) ? filters.AccountNo.Trim() : DBNull.Value;
+            command.Parameters.Add("@p_Status", MySqlDbType.VarChar, 50).Value = !string.IsNullOrEmpty(filters.Status) ? filters.Status.Trim() : DBNull.Value;
+
+            using var reader = await command.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object>();
+
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.GetValue(i);
+
+                }
+
+                result.Add(row);
+            }
+
+            return result;
+        }
+
+
     }
+    
+
 }

@@ -121,14 +121,58 @@ public class AccountsController : ControllerBase
         catch (DomainException ex) { return NotFound(new { error = ex.Message }); }
     }
 
-    [HttpPost("accounts/{accountId:long}/payments"),
-     Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
-    public async Task<ActionResult<PaymentResultDto>> RecordPayment(long accountId, [FromBody] RecordPaymentRequest req) //chequeDate
-    { 
+    //[HttpPost("accounts/{accountId:long}/payments"),
+    // Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    //public async Task<ActionResult<PaymentResultDto>> RecordPayment(long accountId, [FromBody] RecordPaymentRequest req) //chequeDate
+    //{ 
+    //    if (!Enum.TryParse<PaymentMethod>(req.Method, true, out var method))
+    //        return BadRequest(new { error = "Invalid payment method" });
+    //    try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId ,req.GlCode,req.ChequeNo,req.AccountNo,req.BankName,req.UpiId ,req.Chequedate)); }
+    //    catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+    //}
+
+    [HttpPost("accounts/{accountId:long}/payments")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator)]
+    public async Task<ActionResult<PaymentResultDto>> RecordPayment(
+    long accountId,
+    [FromBody] RecordPaymentRequest req)
+    {
+        // Validate request
+        if (req == null)
+            return BadRequest(new { error = "Request body cannot be empty" });
+
+        // Parse payment method
         if (!Enum.TryParse<PaymentMethod>(req.Method, true, out var method))
             return BadRequest(new { error = "Invalid payment method" });
-        try { return Ok(await _ledger.RecordPaymentAsync(accountId, req.Amount, req.PaidDate, method, req.DueId ,req.GlCode,req.ChequeNo,req.AccountNo,req.BankName,req.UpiId ,req.Chequedate)); }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+
+        try
+        {
+            var result = await _ledger.RecordPaymentAsync(
+                accountId,
+                req.Amount,
+                req.PaidDate,
+                method,
+                req.DueId,
+                req.GlCode,
+                req.ChequeNo,
+                req.AccountNo,
+                req.BankName,
+                req.UpiId,
+                req.Chequedate
+           );
+
+            return Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            // Log the exception
+            //_logger.LogError(ex, "Error recording payment for account {AccountId}", accountId);
+            return StatusCode(500, new { error = "An unexpected error occurred" });
+        }
     }
 
     [HttpPost("accounts/{accountId:long}/exit"),

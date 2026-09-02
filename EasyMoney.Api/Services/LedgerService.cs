@@ -84,11 +84,15 @@ public class LedgerService : ILedgerService
             if (due.EntryType != LedgerEntryType.CONTRIBUTION_DUE)
                 throw new DomainException($"Entry {dueId} is not a CONTRIBUTION_DUE");
 
-            var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
-                .AnyAsync(e => e.LinkedEntryId == dueId.Value && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
-            if (alreadyPaid)
-                throw new DomainException($"Due line {dueId} already has a payment recorded");
+     
         }
+               var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
+                .AnyAsync(e => e.EntryDate.Year == DateTime.UtcNow.Year
+                                      && e.EntryDate.Month == DateTime.UtcNow.Month && e.AccountId==a.AccountId && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
+        //e.LinkedEntryId == dueId.Value && 
+
+        if (alreadyPaid)
+                throw new DomainException($"Due line {accountId} This Month already has a payment recorded");
 
         // Determine GL code based on payment method
         var cashCode = method switch
@@ -166,20 +170,45 @@ public class LedgerService : ILedgerService
             authorizedBy: _ctx.UserId);
 
         // Create ledger entry with reference to payment detail
-        _db.LedgerEntries.Add(new LedgerEntry
-        {
-            TenantId = a.TenantId,
-            AccountId = a.AccountId,
-            CycleId = null,
-            LinkedEntryId = dueId,
-            EntryType = LedgerEntryType.PAYMENT_RECEIVED,
-            Amount = amount,
-            EntryDate = paidDate,
-            Description = $"Contribution payment via {method}",
-            CreatedBy = _ctx.UserId,
-            PaymentDetailId = paymentDetail.PaymentDetailId // Link to payment detail
-        });
+        //_db.LedgerEntries.Add(new LedgerEntry
+        //{
+        //    TenantId = a.TenantId,
+        //    AccountId = a.AccountId,
+        //    CycleId = null,
+        //    LinkedEntryId = dueId,
+        //    EntryType = LedgerEntryType.PAYMENT_RECEIVED,
+        //    Amount = amount,
+        //    EntryDate = paidDate,
+        //    Description = $"Contribution payment via {method}",
+        //    CreatedBy = _ctx.UserId,
+        //    PaymentDetailId = paymentDetail.PaymentDetailId // Link to payment detail
+        //});
 
+        var dueEntry = await _db.LedgerEntries.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(e => e.EntryDate.Year == DateTime.UtcNow.Year
+                                      && e.EntryDate.Month == DateTime.UtcNow.Month
+                                      && e.AccountId == a.AccountId
+                                      && e.EntryType == LedgerEntryType.CONTRIBUTION_DUE);
+
+        if (dueEntry != null)
+        {
+            dueEntry.EntryType = LedgerEntryType.PAYMENT_RECEIVED;
+            dueEntry.Amount = amount;
+            dueEntry.EntryDate = paidDate;
+            dueEntry.Description = $"Payment received via {method} for {paidDate:yyyy-MM}";
+            dueEntry.PaymentDetailId = paymentDetail.PaymentDetailId;
+            dueEntry.UpdatedBy = _ctx.UserId;
+            dueEntry.UpdatedAt = DateTime.UtcNow;
+            dueEntry.LinkedEntryId = dueEntry.EntryId;
+            dueEntry.PaymentDate = DateTime.UtcNow;
+            dueEntry.PaymentStatus = true;
+
+            _log.LogInformation($"Updated due entry {dueEntry.EntryId} for account {accountId} for {paidDate:yyyy-MM}");
+        }
+        else
+        {
+            throw new DomainException($"No CONTRIBUTION_DUE found for account {accountId} in {paidDate:yyyy-MM}");
+        }
         // Increment installments_paid by floor(amount / monthly_contribution)
         int delta = (int)Math.Floor(amount / a.MonthlyContribution);
         if (delta > 0) a.InstallmentsPaid += delta;
