@@ -784,6 +784,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AmountPayable).HasColumnName("amount_payable").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
             e.Property(x => x.PaymentMode).HasColumnName("payment_mode");
             e.Property(x => x.GlName).HasColumnName("gl_name");
+            e.Property(x => x.GlCode).HasColumnName("gl_code");
             e.Property(x => x.VoucherNo).HasColumnName("voucher_no");
             e.Property(x => x.Remarks).HasColumnName("remarks");
             e.Property(x => x.Status).HasColumnName("status").HasConversion<string>();

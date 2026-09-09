@@ -42,7 +42,11 @@ public record MeResponse(
     long? TenantId,
     long? MemberId,
     bool IsActive,
-    long? Branchid
+    long? Branchid,
+        string? BranchName,
+    DateOnly? previousDate,
+    DateOnly? CurrentDate,
+    DateOnly? Nextdate
     );
 
 public record CreateUserRequest(

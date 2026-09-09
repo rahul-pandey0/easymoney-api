@@ -50,6 +50,8 @@ public class AuthController : ControllerBase
         if (!long.TryParse(idStr, out var userId)) return Unauthorized();
         var u = await _db.AppUsers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserId == userId);
         if (u is null) return Unauthorized();
-        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId));
+        var branch = _db.Branches.IgnoreQueryFilters().FirstOrDefault(b => b.BranchId == u.BranchId);
+        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId,branch.BranchName,
+            branch.PreviousDate,  branch.CurrentDate, branch.NextDate));
     }
 }

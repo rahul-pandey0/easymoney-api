@@ -596,8 +596,9 @@ public class AccountService : IAccountService
                 ServFeeRate = request.ServFeeRate,
                 ServiceFee = request.ServiceFee,
                 AmountPayable = request.AmountPayable,
-                PaymentMode = request.PaymentMode,
+                PaymentMode = request.PaymentMode.ToString(),
                 GlName = request.GlName,
+                GlCode =request.GlCode,
                 VoucherNo = request.VoucherNo,
                 Remarks = request.Remarks,
                 Status = AccountStatus.CLOSED,
@@ -636,6 +637,41 @@ public class AccountService : IAccountService
             }
 
             await _db.SaveChangesAsync();
+            var method = request.PaymentMode;
+
+            switch (method)
+            {
+                case PaymentMethod.NEFT:
+                case PaymentMethod.RTGS:
+                case PaymentMethod.BANK_TRANSFER:
+                      break;
+
+                case PaymentMethod.CASH:
+                    request.PaymentMode = PaymentMethod.CASH;
+                    request.Remarks = string.IsNullOrEmpty(request.Remarks)
+                        ? "Cash payment received"
+                        : request.Remarks;
+                    break;
+
+                default:
+                    throw new ArgumentException($"Unsupported payment method: {request.PaymentMode}");
+            }
+
+            var journalId = await _accounting.PostJournalAsync(
+                tenantId: existingAccount.TenantId,
+                entryDate: _ctx.CurrentDate,
+                sourceType: JournalSourceType.CONTRIBUTION,
+
+                sourceId: existingAccount.AccountId,
+              paymentMethod: method,
+                description: $"Account Closure from {request.AccountNumber} via {request.PaymentMode}",
+                lines: new[]
+                {
+                        new JournalLineInput(EntryTarget.GL, request.GlCode, null, request.AmountPayable, 0),
+                        new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, request.AccountId, 0, request.AmountPayable)
+                },
+                createdBy: _ctx.UserId,
+                authorizedBy: _ctx.UserId);
 
             // 7. Create journal entry if needed
             // var cashCode = GetGLCodeByPaymentMode(closure.PaymentMode, closure.TenantId);

@@ -4,6 +4,7 @@ using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Security.Claims;
 
 namespace EasyMoney.Api.Services;
 
@@ -49,6 +50,19 @@ public class AuthService : IAuthService
         var access = _tokens.CreateAccessToken(user);
         var (raw, hash) = _tokens.CreateRefreshToken();
         var expires = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays);
+        string tenantName = GetTenantNameForUser(user);
+        var branch = GetBranchForUser(user);
+
+        var claims = new List<Claim>
+        {
+            new Claim("branch_name", branch?.BranchName ?? string.Empty),
+            new Claim("previous_date", branch?.PreviousDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd")),
+            new Claim("current_date", branch?.CurrentDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.ToString("yyyy-MM-dd")),
+            new Claim("next_date", branch?.NextDate?.ToString("yyyy-MM-dd") ?? DateTime.Now.AddDays(1).ToString("yyyy-MM-dd"))
+        };
+
+
+
         _db.RefreshTokens.Add(new RefreshToken
         {
             UserId = user.UserId,
@@ -61,8 +75,7 @@ public class AuthService : IAuthService
         //var tenant = await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.TenantId == user.TenantId || null);
         //var tenantName = tenant.Name;
 
-        string tenantName = GetTenantNameForUser(user);
-        var branch = GetBranchForUser(user);
+
         //string? tenantName = null;
         string? branchName = null;
         DateOnly? previousDate = null;

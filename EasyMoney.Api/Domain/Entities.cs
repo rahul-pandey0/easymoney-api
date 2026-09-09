@@ -1428,8 +1428,9 @@ public class AccountClosureRequest
     public decimal? ServFeeRate { get; set; }
     public decimal? ServiceFee { get; set; }
     public decimal AmountPayable { get; set; }
-    public string? PaymentMode { get; set; }
+    public PaymentMethod PaymentMode { get; set; }
     public string? GlName { get; set; }
+    public string? GlCode { get; set; } 
     public string? VoucherNo { get; set; }
     public string? Remarks { get; set; }
     public AccountStatus? Status { get; set; }
@@ -1466,6 +1467,7 @@ public class AccountClosure
     public decimal AmountPayable { get; set; }
     public string? PaymentMode { get; set; }
     public string? GlName { get; set; }
+    public string? GlCode { get; set; } 
     public string? VoucherNo { get; set; }
     public string? Remarks { get; set; }
     public AccountStatus? Status { get; set; }
@@ -1479,6 +1481,10 @@ public class AccountClosure
   public DateTime? AuthorizedAt { get; set; } = DateTime.UtcNow;
 
 }
+//{"accountId":47,"accountNumber":"68000002","memberId":175,"tenantId":68,"branchId":32,"customerName":"NaveenKumar","phoneNo":"9345098123","installmentAmount":5000,
+//"targetAmount":75000,"bonusAmount":0,"loanAmount":0,"closureDate":"2026-09-09","duration":1,"interestAmount":0,"servFeeRate":0,"serviceFee":0,"amountPayable":10000,
+//"paymentMode":"Cash","glName":"Penalty Income (Early Exit)","glCode":"3002","voucherNo":"0987654321","remarks":"test","authorizedBy":0,"authorizedAt":"2026-09-09T05:39:48.121Z",
+//"durations":1}
 
 public class PeriodChangeRequest
 {

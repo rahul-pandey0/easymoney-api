@@ -10,6 +10,11 @@ public interface ITenantContext
     void SetBypass(bool value);
     long? BranchId { get; set; } 
     string? BranchName { get; set; } 
+
+    DateOnly PreviousDate { get; set; }  
+    DateOnly CurrentDate { get; set; }
+
+    DateOnly NextDate { get; set; }
 }
 
 public class TenantContext : ITenantContext
@@ -22,5 +27,9 @@ public class TenantContext : ITenantContext
     public bool BypassTenantFilter { get; private set; }
     public void SetBypass(bool value) => BypassTenantFilter = value;
     public long? BranchId { get; set; } 
-    public string? BranchName { get; set; } 
+    public string? BranchName { get; set; }
+    public   DateOnly PreviousDate { get; set; }
+    public DateOnly CurrentDate { get; set;    }
+    public DateOnly NextDate { get; set; }
+
 }
