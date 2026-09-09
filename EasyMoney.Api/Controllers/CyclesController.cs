@@ -4,20 +4,21 @@ using EasyMoney.Api.Dtos;
 using EasyMoney.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Org.BouncyCastle.Ocsp;
 
 namespace EasyMoney.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cycles")]
-[Authorize]
+//[Authorize]
 public class CyclesController : ControllerBase
 {
     private readonly IBiddingService _bidding;
     private readonly ITenantContext _ctx;
-
-    public CyclesController(IBiddingService bidding, ITenantContext ctx)
+    private readonly IReportService _rep;
+    public CyclesController(IBiddingService bidding, ITenantContext ctx, IReportService rep)
     {
-        _bidding = bidding; _ctx = ctx;
+        _bidding = bidding; _ctx = ctx;  _rep = rep;
     }
 
     // POST /api/v1/cycles?month=2026-06-01&biddingDate=2026-06-20
@@ -206,6 +207,80 @@ public class CyclesController : ControllerBase
         try
         {
             var summary = await _bidding.GetCompleteBiddingSummaryAsync();
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+
+
+
+    [HttpGet("bonusdata")]
+    //[Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer + ",")]
+
+    public async Task<ActionResult<Bonus>> GetbonusSummary()
+    {
+        try
+        {
+            var summary = await _bidding.GetBonusDetails();
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+    [HttpGet("{bidrefno:long}/bonusdata")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer + ",")]
+    public async Task<ActionResult<Bonus>> GetBybonusdata(string bidrefno)
+    {
+        try
+        {
+            var summary = await _bidding.GetByBonusDetails(bidrefno);
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+
+    [HttpPost("distribute")]
+    public async Task<IActionResult> DistributeBonus([FromBody] BonusDistributionRequest request)
+    {
+        try
+        {
+            var result = await _rep.DistributeBonusAsync(request);
+
+            if (result == null || result.Status == "ERROR")
+            {
+                return BadRequest(new { error = result?.Message ?? "Failed to distribute bonus" });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                data = result,
+                message = result.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("bonus-summary")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer + ",")]
+    public async Task<ActionResult<BonusDistribution>> GetByBonus()
+    {  
+        try
+        {
+            var summary = await _bidding.GetBonusData();
             return Ok(summary);
         }
         catch (Exception ex)

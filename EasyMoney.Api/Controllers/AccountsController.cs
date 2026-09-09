@@ -5,6 +5,8 @@ using EasyMoney.Api.Dtos;
 using EasyMoney.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Ocsp;
 
 namespace EasyMoney.Api.Controllers;
 
@@ -246,4 +248,101 @@ public class AccountsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+
+    //public async Task<ActionResult<AccountSummaryDto>> GetAccountClsoure(long accountId)
+    //{ 
+    //    try { return Ok(await _accounts.GetSummaryAsync(accountId)); }
+    //    catch (DomainException ex) { return NotFound(new { error = ex.Message }); }
+    //}
+    [HttpPost("accounts/{accountId:long}/closure")]
+
+    public async Task<ActionResult<AccountClosureResponse>> GetAccountClsoure([FromBody] AccountClosureRequest request)
+    {
+        try
+        {
+            // Validate request
+            if (request == null)
+            {
+                return BadRequest(new { message = "Invalid request" });
+            }
+
+            var account = await _accounts.GetAccountAsync(request.AccountId);
+            if (account == null)
+            {
+                return NotFound(new { message = "Account not found" });
+            }
+            if (account.Status == "CLOSED" || account.Status == "CLOSURE")
+            {
+                return BadRequest(new { message = "Account is already closed" });
+            }
+
+         var accdata =   await _accounts.ClosedAccountAsync(request);     
+
+
+            return Ok(accdata);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex, "Error closing account");
+            return StatusCode(500, new { message = "Failed to close account", error = ex.Message });
+        }
+    }
+    [HttpGet("accounts/closure")]
+    public async Task<ActionResult<IReadOnlyList<AccountSummaryDto>>> AccountclosedList(
+    [FromQuery] int skip = 0, [FromQuery] int take = 50) =>
+    Ok(await _accounts.ListByAccountclosed(skip, take));
+
+
+
+    [HttpPut("accounts/{accountId:long}/periodchange")]
+    public async Task<ActionResult<Account>> UpdatePeriodChange(
+          long accountId,
+          [FromBody] PeriodChangeRequest request)
+    {
+        try
+        {
+            if (request == null)
+            {
+                return BadRequest(new { error = "Invalid request" });
+            }
+
+            // Validate account ID match
+            if (request.AccountId != accountId)
+            {
+                return BadRequest(new { error = "Account ID mismatch" });
+            }
+
+            // Validate required fields
+            if (request.MonthlyContribution <= 0)
+            {
+                return BadRequest(new { error = "Monthly Contribution must be greater than 0" });
+            }
+
+            if (request.Period <= 0)
+            {
+                return BadRequest(new { error = "Period must be greater than 0" });
+            }
+
+            var result = await _accounts.UpdatePeriodChangeAsync(accountId, request);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Account period updated successfully",
+                data = result
+            });
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "An error occurred while updating the account period" });
+        }
+    }
+
+
+
 }

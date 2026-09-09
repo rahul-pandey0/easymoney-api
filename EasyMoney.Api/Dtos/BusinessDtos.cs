@@ -46,12 +46,12 @@ public record UpdateAccountRequest(
 public record AccountSummaryDto(
     long AccountId, string AccountNumber, long MemberId, long TenantId,
     decimal MonthlyContribution, DateOnly AccountOpenDate, DateOnly TenureEndDate,
-    string Status, int InstallmentsPaid, bool IsPrized,
+    string Status, int InstallmentsPaid, bool IsPrized, 
     bool IsEligibleToBid, bool IsEligibleForDividend,
-    decimal CorpusBalance, long? PrizeWonInCycleId,
+    decimal CorpusBalance, long? PrizeWonInCycleId, 
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
     DateOnly? PaymentDate, decimal PaidAmount, decimal? LoanAmount,decimal bonusAmount, decimal InterestAmount,
-        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding,string ? customerCode); 
+        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding,string ? customerCode ,DateTime? ClosedDate,long ? Tenure); 
 
 // ============================================================
 // Payment / Ledger
@@ -363,3 +363,14 @@ public record ExitResultDto(
     long AccountId, DateOnly ExitDate,
     decimal TotalPaidIn, decimal Penalty, decimal RefundAmount,
     long? PenaltyJournalId, long? RefundJournalId);
+
+
+public record AccountClosureResponse
+(
+  int ClosureId ,
+    int AccountId ,
+string AccountNumber ,
+     DateTime ClosureDate ,
+     string Status ,
+     string Message 
+);

@@ -50,6 +50,6 @@ public class AuthController : ControllerBase
         if (!long.TryParse(idStr, out var userId)) return Unauthorized();
         var u = await _db.AppUsers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserId == userId);
         if (u is null) return Unauthorized();
-        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive));
+        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId));
     }
 }

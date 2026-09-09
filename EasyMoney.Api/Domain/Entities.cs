@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -142,6 +144,8 @@ public class SchemeConfig
     public decimal FixedRate { get; set; }
 
     public string? GstGl { get; set; }
+    public string? BonusGl { get; set; }
+    public int? BonusGlId { get; set; }
     public string? SchemeCode { get; set; }
     public int? SchemeId  { get; set; }
         public int? OrgFeeGlId { get; set; }  // GL for Organization Fee
@@ -595,7 +599,11 @@ public class Account
     public int?  SchemeId { get; set; }
     public string? FirstPaymentFlag { get; set; }
     public string? IsBidding { get; set; }
-    public string? CustomerCode { get; set; } 
+    public string? CustomerCode { get; set; }
+    public DateTime? ClosedDate { get; set; }
+    public long ? Tenure { get; set; } 
+
+
 
 
 }
@@ -646,8 +654,7 @@ public class Bid
     public decimal TragetAmount { get; set; }
     public decimal AllotmentAmount { get; set; }
     public decimal TenantCommissionPct { get; set; }
-    //public long? BidRefNo { get; set; }
-
+    public string? BidReferenceNo { get; set; }
 }
 
 public class Loan
@@ -695,6 +702,12 @@ public class Loan
     public string ? Remarks { get; set; }
 
     public string? DisbursementStatus { get; set; } 
+    public Decimal? TenantCommission { get; set; }
+    public Decimal? BonusAmount { get; set; } 
+    public Decimal? TotalDeductions { get; set; } 
+    public string? BidReferenceNo { get; set; }  
+    public string? LoanReferenceNo { get; set; }  
+    public string? BranchCode { get; set; } 
 
 }
 
@@ -1041,7 +1054,7 @@ public class Branch
 
     public DateOnly CutoffDate { get; set; }
 
-    public DateOnly BiddingDate { get; set; }
+    public DateOnly? BiddingDate { get; set; }
 
     public DateOnly? BonusPaymentDate { get; set; }
 
@@ -1070,11 +1083,16 @@ public class Branch
 
     public DateTime CreatedAt { get; set; }
 
-    public long CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTime? ModifiedAt { get; set; }
 
     public long? ModifiedBy { get; set; }
+
+
+    public DateOnly? PreviousDate { get; set; }
+    public DateOnly? CurrentDate { get; set; } 
+    public DateOnly? NextDate { get; set; }
 }
 
 
@@ -1258,7 +1276,7 @@ public class BidderSummaryDto
 public class DisbursementRequestDto
 {
     public long LoanId { get; set; }
-    public decimal? Amount { get; set; }
+    public decimal Amount { get; set; }
     public string? PaymentMethod { get; set; }
     public string? BankName { get; set; }
     public string? AccountNumber { get; set; }
@@ -1281,6 +1299,8 @@ public class DisbursementRequestDto
     public decimal? SifinCommissionPct { get; set; }
     public decimal? ProcessingFeePct { get; set; }
     public decimal? TdsPct { get; set; }
+    public decimal TargetAmount  { get; set; }
+
 
 
 }
@@ -1368,22 +1388,325 @@ public class PaymentDetail
 
 public class BidderWithoutLoanDto
 {
-    public long BidId { get; set; }
-    public long AccountId { get; set; }
-    public string AccountNumber { get; set; }
-    public long MemberId { get; set; }
-    public string MemberName { get; set; }
-    public string MemberPhone { get; set; }
-    public string Email { get; set; }
+    public long? BidId { get; set; }
+    public long? AccountId { get; set; }
+    public string? AccountNumber { get; set; }
+    public long? MemberId { get; set; }
+    public string? MemberName { get; set; }
+    public string? MemberPhone { get; set; }
+    public string? Email { get; set; }
     public decimal BidPct { get; set; }
-    public decimal MonthlyContribution { get; set; }
-    public decimal ForfeitureAmount { get; set; }
-    public decimal PrizeIfWins { get; set; }
-    public DateTime SubmittedAt { get; set; }
-    public bool IsApproved { get; set; }
-    public bool IsWinner { get; set; }
-    public string Status { get; set; }
-    public string StatusBadge { get; set; }
+    public decimal? MonthlyContribution { get; set; }
+    public decimal? ForfeitureAmount { get; set; }
+    public decimal? PrizeIfWins { get; set; }
+    public DateTime? SubmittedAt { get; set; }
+    public bool? IsApproved { get; set; }
+    public bool? IsWinner { get; set; }
+    public string? Status { get; set; }
+    public string? StatusBadge { get; set; }
     public long? CycleId { get; set; }
     public DateOnly? CycleMonth { get; set; }
 }
+
+public class AccountClosureRequest
+{
+    public int ClosureId { get; set; }
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long? MemberId { get; set; }
+    public long AccountId { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public string? PhoneNo { get; set; }
+    public decimal InstallmentAmount { get; set; }
+    public decimal? TargetAmount { get; set; }
+    public decimal? BonusAmount { get; set; }
+    public decimal? LoanAmount { get; set; }
+    public DateTime? ClosureDate { get; set; }
+    public int Duration { get; set; }
+    public decimal? InterestAmount { get; set; }
+    public decimal? ServFeeRate { get; set; }
+    public decimal? ServiceFee { get; set; }
+    public decimal AmountPayable { get; set; }
+    public string? PaymentMode { get; set; }
+    public string? GlName { get; set; }
+    public string? VoucherNo { get; set; }
+    public string? Remarks { get; set; }
+    public AccountStatus? Status { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public long? CreatedBy { get; set; }
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? UpdatedBy { get; set; }
+    public long? Durations { get; set; }
+    public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
+    public long? AuthorizedBy { get; set; }
+    public DateTime? AuthorizedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class AccountClosure
+{
+
+    public int ClosureId { get; set; }
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long? MemberId { get; set; }
+    public long AccountId { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? CustomerName { get; set; } 
+    public string? PhoneNo { get; set; }
+    public decimal InstallmentAmount { get; set; }
+    public decimal? TargetAmount { get; set; }
+    public decimal? BonusAmount { get; set; }
+    public decimal? LoanAmount { get; set; }
+    public DateTime? ClosureDate { get; set; }
+    public int Duration { get; set; }
+    public decimal? InterestAmount { get; set; }
+    public decimal? ServFeeRate { get; set; }
+    public decimal? ServiceFee { get; set; }
+    public decimal AmountPayable { get; set; }
+    public string? PaymentMode { get; set; }
+    public string? GlName { get; set; }
+    public string? VoucherNo { get; set; }
+    public string? Remarks { get; set; }
+    public AccountStatus? Status { get; set; }
+    public DateTime ?ClosedAt { get; set; }
+    public long? CreatedBy { get; set; }
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+    public long? UpdatedBy { get; set; }
+    public long? Durations { get; set; } 
+    public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow; 
+  public long? AuthorizedBy { get; set; }
+  public DateTime? AuthorizedAt { get; set; } = DateTime.UtcNow;
+
+}
+
+public class PeriodChangeRequest
+{
+    public long AccountId { get; set; }
+    public long MemberId { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public int Period { get; set; }
+    public decimal TargetAmount { get; set; }
+    public int TenantId { get; set; }
+}
+
+
+
+public class EODRequest
+{
+    public int TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public int NumberOfDays { get; set; } // Positive for forward, negative for backward
+}
+
+public class EODBulkRequest
+{
+    public int TenantId { get; set; }
+    public int NumberOfDays { get; set; }
+}
+
+public class EODResetRequest
+{
+    public int TenantId { get; set; }
+    public int BranchId { get; set; }
+}
+
+public class EODBulkItem
+{
+    public int TenantId { get; set; }
+    public int BranchId { get; set; }
+    public int NumberOfDays { get; set; }
+}
+
+
+public class EODLog
+{
+    public int Id { get; set; }
+    public int TenantId { get; set; }
+    public int BranchId { get; set; }
+    public int NumberOfDays { get; set; }
+    public DateTime? OldPreviousDate { get; set; }
+    public DateTime? OldCurrentDate { get; set; }
+    public DateTime? OldNextDate { get; set; }
+    public DateTime? NewPreviousDate { get; set; }
+    public DateTime? NewCurrentDate { get; set; }
+    public DateTime? NewNextDate { get; set; }
+    public DateTime ExecutedAt { get; set; }
+    public string ExecutedBy { get; set; }
+}
+public class BonusCalculationResult
+{
+    public decimal BonusAmount { get; set; }
+    public decimal BonusRate { get; set; }
+    public decimal InterestAmount { get; set; }
+    public decimal TotalBonusAmount { get; set; }
+    public decimal MonthlyAmount { get; set; }
+    public decimal BiddingRate { get; set; }
+    public decimal BankCommissionRate { get; set; }
+    public decimal InterestRate { get; set; }
+    public decimal BonusPoolAmount { get; set; }      // Total bonus pool
+    public decimal TransferAmount { get; set; }       // Transfer amount
+    public decimal TenantCommission { get; set; }     // Tenant commission amount
+    public decimal TenantCommissionPct { get; set; }  // Tenant commission percentage
+    public decimal BonusPercentage { get; set; }
+}
+
+public class BonusDetail
+{
+
+    public int Id { get; set; }
+
+
+    public string BidReferenceNo { get; set; }
+
+    public string EMReferenceNo { get; set; }
+
+    public double? BonusAmount { get; set; }
+
+    public DateTime? dtDate { get; set; }
+
+    public string BranchCode { get; set; }
+    public string CoopCode { get; set; }
+    public double? BonusRate { get; set; }
+    public long? TenantId { get; set; }
+
+    public long? BranchId { get; set; }
+
+
+    public string LoanReferenceNo { get; set; }
+
+    public int? MemberId { get; set; }
+
+
+    public string MemberName { get; set; }
+
+    public double? MonthlyAmount { get; set; }
+
+    public double? InterestAmount { get; set; }
+    public double? TotalBonusAmount { get; set; } 
+
+    public string Status { get; set; }
+
+    public long? CreatedBy { get; set; } 
+    public DateTime? CreatedAt { get; set; }
+
+    public long? UpdatedBy { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+}
+public class Bonus
+{
+    public int Id { get; set; }
+
+    public string? BidReferenceNo { get; set; }
+    public double? BounsAmount { get; set; }
+    public DateTime? BidDate { get; set; }
+
+    public string? RecordStatus { get; set; }
+    public string? AuthStatus { get; set; }
+
+    public long? AuthorisedBy { get; set; }
+    public DateTime? AuthorisedDate { get; set; }
+
+    public string? BranchCode { get; set; }
+    public string? CoopCode { get; set; }
+
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+
+    public double? BonusRate { get; set; }
+    public int? TotalMembers { get; set; }
+
+    public string? Status { get; set; }
+
+    public DateTime? DistributedDate { get; set; }
+    public string DistributedStatus { get; set; } 
+
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class BonusDistributionRequest
+{
+    public string BidReferenceNo  { get; set; } 
+    public decimal BonusAmount { get; set; }   
+    public DateTime BidDate { get; set; } 
+}
+
+public class BonusDistributionResult
+{
+    public string BidReferenceNo { get; set; }
+    public decimal TotalBonusDistributed { get; set; }
+    public decimal TotalInterestDistributed { get; set; }
+    public decimal BonusRate { get; set; }
+    public decimal InterestRate { get; set; }
+    public DateTime PayDate { get; set; }
+    public DateTime BonusPayDate { get; set; }
+    public string JournalReference { get; set; }
+    public string Status { get; set; }
+    public string Message { get; set; }
+}
+
+public class AccountSummary
+{
+    public string AccountNo { get; set; }
+    public string MembershipNo { get; set; }
+    public decimal MonthlyAmount { get; set; }
+    public decimal BonusAmount { get; set; }
+    public decimal InterestAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string Status { get; set; }
+}
+
+public class BonusDistribution
+{
+    public long DistributionId { get; set; }
+    public long TenantId { get; set; }
+    public long BranchId { get; set; }
+    public string? BranchCode { get; set; }
+    public string BidReferenceNo { get; set; } = string.Empty;
+    public long? CycleId { get; set; }
+    public long AccountId { get; set; }
+    public string AccountNumber { get; set; } = string.Empty;
+    public long MemberId { get; set; }
+    public string? MemberName { get; set; }
+    public string? CustomerCode { get; set; }
+    public decimal MonthlyContribution { get; set; }
+    public decimal BonusAmount { get; set; }
+    public decimal InterestAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal BonusRate { get; set; }
+    public decimal InterestRate { get; set; }
+    public decimal? BiddingRate { get; set; }
+    public decimal? CommissionRate { get; set; }
+    public DateTime DistributionDate { get; set; }
+    public DateTime? BidDate { get; set; }
+    public DateTime? PayDate { get; set; }
+    public string Status { get; set; } = "PENDING";
+    public bool IsApproved { get; set; }
+    public long? ApprovedBy { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+    public long CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? Remarks { get; set; }
+    public string? ReferenceNo { get; set; }
+    public string? SourceType { get; set; }
+
+    // Navigation Properties
+    //public virtual Tenant? Tenant { get; set; }
+    //public virtual Branch? Branch { get; set; }
+    //public virtual Account? Account { get; set; }
+    //public virtual Member? Member { get; set; }
+    //public virtual BiddingCycle? BiddingCycle { get; set; }
+}
+//public class BonusDetail
+//{
+//    public string BidReferenceNo { get; set; }
+//    public string AccountNo { get; set; }
+//    public decimal BonusAmount { get; set; }
+//    public decimal Rate { get; set; }
+//    public DateTime DistributionDate { get; set; }
+//    public string BranchCode { get; set; }
+//}

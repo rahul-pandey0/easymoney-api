@@ -3,6 +3,7 @@ using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Utilities;
 using System.Security.Cryptography;
 
 namespace EasyMoney.Api.Services;
@@ -108,6 +109,7 @@ public class LoanService : ILoanService
             // Validate cycle
             //var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.CycleId == createLoanDto.CycleId);
             var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstAsync(s => s.CycleId == createLoanDto.CycleId);
+            var bid = await _db.Bids.IgnoreQueryFilters().FirstAsync(s => s.CycleId == createLoanDto.CycleId);
 
             if (cycle == null)
                 throw new DomainException($"Cycle with ID {createLoanDto.CycleId} not found");
@@ -139,8 +141,8 @@ public class LoanService : ILoanService
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = _ctx.UserId,
                 AuthStatus = false,
-
-
+                BidReferenceNo=bid.BidReferenceNo,
+                LoanReferenceNo = $"{_ctx.TenantId}{_ctx.BranchId}{DateTime.Now:yyyyMMddHHmmss}",
                 LoanRemark = createLoanDto.LoanRemark ?? "LOAN Creation",
                 LoanApplicationStatus = createLoanDto.LoanApplicationStatus,
                 SecurityDocStatus = createLoanDto.SecurityDocStatus,
@@ -150,7 +152,7 @@ public class LoanService : ILoanService
                 ChequeBankName = createLoanDto.ChequeBankName,
                 ChequeNo = createLoanDto.ChequeNo,
                 ChequeDate = createLoanDto.ChequeDate,
-                LoanReleaseStatus =createLoanDto.LoanReleaseStatus ?? "N" ,
+                LoanReleaseStatus = createLoanDto.LoanReleaseStatus ?? "N",
                 Remarks = createLoanDto.Remarks,
                 DisbursementStatus = "N",
 
@@ -1655,8 +1657,7 @@ public class LoanService : ILoanService
     {
         try
         {
-            var loan = await GetLoanAsync(loanId); 
-
+            var loan = await GetLoanAsync(loanId);
 
             if (!loan.AuthStatus)
                 throw new DomainException($"Loan {loanId} is not approved yet");
@@ -1669,16 +1670,19 @@ public class LoanService : ILoanService
                 .FirstOrDefaultAsync(c => c.CycleId == loan.CycleId)
                 ?? throw new DomainException($"Cycle {loan.CycleId} not found");
 
+            var bid = await _db.Bids.IgnoreQueryFilters()
+           .FirstOrDefaultAsync(c => c.AccountId == account.AccountId)
+           ?? throw new DomainException($"Cycle {loan.CycleId} not found");
+
             // Get scheme config for GL accounts and fees
             var scheme = await _db.SchemeConfigs.IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.TenantId == loan.TenantId)
                 ?? throw new DomainException($"Scheme config not found for tenant {loan.TenantId}");
 
             // ============================================================
-            // STEP 1: GET ALL GL ACCOUNT CODES FROM GENERAL LEDGER MASTER
+            // STEP 1: GET ALL GL ACCOUNT CODES
             // ============================================================
 
-            // Collect all GL account names from scheme config
             var glNames = new List<string>();
             if (!string.IsNullOrEmpty(scheme.LoanAssetGL)) glNames.Add(scheme.LoanAssetGL);
             if (!string.IsNullOrEmpty(scheme.BankName)) glNames.Add(scheme.BankName);
@@ -1691,23 +1695,21 @@ public class LoanService : ILoanService
             if (!string.IsNullOrEmpty(scheme.TdsAc)) glNames.Add(scheme.TdsAc);
             if (!string.IsNullOrEmpty(scheme.ServicesTax)) glNames.Add(scheme.ServicesTax);
             if (!string.IsNullOrEmpty(scheme.GstGl)) glNames.Add(scheme.GstGl);
+            if (!string.IsNullOrEmpty(scheme.BonusGl)) glNames.Add(scheme.BonusGl); // ADD: Bonus GL
 
-            // Get GL accounts by their names
             var glAccountsByName = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
                 .Where(g => glNames.Contains(g.Name))
                 .ToDictionaryAsync(g => g.Name, g => new { g.Code, g.GlId, g.Category });
 
-            // Also get GL accounts by ID for OrgFee and SifinCommission
             var glIds = new List<int?>();
             if (scheme.OrgFeeGlId.HasValue) glIds.Add(scheme.OrgFeeGlId.Value);
             if (scheme.SifinCommissionGlId.HasValue) glIds.Add(scheme.SifinCommissionGlId.Value);
-            //if (scheme.BonusGlId.HasValue) glIds.Add(scheme.BonusGlId.Value); // NEW: Bonus GL
+            if (scheme.BonusGlId.HasValue) glIds.Add(scheme.BonusGlId.Value); // ADD: Bonus GL ID
 
             var glAccountsById = await _db.GeneralLedgerMaster.IgnoreQueryFilters()
                 .Where(g => glIds.Contains(g.GlId))
                 .ToDictionaryAsync(g => g.GlId, g => new { g.Code, g.Name, g.Category });
 
-            // Helper function to get GL code safely
             string GetGlCode(string glName)
             {
                 if (string.IsNullOrEmpty(glName))
@@ -1736,83 +1738,65 @@ public class LoanService : ILoanService
             }
 
             // ============================================================
-            // STEP 2: CALCULATE ALL AMOUNTS WITH PERCENTAGES
+            // STEP 2: CALCULATE ALL AMOUNTS
             // ============================================================
 
-            // GROSS AMOUNT = Total loan amount to be disbursed
-            var grossAmount = request.Amount ?? loan.PrincipalAmount;
-
-            // 1. TENANT COMMISSION (Org Fee) - Percentage of Gross Amount
+            decimal grossAmount =request.TargetAmount;
             var tenantCommissionPct = request.TenantCommissionPct ?? scheme.OrgFeePct;
             var tenantCommission = Math.Round(grossAmount * (tenantCommissionPct / 100m), 2);
 
-            // 2. BONUS AMOUNT - Percentage of Gross Amount
-            //var bonusPct = request.BonusPct ?? scheme.BonusPct; // Need to add BonusPct to SchemeConfig
-            //var bonusAmount = Math.Round(grossAmount * (bonusPct / 100m), 2);
+            var bonusCalculation = await CalculateBonusAsync(loan.LoanId,loan.AccountId, loan.TenantId, loan.BranchId, grossAmount,cycle.CycleMonth,bid.TotalBid);
 
-            // 3. SIFIN Commission - Percentage of Tenant Commission (optional)
             var sifinCommissionPct = request.SifinCommissionPct ?? scheme.SifinCommissionPct;
             var sifinCommission = Math.Round(tenantCommission * (sifinCommissionPct / 100m), 2);
 
-            //// 4. Processing Fee - Percentage of Gross Amount (optional)
-            //var processingFeePct = request.ProcessingFeePct ?? scheme.ProcessingFeePct; // Add to SchemeConfig
-            //var processingFee = Math.Round(grossAmount * (processingFeePct / 100m), 2);
-
-            // 5. TDS - Percentage of Commissions (e.g., 10% of total commissions)
-            //var tdsPct = request.TdsPct ?? scheme.TdsPct; // Add to SchemeConfig, default 10%
-            //var totalCommission = tenantCommission + sifinCommission;
-            //var tdsAmount = Math.Round(totalCommission * (tdsPct / 100m), 2);
-
-            // 6. Other Deductions (fixed amount or percentage)
             var otherDeductions = request.OtherDeductions ?? 0;
 
-            // TOTAL DEDUCTIONS
-            //var totalDeductions = tenantCommission;
-                                 //+ bonusAmount + sifinCommission + processingFee + tdsAmount + otherDeductions;
+            decimal totalDeductions = tenantCommission + sifinCommission + otherDeductions;
 
-            // NET DISBURSEMENT AMOUNT
-            var netAmount = grossAmount;
+            decimal netAmount = request.Amount;
             if (netAmount < 0) netAmount = 0;
 
-            // ============================================================
-            // STEP 3: UPDATE LOAN WITH ALL CALCULATED VALUES
-            // ============================================================
 
             loan.Status = "ACTIVE";
+            loan.PrincipalAmount = request.TargetAmount;
             loan.DisbursedAt = request.DisbursedAt ?? DateTime.UtcNow;
             loan.OutstandingBalance = netAmount;
             loan.NetDisbursementAmount = netAmount;
             loan.DisbursementStatus = "Y";
-            //loan.TenantCommission = tenantCommission;
-            //loan.BonusAmount = bonusAmount;
-            //loan.TotalDeductions = totalDeductions;
+            loan.TenantCommission = tenantCommission;
+            loan.BonusAmount = bonusCalculation.TotalBonusAmount;
+            loan.TotalDeductions = totalDeductions;
 
             var voucherNumber = GenerateVoucherNumber(cycle.CycleMonth);
 
-            await _db.SaveChangesAsync();
-
             account.LoanAmount = (account.LoanAmount ?? 0) + netAmount;
 
-
-            await _db.SaveChangesAsync();
+            //await _db.SaveChangesAsync();
 
             // ============================================================
-            // STEP 4: CREATE JOURNAL ENTRIES (VOUCHER)
+            // STEP 4: SAVE BONUS DETAILS TO BONUS TABLE
             // ============================================================
-            // ACCOUNTING RULES:
-            // 1. Dr Loan Asset (Gross Amount)
-            //    Cr Customer Account (Gross Amount)
-            //
-            // 2. Dr Customer Account (For deductions)
-            //    Cr Tenant Commission Income
-            //    Cr Bonus Income
-            //    Cr SIFIN Commission Payable
-            //    Cr Processing Fee Income
-            //    Cr TDS Payable
-            //    Cr Other Deductions
-            //
-            // 3. Dr Bank/Cash (Net Amount)
-            //    Cr Customer Account (Net Amount)
+            await SaveBonusDetailsAsync(
+                bidReferenceNo: loan.BidReferenceNo ?? $"LOAN-{loan.LoanId}",
+                emReferenceNo: account.AccountNumber,
+                branchCode: loan.BranchCode,
+                tenantId: loan.TenantId,
+                branchId: loan.BranchId,
+                loanReferenceNo: loan.LoanReferenceNo ?? loan.LoanId.ToString(),
+                memberId: account.MemberId,
+                memberName: account.CustomerName,
+                bonusAmount: bonusCalculation.BonusAmount,
+                bonusRate: bonusCalculation.BonusRate,
+                interestAmount: bonusCalculation.InterestAmount,
+                totalBonusAmount: bonusCalculation.TotalBonusAmount,
+                monthlyAmount: bonusCalculation.MonthlyAmount,
+                userId: _ctx.UserId,
+                today: DateTime.Today
+            );
+
+            // ============================================================
+            // STEP 5: CREATE JOURNAL ENTRIES (VOUCHER)
             // ============================================================
 
             var journalLines = new List<JournalLineInput>();
@@ -1820,10 +1804,8 @@ public class LoanService : ILoanService
 
             // ---- GET ALL GL CODES ----
             var loanAssetGlCode = GetGlCode(scheme.LoanAssetGL);
-            var bankGlCode = GetGlCode(scheme.Reserve1); // FIX: Use BankName, not LoanAssetGL
-            var processingFeeGlCode = GetGlCode(scheme.Reserve2);
-            var tdsGlCode = GetGlCode(scheme.TdsAc);
-            var otherDeductionsGlCode = GetGlCode(scheme.PoolMoney);
+            var bankGlCode = GetGlCode(scheme.Reserve1);
+            var poolMoneyGlCode = GetGlCode(scheme.PoolMoney);
 
             // Get Org Fee (Tenant Commission) GL
             string orgFeeGlCode;
@@ -1840,32 +1822,32 @@ public class LoanService : ILoanService
             }
 
             // Get Bonus GL
-            //string bonusGlCode;
-            //string bonusGlName;
-            //if (scheme.BonusGlId.HasValue)
-            //{
-            //    bonusGlCode = GetGlCodeById(scheme.BonusGlId.Value);
-            //    bonusGlName = GetGlNameById(scheme.BonusGlId.Value);
-            //}
-            //else
-            //{
-            //    bonusGlCode = GetGlCode(scheme.Reserve1); // Fallback to Reserve1
-            //    bonusGlName = scheme.Reserve1;
-            //}
+            string bonusGlCode;
+            string bonusGlName;
+            if (scheme.BonusGlId.HasValue)
+            {
+                bonusGlCode = GetGlCodeById(scheme.BonusGlId.Value);
+                bonusGlName = GetGlNameById(scheme.BonusGlId.Value);
+            }
+            else
+            {
+                bonusGlCode = GetGlCode(scheme.BonusGl ?? scheme.Reserve1);
+                bonusGlName = scheme.BonusGl ?? scheme.Reserve1;
+            }
 
             // Get SIFIN GL
-            //string sifinGlCode;
-            //string sifinName;
-            //if (scheme.SifinCommissionGlId.HasValue)
-            //{
-            //    sifinGlCode = GetGlCodeById(scheme.SifinCommissionGlId.Value);
-            //    sifinName = GetGlNameById(scheme.SifinCommissionGlId.Value);
-            //}
-            //else
-            //{
-            //    sifinGlCode = GetGlCode(scheme.SifinPayable);
-            //    sifinName = scheme.SifinPayable;
-            //}
+            string sifinGlCode;
+            string sifinName;
+            if (scheme.SifinCommissionGlId.HasValue)
+            {
+                sifinGlCode = GetGlCodeById(scheme.SifinCommissionGlId.Value);
+                sifinName = GetGlNameById(scheme.SifinCommissionGlId.Value);
+            }
+            else
+            {
+                sifinGlCode = GetGlCode(scheme.SifinPayable);
+                sifinName = scheme.SifinPayable;
+            }
 
             // ---- ENTRY 1: Dr Loan Asset, Cr Customer Account (Gross Amount) ----
             // Dr Loan Asset
@@ -1897,7 +1879,6 @@ public class LoanService : ILoanService
             // 2a. Tenant Commission Deduction
             if (tenantCommission > 0)
             {
-                // Dr Customer Account
                 journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, tenantCommission, 0));
                 voucherLines.Add(new VoucherLineDto
                 {
@@ -1909,7 +1890,6 @@ public class LoanService : ILoanService
                     EntryType = "DEBIT"
                 });
 
-                // Cr Tenant Commission Income
                 journalLines.Add(new JournalLineInput(EntryTarget.GL, orgFeeGlCode, null, 0, tenantCommission));
                 voucherLines.Add(new VoucherLineDto
                 {
@@ -1923,34 +1903,34 @@ public class LoanService : ILoanService
             }
 
             // 2b. Bonus Deduction
-            //if (bonusAmount > 0)
-            //{
-            //    // Dr Customer Account
-            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, bonusAmount, 0));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-            //        AccountName = account.CustomerName ?? "Customer Account",
-            //        AccountType = "Liability",
-            //        Amount = bonusAmount,
-            //        Narration = $"Bonus deduction ({bonusPct}%)",
-            //        EntryType = "DEBIT"
-            //    });
+            if (bonusCalculation.BonusAmount > 0)
+            {
+                // Dr Customer Account
+                journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, bonusCalculation.BonusAmount, 0));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
+                    AccountName = account.CustomerName ?? "Customer Account",
+                    AccountType = "Liability",
+                    Amount = bonusCalculation.BonusAmount,
+                    Narration = $"Bonus deduction ({bonusCalculation.BonusRate}%)",
+                    EntryType = "DEBIT"
+                });
 
-            //    // Cr Bonus Income
-            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, bonusGlCode, null, 0, bonusAmount));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = bonusGlCode,
-            //        AccountName = bonusGlName,
-            //        AccountType = "Income",
-            //        Amount = bonusAmount,
-            //        Narration = $"Bonus income ({bonusPct}%)",
-            //        EntryType = "CREDIT"
-            //    });
-            //}
+                // Cr Bonus Income
+                journalLines.Add(new JournalLineInput(EntryTarget.GL, bonusGlCode, null, 0, bonusCalculation.BonusAmount));
+                voucherLines.Add(new VoucherLineDto
+                {
+                    AccountCode = bonusGlCode,
+                    AccountName = bonusGlName,
+                    AccountType = "Income",
+                    Amount = bonusCalculation.BonusAmount,
+                    Narration = $"Bonus income ({bonusCalculation.BonusRate}%)",
+                    EntryType = "CREDIT"
+                });
+            }
 
-            // 2c. SIFIN Commission (if applicable)
+            // 2c. SIFIN Commission
             //if (sifinCommission > 0)
             //{
             //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, sifinCommission, 0));
@@ -1976,59 +1956,7 @@ public class LoanService : ILoanService
             //    });
             //}
 
-            // 2d. Processing Fee (if applicable)
-            //if (processingFee > 0)
-            //{
-            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, processingFee, 0));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-            //        AccountName = account.CustomerName ?? "Customer Account",
-            //        AccountType = "Liability",
-            //        Amount = processingFee,
-            //        Narration = $"Processing fee deduction ({processingFeePct}%)",
-            //        EntryType = "DEBIT"
-            //    });
-
-            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, processingFeeGlCode, null, 0, processingFee));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = processingFeeGlCode,
-            //        AccountName = scheme.Reserve2,
-            //        AccountType = "Income",
-            //        Amount = processingFee,
-            //        Narration = "Processing fee income",
-            //        EntryType = "CREDIT"
-            //    });
-            //}
-
-            // 2e. TDS Deduction
-            //if (tdsAmount > 0)
-            //{
-            //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, tdsAmount, 0));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = account.AccountNumber ?? account.AccountId.ToString(),
-            //        AccountName = account.CustomerName ?? "Customer Account",
-            //        AccountType = "Liability",
-            //        Amount = tdsAmount,
-            //        Narration = $"TDS deduction ({tdsPct}%)",
-            //        EntryType = "DEBIT"
-            //    });
-
-            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, tdsGlCode, null, 0, tdsAmount));
-            //    voucherLines.Add(new VoucherLineDto
-            //    {
-            //        AccountCode = tdsGlCode,
-            //        AccountName = scheme.TdsAc,
-            //        AccountType = "Liability",
-            //        Amount = tdsAmount,
-            //        Narration = "TDS payable",
-            //        EntryType = "CREDIT"
-            //    });
-            //}
-
-            // 2f. Other Deductions
+            // 2d. Other Deductions
             //if (otherDeductions > 0)
             //{
             //    journalLines.Add(new JournalLineInput(EntryTarget.MEMBER_ACCOUNT, null, account.AccountId, otherDeductions, 0));
@@ -2042,10 +1970,10 @@ public class LoanService : ILoanService
             //        EntryType = "DEBIT"
             //    });
 
-            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, otherDeductionsGlCode, null, 0, otherDeductions));
+            //    journalLines.Add(new JournalLineInput(EntryTarget.GL, poolMoneyGlCode, null, 0, otherDeductions));
             //    voucherLines.Add(new VoucherLineDto
             //    {
-            //        AccountCode = otherDeductionsGlCode,
+            //        AccountCode = poolMoneyGlCode,
             //        AccountName = scheme.PoolMoney,
             //        AccountType = "Liability",
             //        Amount = otherDeductions,
@@ -2080,12 +2008,11 @@ public class LoanService : ILoanService
             });
 
             // ============================================================
-            // STEP 5: VALIDATE JOURNAL ENTRIES
+            // STEP 6: VALIDATE JOURNAL ENTRIES
             // ============================================================
 
             var totalDebit = journalLines.Sum(l => l.Debit);
             var totalCredit = journalLines.Sum(l => l.Credit);
-
 
             _log.LogInformation($"Journal Validation - Total Debit: {totalDebit}, Total Credit: {totalCredit}, Difference: {totalDebit - totalCredit}");
 
@@ -2122,7 +2049,7 @@ public class LoanService : ILoanService
             await _db.SaveChangesAsync();
 
             // ============================================================
-            // STEP 6: RETURN VOUCHER DETAILS
+            // STEP 7: RETURN VOUCHER DETAILS
             // ============================================================
 
             var voucher = new DisbursementVoucherDto
@@ -2136,16 +2063,12 @@ public class LoanService : ILoanService
                 GrossAmount = grossAmount,
                 TenantCommission = tenantCommission,
                 TenantCommissionPct = tenantCommissionPct,
-                //BonusAmount = bonusAmount,
-                //BonusPct = bonusPct,
+                BonusAmount = bonusCalculation.BonusAmount,
+                BonusPct = bonusCalculation.BonusRate,
                 SifinCommission = sifinCommission,
                 SifinCommissionPct = sifinCommissionPct,
-                //ProcessingFee = processingFee,
-                //ProcessingFeePct = processingFeePct,
-                //TdsAmount = tdsAmount,
-                //TdsPct = tdsPct,
                 OtherDeductions = otherDeductions,
-                TotalDeductions = netAmount,
+                TotalDeductions = totalDeductions,
                 NetAmount = netAmount,
 
                 DebitEntries = voucherLines.Where(v => v.EntryType == "DEBIT").ToList(),
@@ -2155,6 +2078,7 @@ public class LoanService : ILoanService
                 Status = "COMPLETED",
                 CreatedAt = DateTime.UtcNow,
             };
+            await _db.SaveChangesAsync();
 
             _log.LogInformation("Disbursed loan {LoanId} ₹{Amount} to account {AccountId}. Voucher: {Voucher}",
                 loan.LoanId, netAmount, loan.AccountId, voucherNumber);
@@ -2333,6 +2257,338 @@ public class LoanService : ILoanService
         catch (Exception ex)
         {
             _log.LogError(ex, "Error updating loan {LoanId}", updateLoanDto.LoanId);
+            throw;
+        }
+    }
+    // ============================================================
+    // CALCULATE BONUS FOR LOAN DISBURSEMENT
+    // ============================================================
+    //private async Task<BonusCalculationResult> CalculateBonusAsync(
+    //  long loanId,
+    //  long accountId,
+    //  long tenantId,
+    //  long? branchId,
+    //  decimal grossAmount,
+    //  DateOnly cycleMonth,
+    //  decimal? bidpct)
+    //{
+    //    try
+    //    {
+    //        // 1. Get Bidding Rate from Bids table
+    //        var biddingRate = await _db.Bids
+    //            .IgnoreQueryFilters()
+    //            .Where(b => b.AccountId == accountId)
+    //            .Select(b => b.BidPct)
+    //            .FirstOrDefaultAsync();
+
+    //        // If bidpct is provided, use it instead
+    //        if (bidpct.HasValue && bidpct.Value > 0)
+    //            biddingRate = bidpct.Value;
+
+    //        // 2. Get Bank Commission Rate from SchemeConfig
+    //        var bankCommRate = await _db.SchemeConfigs
+    //            .IgnoreQueryFilters()
+    //            .Where(p => p.TenantId == tenantId)
+    //            .Select(p => p.SifinCommissionPct)
+    //            .FirstOrDefaultAsync();
+
+    //        // 3. Get Interest Rate (Fixed Rate) from SchemeConfig
+    //        var interestRate = await _db.SchemeConfigs
+    //            .IgnoreQueryFilters()
+    //            .Where(p => p.TenantId == tenantId)
+    //            .Select(p => p.FixedRate)
+    //            .FirstOrDefaultAsync();
+
+    //        // 4. Get Monthly Amount for this member
+    //        var monthlyAmount = await _db.Accounts
+    //            .IgnoreQueryFilters()
+    //            .Where(a => a.AccountId == accountId)
+    //            .Select(a => a.MonthlyContribution)
+    //            .FirstOrDefaultAsync();
+
+    //        // 5. Get Transfer Amount from Bids table
+    //        var transferAmount = await _db.Bids
+    //            .IgnoreQueryFilters()
+    //            .Where(t => t.BidId == loanId) // Changed from AccountId to BidId
+    //            .Select(t => t.AllotmentAmount)
+    //            .FirstOrDefaultAsync();
+
+    //        // ============================================================
+    //        // BONUS CALCULATION FORMULA
+    //        // ============================================================
+    //        // Formula 1: Bonus Amount = Gross Amount × ((Bidding Rate - Bank Commission Rate) / 100)
+    //        // This is the total bonus pool
+    //        var bonusPoolAmount = grossAmount * ((biddingRate - bankCommRate) / 100);
+
+    //        // Formula 2: Bonus Rate = (Bonus Amount / Transfer Amount) × 100
+    //        // This gives the percentage of bonus
+    //        var bonusRate = transferAmount > 0
+    //            ? Math.Round((bonusPoolAmount / transferAmount) * 100, 2)
+    //            : 0;
+
+    //        // Formula 3: Adjust Bonus Rate (subtract interest rate)
+    //        bonusRate = Math.Max(bonusRate - interestRate, 0);
+
+    //        // Formula 4: Member Bonus = (Monthly Amount × Bonus Rate) / 100
+    //        // This is the bonus each member receives
+    //        var memberBonus = Math.Floor((monthlyAmount * bonusRate) / 100);
+
+    //        // Formula 5: Interest Amount = Monthly Amount × (Interest Rate / 100)
+    //        var interestAmount = monthlyAmount * (interestRate / 100);
+
+    //        // Formula 6: Total Bonus Amount = Member Bonus + Interest Amount
+    //        var totalBonusAmount = memberBonus + interestAmount;
+
+    //        // Log the calculated values for debugging
+    //        _log.LogInformation($"Bonus Calculation for Loan {loanId}: " +
+    //            $"BiddingRate: {biddingRate}%, " +
+    //            $"BankCommRate: {bankCommRate}%, " +
+    //            $"InterestRate: {interestRate}%, " +
+    //            $"MonthlyAmount: {monthlyAmount}, " +
+    //            $"TransferAmount: {transferAmount}, " +
+    //            $"BonusPool: {bonusPoolAmount}, " +
+    //            $"BonusRate: {bonusRate}%, " +
+    //            $"MemberBonus: {memberBonus}, " +
+    //            $"InterestAmount: {interestAmount}, " +
+    //            $"TotalBonus: {totalBonusAmount}");
+
+    //        return new BonusCalculationResult
+    //        {
+    //            BonusAmount = memberBonus,
+    //            BonusRate = bonusRate,
+    //            InterestAmount = interestAmount,
+    //            TotalBonusAmount = totalBonusAmount,
+    //            MonthlyAmount = monthlyAmount,
+    //            BiddingRate = biddingRate,
+    //            BankCommissionRate = bankCommRate,
+    //            InterestRate = interestRate,
+    //            //BonusPoolAmount = bonusPoolAmount,
+    //            //TransferAmount = transferAmount
+    //        };
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _log.LogError(ex, "Error calculating bonus for loan {LoanId}", loanId);
+    //        return new BonusCalculationResult
+    //        {
+    //            BonusAmount = 0,
+    //            BonusRate = 0,
+    //            InterestAmount = 0,
+    //            TotalBonusAmount = 0,
+    //            MonthlyAmount = 0,
+    //            BiddingRate = 0,
+    //            BankCommissionRate = 0,
+    //            InterestRate = 0,
+    //            //BonusPoolAmount = 0,
+    //            //TransferAmount = 0
+    //        };
+    //    }
+    //}
+    private async Task<BonusCalculationResult> CalculateBonusAsync( long loanId,  long accountId,long tenantId, long? branchId,  decimal grossAmount,DateOnly cycleMonth,decimal? bidpct)
+    {
+        try
+        {
+
+            var loan = await _db.Loans
+                .IgnoreQueryFilters()
+                .Where(l => l.LoanId == loanId)
+                .Select(l => new { l.AccountId, l.CycleId, l.PrincipalAmount, l.BranchCode, l.BidReferenceNo })
+                .FirstOrDefaultAsync();
+
+            if (loan == null)
+            {
+                _log.LogWarning($"Loan {loanId} not found");
+                return GetDefaultBonusResult();
+            }
+            decimal biddingRate = 0;
+
+            var bid = await _db.Bids
+                .IgnoreQueryFilters()
+                .Where(b => b.AccountId == loan.AccountId && b.CycleId == loan.CycleId)
+                .Select(b => b.BidPct)
+                .FirstOrDefaultAsync();
+
+            if (bid != null)
+            {
+                biddingRate = bid; 
+            }
+
+            if (bidpct.HasValue && bidpct.Value > 0)
+                biddingRate = bidpct.Value;
+
+
+            var scheme = await _db.SchemeConfigs
+                .IgnoreQueryFilters()
+                .Where(p => p.TenantId == tenantId)
+                .Select(p => new { p.TenantCommission, p.SifinCommissionPct })
+                .FirstOrDefaultAsync();
+
+            var tenantCommissionPct = scheme?.TenantCommission ?? 0; // 5%
+
+            var bonusPercentage = biddingRate - tenantCommissionPct;
+
+            var bonusAmount = Math.Round(grossAmount * (bonusPercentage / 100m), 2);
+
+            return new BonusCalculationResult
+            {
+                BonusAmount = bonusAmount,
+                BonusPercentage = bonusPercentage,
+                BiddingRate = biddingRate,
+                BankCommissionRate = tenantCommissionPct,
+                BonusPoolAmount = bonusAmount
+            };
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error calculating bonus for loan {LoanId}", loanId);
+            return GetDefaultBonusResult();
+        }
+    }
+    private BonusCalculationResult GetDefaultBonusResult()
+    {
+        return new BonusCalculationResult
+        {
+            BonusAmount = 0,
+            BonusRate = 0,
+            InterestAmount = 0,
+            TotalBonusAmount = 0,
+            MonthlyAmount = 0,
+            BiddingRate = 0,
+            BankCommissionRate = 0,
+            InterestRate = 0,
+            BonusPoolAmount = 0,
+            TransferAmount = 0,
+            TenantCommission = 0,
+            TenantCommissionPct = 0,
+            BonusPercentage = 0
+        };
+    }
+
+
+    // ============================================================
+    // SAVE BONUS DETAILS TO TABLE
+    // ============================================================
+    private async Task SaveBonusDetailsAsync(  string bidReferenceNo,  string emReferenceNo,  string? branchCode, long tenantId,long? branchId,string loanReferenceNo,
+        long? memberId, string memberName, decimal bonusAmount, decimal bonusRate,decimal interestAmount, decimal totalBonusAmount,decimal monthlyAmount,long? userId, DateTime today)
+    {
+        try
+        {
+
+            var currentMonth = today.Month;
+            var currentYear = today.Year;
+            // ============================================================
+            // FIXED: Check if bonus exists with complete conditions
+            // ============================================================
+
+            var existingBonus = await _db.BonusDetails
+                .IgnoreQueryFilters()
+                .Where(b => b.TenantId == _ctx.TenantId
+                    && b.BidReferenceNo == bidReferenceNo
+                    && b.EMReferenceNo == emReferenceNo
+                    && b.BranchCode == branchCode
+                    && b.dtDate.Value.Month == today.Month
+                    && b.dtDate.Value.Year == today.Year)
+                .FirstOrDefaultAsync();
+
+            if (existingBonus != null)
+            {
+                existingBonus.BonusAmount = (double)bonusAmount;
+                existingBonus.BonusRate = (double)bonusRate;
+                existingBonus.MonthlyAmount = (double)monthlyAmount;
+                existingBonus.InterestAmount = (double)interestAmount;
+                existingBonus.TotalBonusAmount = (double)totalBonusAmount;
+                existingBonus.LoanReferenceNo = loanReferenceNo;
+                existingBonus.MemberId = memberId.HasValue ? (int)memberId.Value : (int?)null;
+                existingBonus.MemberName = memberName;
+                existingBonus.UpdatedBy = userId;
+                existingBonus.UpdatedAt = DateTime.UtcNow;
+                existingBonus.dtDate = today;
+
+                _log.LogInformation($"Updated existing bonus for BidRef: {bidReferenceNo}, EMRef: {emReferenceNo}, Month: {currentMonth}/{currentYear}");
+            }
+            else
+            {
+
+                var bonusDetail = new BonusDetail
+                {
+                    TenantId = (int)tenantId,
+                    BranchId = branchId.HasValue ? (int)branchId.Value : (int?)null,
+                    BidReferenceNo = bidReferenceNo,
+                    EMReferenceNo = emReferenceNo,
+                    BonusAmount = (double)bonusAmount,
+                    dtDate = today,
+                    //BranchCode = branchCode,
+                    //CoopCode = null, // Set if you have coop code
+                    BonusRate = (double)bonusRate,
+                    LoanReferenceNo = loanReferenceNo,
+                    MemberId = memberId.HasValue ? (int)memberId.Value : (int?)null,
+                    MemberName = memberName,
+                    MonthlyAmount = (double)monthlyAmount,
+                    InterestAmount = (double)interestAmount,
+                    TotalBonusAmount = (double)totalBonusAmount,
+                    //BiddingRate = null, // Set if available
+                    //BankCommissionRate = null, // Set if available
+                    Status = "ACTIVE",
+                    CreatedBy = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _db.BonusDetails.Add(bonusDetail);
+
+                _log.LogInformation($"Inserted new bonus for BidRef: {bidReferenceNo}, EMRef: {emReferenceNo}, Month: {currentMonth}/{currentYear}");
+            }
+
+            await _db.SaveChangesAsync();
+
+            // ============================================================
+            // STEP 2: UPDATE/INSERT MAIN BONUS TABLE
+            // ============================================================
+
+            var mainBonus = await _db.Bonus
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(b => b.BidReferenceNo == bidReferenceNo
+                    && b.TenantId == _ctx.TenantId);
+
+            if (mainBonus != null)
+            {
+                // Update existing main bonus
+                mainBonus.BounsAmount = (mainBonus.BounsAmount ?? 0) + (double)bonusAmount;
+                mainBonus.BonusRate = (double)bonusRate;
+                mainBonus.TotalMembers = (mainBonus.TotalMembers ?? 0) + 1;
+                mainBonus.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Insert new main bonus
+                var newBonus = new Bonus
+                {
+                    TenantId = (int)tenantId,
+                    BranchId = branchId.HasValue ? (int)branchId.Value : (int?)null,
+                    BidReferenceNo = bidReferenceNo,
+                    BounsAmount = (double)bonusAmount,
+                    BidDate = today,
+                    RecordStatus = "O",
+                    AuthStatus = "A",
+                    AuthorisedBy = userId,
+                    AuthorisedDate = today,
+                    BranchCode = branchCode,
+                    CoopCode = null,
+                    BonusRate = (double)bonusRate,
+                    TotalMembers = 1,
+                    Status = "ACTIVE",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _db.Bonus.Add(newBonus);
+            }
+
+            await _db.SaveChangesAsync();
+
+            _log.LogInformation($"Bonus saved successfully - BidRef: {bidReferenceNo}, EMRef: {emReferenceNo}, Amount: {bonusAmount}");
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, $"Error saving bonus for BidRef: {bidReferenceNo}, EMRef: {emReferenceNo}");
             throw;
         }
     }

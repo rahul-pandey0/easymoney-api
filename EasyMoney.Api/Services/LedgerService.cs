@@ -169,20 +169,6 @@ public class LedgerService : ILedgerService
             createdBy: _ctx.UserId,
             authorizedBy: _ctx.UserId);
 
-        // Create ledger entry with reference to payment detail
-        //_db.LedgerEntries.Add(new LedgerEntry
-        //{
-        //    TenantId = a.TenantId,
-        //    AccountId = a.AccountId,
-        //    CycleId = null,
-        //    LinkedEntryId = dueId,
-        //    EntryType = LedgerEntryType.PAYMENT_RECEIVED,
-        //    Amount = amount,
-        //    EntryDate = paidDate,
-        //    Description = $"Contribution payment via {method}",
-        //    CreatedBy = _ctx.UserId,
-        //    PaymentDetailId = paymentDetail.PaymentDetailId // Link to payment detail
-        //});
 
         var dueEntry = await _db.LedgerEntries.IgnoreQueryFilters()
             .FirstOrDefaultAsync(e => e.EntryDate.Year == DateTime.UtcNow.Year

@@ -34,7 +34,10 @@ public record CreateBranchRequest(
     decimal MinimumInstallmentAmount,
     decimal MaximumInstallmentAmount,
     string? OtherBank1,
-    string? OtherBank2
+    string? OtherBank2,
+    DateOnly? PreviousDate,
+    DateOnly? CurrentDate,
+    DateOnly? NextDate
 );
 
 public record UpdateBranchRequest(
@@ -64,7 +67,10 @@ public record UpdateBranchRequest(
     decimal MinimumInstallmentAmount,
     decimal MaximumInstallmentAmount,
     string? OtherBank1,
-    string? OtherBank2
+    string? OtherBank2,
+        DateOnly PreviousDate,
+    DateOnly CurrentDate,
+    DateOnly NextDate
 );
 
 public record BranchDto(
@@ -84,7 +90,7 @@ public record BranchDto(
     long? CashGlId,
     long? AdjustmentGlId,
     long? TransferGlId,
-    DateOnly BiddingDate,
+    DateOnly? BiddingDate,
     DateOnly CutoffDate,
     DateOnly? BonusPaymentDate,
     BranchStatus Status,
@@ -97,6 +103,11 @@ public record BranchDto(
     decimal MaximumInstallmentAmount,
     string? OtherBank1,
     string? OtherBank2,
-    DateTime CreatedAt
-);
+    DateTime CreatedAt,
+    DateTime? modifiedAt,
+    long? modifiedBy,
+    DateOnly? PreviousDate,
+    DateOnly? CurrentDate,
+    DateOnly? NextDate
 
+);

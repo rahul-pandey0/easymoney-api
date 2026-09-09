@@ -10,7 +10,10 @@ namespace EasyMoney.Api.Services;
 
 public interface IBiddingService
 {
-    Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate);
+    //Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate);
+    Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate = null);
+
+
     Task<BiddingCycle?> GetCurrentCycleAsync(long tenantId);
     Task<BiddingCycle?> GetCycleAsync(long cycleId);
     Task<Bid?> GetbidAsync(long accountid);
@@ -27,6 +30,12 @@ public interface IBiddingService
     Task<Bid> ApproveBidAsync(long cycleId,long bidId);  
     Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId, string approvalStatus);
     Task<BiddingSummaryDto> GetCompleteBiddingSummaryAsync();
+    Task<IReadOnlyList<Bonus>>GetBonusDetails();
+
+    Task<IReadOnlyList<BonusDistribution>> GetBonusData();
+     
+    Task<Bonus> GetByBonusDetails(string refNo);  
+     
     //Task SubmitOrUpdateBidAsync(long accountId, SubmitBidReq req);
 }
 
@@ -44,9 +53,18 @@ public class BiddingService : IBiddingService
         _db = db; _accounting = accounting; _loans = loans; _ctx = ctx; _log = log;
     }
 
-    public async Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate)
+    public async Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate = null)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // Get branch from context
+        var branch = await _db.Branches
+            .Where(b => b.TenantId == tenantId && b.BranchId == _ctx.BranchId)
+            .FirstOrDefaultAsync();
+
+        if (branch == null)
+            throw new DomainException("Branch not found");
+
+        // Use branch's current date
+        var today = branch.CurrentDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var currentMonthStart = new DateOnly(today.Year, today.Month, 1);
         var monthStart = new DateOnly(cycleMonth.Year, cycleMonth.Month, 1);
 
@@ -55,7 +73,7 @@ public class BiddingService : IBiddingService
             throw new DomainException(
                 $"Cannot open a future cycle. Requested: {monthStart:yyyy-MM}, current month: {currentMonthStart:yyyy-MM}");
 
-        // Rule 2: the previous calendar month's cycle must be RESOLVED or NO_BID (or not exist yet for month 1)
+        // Rule 2: the previous calendar month's cycle must be RESOLVED or NO_BID
         var prevMonthStart = monthStart.AddMonths(-1);
         var prevCycle = await _db.BiddingCycles.IgnoreQueryFilters()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CycleMonth == prevMonthStart);
@@ -71,24 +89,27 @@ public class BiddingService : IBiddingService
             if (existing.Status is CycleStatus.RESOLVED or CycleStatus.NO_BID)
                 throw new DomainException(
                     $"Cycle for {monthStart:yyyy-MM} is already {existing.Status}. Each month can only have one cycle.");
-            // OPEN or CLOSED — return as-is (idempotent)
             return existing;
         }
 
         var scheme = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == tenantId);
 
-        // Rule 4: biddingDate must be within the cycle month and not in the future beyond today
-        var defaultBidDay = new DateOnly(monthStart.Year, monthStart.Month, scheme.BiddingDayOfMonth);
-        var bd = biddingDate ?? defaultBidDay;
-
-        // biddingDate must belong to the cycle's month
-        if (bd.Year != monthStart.Year || bd.Month != monthStart.Month)
-            throw new DomainException(
-                $"biddingDate {bd:yyyy-MM-dd} must be within the cycle month {monthStart:yyyy-MM}");
-
-        // biddingDate cannot be in the future (must be today or earlier — operator is recording a bid day they planned)
-        // We allow it to be up to end of current month so they can plan ahead within the same month
-        // but not beyond the current month itself (already covered by Rule 1 on cycleMonth)
+        // Calculate bidding date
+        DateOnly bd;
+        if (biddingDate.HasValue)
+        {
+            bd = biddingDate.Value;
+            if (bd.Year != monthStart.Year || bd.Month != monthStart.Month)
+                throw new DomainException(
+                    $"biddingDate {bd:yyyy-MM-dd} must be within the cycle month {monthStart:yyyy-MM}");
+        }
+        else
+        {
+            var configuredBidDay = branch.BiddingDate?.Day ?? scheme.BiddingDayOfMonth;
+            var daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
+            var bidDay = Math.Min(configuredBidDay, daysInMonth);
+            bd = new DateOnly(monthStart.Year, monthStart.Month, bidDay);
+        }
 
         var openAt = DateTime.UtcNow;
         var closeAt = new DateTime(bd.Year, bd.Month, bd.Day, 23, 59, 59, DateTimeKind.Utc);
@@ -96,17 +117,172 @@ public class BiddingService : IBiddingService
         var c = new BiddingCycle
         {
             TenantId = tenantId,
-            CycleMonth = monthStart,
+            CycleMonth = (DateOnly)biddingDate,
             WindowOpenAt = openAt,
             WindowCloseAt = closeAt,
-            Status = CycleStatus.OPEN
+            Status = CycleStatus.OPEN,
+            BranchId=(long)_ctx.BranchId  
         };
         _db.BiddingCycles.Add(c);
         await _db.SaveChangesAsync();
-        _log.LogInformation("Opened cycle {Cid} for tenant {Tid} month {Month}, planned bid date {Bd}",
-            c.CycleId, tenantId, monthStart, bd);
+
+        _log.LogInformation("Opened cycle {Cid} for tenant {Tid} branch {BranchId} month {Month}, planned bid date {Bd}",
+            c.CycleId, tenantId, branch.BranchId, monthStart, bd);
+
         return c;
     }
+
+    //public async Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate = null)
+    //{
+    //    var branch = await _db.Branches
+    //        .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+    //        .FirstOrDefaultAsync();
+
+    //    if (branch == null)
+    //        throw new DomainException("Branch not found");
+
+    //    // Use branch's current date instead of UTC
+    //    var today = branch.CurrentDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+    //    var currentMonthStart = new DateOnly(today.Year, today.Month, 1);
+    //    var monthStart = new DateOnly(cycleMonth.Year, cycleMonth.Month, 1);
+
+    //    // Rule 1: cannot open a future month
+    //    if (monthStart > currentMonthStart)
+    //        throw new DomainException(
+    //            $"Cannot open a future cycle. Requested: {monthStart:yyyy-MM}, current month: {currentMonthStart:yyyy-MM}");
+
+    //    // Rule 2: the previous calendar month's cycle must be RESOLVED or NO_BID (or not exist yet for month 1)
+    //    var prevMonthStart = monthStart.AddMonths(-1);
+    //    var prevCycle = await _db.BiddingCycles.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CycleMonth == prevMonthStart);
+    //    if (prevCycle is not null && prevCycle.Status is not (CycleStatus.RESOLVED or CycleStatus.NO_BID))
+    //        throw new DomainException(
+    //            $"Cannot open {monthStart:yyyy-MM} — previous cycle ({prevMonthStart:yyyy-MM}) is still {prevCycle.Status}. Resolve it first.");
+
+    //    // Rule 3: if cycle already exists for this month
+    //    var existing = await _db.BiddingCycles.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CycleMonth == monthStart);
+    //    if (existing is not null)
+    //    {
+    //        if (existing.Status is CycleStatus.RESOLVED or CycleStatus.NO_BID)
+    //            throw new DomainException(
+    //                $"Cycle for {monthStart:yyyy-MM} is already {existing.Status}. Each month can only have one cycle.");
+    //        // OPEN or CLOSED — return as-is (idempotent)
+    //        return existing;
+    //    }
+
+    //    var scheme = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == tenantId);
+
+    //    // **UPDATED: Automatic bidding date calculation based on branch's current date**
+    //    DateOnly bd;
+
+    //    if (biddingDate.HasValue)
+    //    {
+    //        // If bidding date is explicitly provided, use and validate it
+    //        bd = biddingDate.Value;
+
+    //        // biddingDate must belong to the cycle's month
+    //        if (bd.Year != monthStart.Year || bd.Month != monthStart.Month)
+    //            throw new DomainException(
+    //                $"biddingDate {bd:yyyy-MM-dd} must be within the cycle month {monthStart:yyyy-MM}");
+    //    }
+    //    else
+    //    {
+    //        // Use branch's configured bidding date or scheme default
+    //        var configuredBidDay = branch.BiddingDate?.Day ?? scheme.BiddingDayOfMonth;
+
+    //        // Calculate bidding date for the cycle month
+    //        var daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
+    //        var bidDay = Math.Min(configuredBidDay, daysInMonth);
+    //        bd = new DateOnly(monthStart.Year, monthStart.Month, bidDay);
+    //    }
+
+    //    var openAt = DateTime.UtcNow;
+    //    var closeAt = new DateTime(bd.Year, bd.Month, bd.Day, 23, 59, 59, DateTimeKind.Utc);
+
+    //    var c = new BiddingCycle
+    //    {
+    //        TenantId = tenantId,
+    //        CycleMonth = monthStart,
+    //        WindowOpenAt = openAt,
+    //        WindowCloseAt = closeAt,
+    //        Status = CycleStatus.OPEN
+    //    };
+    //    _db.BiddingCycles.Add(c);
+    //    await _db.SaveChangesAsync();
+
+    //    _log.LogInformation("Opened cycle {Cid} for tenant {Tid} branch {BranchId} month {Month}, planned bid date {Bd}",
+    //        c.CycleId, tenantId, branch.BranchId, monthStart, bd);
+
+    //    return c;
+    //}
+    //public async Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate)
+    //{
+    //    //var branch = await _db.Branches.Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+    //    //          .FirstOrDefaultAsync();
+
+
+    //    var today = DateOnly.FromDateTime(DateTime.UtcNow);
+    //    var currentMonthStart = new DateOnly(today.Year, today.Month, 1);
+    //    var monthStart = new DateOnly(cycleMonth.Year, cycleMonth.Month, 1);
+
+    //    // Rule 1: cannot open a future month
+    //    if (monthStart > currentMonthStart)
+    //        throw new DomainException(
+    //            $"Cannot open a future cycle. Requested: {monthStart:yyyy-MM}, current month: {currentMonthStart:yyyy-MM}");
+
+    //    // Rule 2: the previous calendar month's cycle must be RESOLVED or NO_BID (or not exist yet for month 1)
+    //    var prevMonthStart = monthStart.AddMonths(-1);
+    //    var prevCycle = await _db.BiddingCycles.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CycleMonth == prevMonthStart);
+    //    if (prevCycle is not null && prevCycle.Status is not (CycleStatus.RESOLVED or CycleStatus.NO_BID))
+    //        throw new DomainException(
+    //            $"Cannot open {monthStart:yyyy-MM} — previous cycle ({prevMonthStart:yyyy-MM}) is still {prevCycle.Status}. Resolve it first.");
+
+    //    // Rule 3: if cycle already exists for this month
+    //    var existing = await _db.BiddingCycles.IgnoreQueryFilters()
+    //        .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.CycleMonth == monthStart);
+    //    if (existing is not null)
+    //    {
+    //        if (existing.Status is CycleStatus.RESOLVED or CycleStatus.NO_BID)
+    //            throw new DomainException(
+    //                $"Cycle for {monthStart:yyyy-MM} is already {existing.Status}. Each month can only have one cycle.");
+    //        // OPEN or CLOSED — return as-is (idempotent)
+    //        return existing;
+    //    }
+
+    //    var scheme = await _db.SchemeConfigs.IgnoreQueryFilters().FirstAsync(s => s.TenantId == tenantId);
+
+    //    // Rule 4: biddingDate must be within the cycle month and not in the future beyond today
+    //    var defaultBidDay = new DateOnly(monthStart.Year, monthStart.Month, scheme.BiddingDayOfMonth);
+    //    var bd = biddingDate ?? defaultBidDay;
+
+    //    // biddingDate must belong to the cycle's month
+    //    if (bd.Year != monthStart.Year || bd.Month != monthStart.Month)
+    //        throw new DomainException(
+    //            $"biddingDate {bd:yyyy-MM-dd} must be within the cycle month {monthStart:yyyy-MM}");
+
+    //    // biddingDate cannot be in the future (must be today or earlier — operator is recording a bid day they planned)
+    //    // We allow it to be up to end of current month so they can plan ahead within the same month
+    //    // but not beyond the current month itself (already covered by Rule 1 on cycleMonth)
+
+    //    var openAt = DateTime.UtcNow;
+    //    var closeAt = new DateTime(bd.Year, bd.Month, bd.Day, 23, 59, 59, DateTimeKind.Utc);
+
+    //    var c = new BiddingCycle
+    //    {
+    //        TenantId = tenantId,
+    //        CycleMonth = monthStart,
+    //        WindowOpenAt = openAt,
+    //        WindowCloseAt = closeAt,
+    //        Status = CycleStatus.OPEN
+    //    };
+    //    _db.BiddingCycles.Add(c);
+    //    await _db.SaveChangesAsync();
+    //    _log.LogInformation("Opened cycle {Cid} for tenant {Tid} month {Month}, planned bid date {Bd}",
+    //        c.CycleId, tenantId, monthStart, bd);
+    //    return c;
+    //}
 
     public Task<BiddingCycle?> GetCurrentCycleAsync(long tenantId) =>
         _db.BiddingCycles.IgnoreQueryFilters()
@@ -285,12 +461,28 @@ public class BiddingService : IBiddingService
         {
             throw new DomainException($"Please approve all values. {approvedBids}/{totalBids} bids are approved");
         }
+
+
+         var bids = await _db.Bids.IgnoreQueryFilters() .Where(b => b.CycleId == cycleId) .OrderBy(b => b.BidId).ToListAsync();
+        var referenceDateTime = DateTime.UtcNow;
+        foreach (var bid in bids)
+        {
+            bid.BidReferenceNo =
+                $"{bid.TenantId}{bid.BranchId}{referenceDateTime:yyyyMMddHHmmss}-{bid.CycleId}";
+        }
+
+
         var cycle = await _db.BiddingCycles.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.CycleId == cycleId)
+
             ?? throw new DomainException($"Cycle {cycleId} not found");
         if (cycle.Status != CycleStatus.OPEN)
             throw new DomainException($"Cycle is already {cycle.Status}; cannot close bidding");
+
         cycle.Status = CycleStatus.CLOSED;
         cycle.WindowCloseAt = DateTime.UtcNow;
+
+
+
         await _db.SaveChangesAsync();
         _log.LogInformation("Bidding closed for cycle {Cid} by operator", cycleId);
         return cycle;
@@ -421,6 +613,8 @@ public class BiddingService : IBiddingService
                 await PostSifinSplitAsync(cycle, sifinShare);
 
             dividendCount = await DistributeDividendForNoBidAsync(cycle, participants, dividendPool);
+            
+
         }
         else
         {
@@ -1124,6 +1318,61 @@ public class BiddingService : IBiddingService
         };
     }
 
-   
-    
+    public async Task<IReadOnlyList<Bonus>> GetBonusDetails()
+    {
+        var branch = await _db.Branches
+            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+            .FirstOrDefaultAsync();
+
+        if (branch == null)
+        {
+            return new List<Bonus>().AsReadOnly();
+        }
+
+        var query = _db.Bonus .Where(b => b.DistributedStatus == "N" && b.TenantId == branch.TenantId && b.BranchId == branch.BranchId);
+
+        return await query.ToListAsync();
+    }
+
+
+    public async Task<Bonus> GetByBonusDetails(string refNo)
+    {
+        var branch = await _db.Branches
+            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+            .FirstOrDefaultAsync();
+
+        // Get single record by reference number
+        var bonus = await _db.Bonus
+            .Where(b => b.BidReferenceNo == refNo)
+            .FirstOrDefaultAsync();
+
+        return bonus; 
+    } 
+    public async Task<IReadOnlyList<BonusDistribution>> GetBonusData() 
+    {
+        var branch = await _db.Branches
+            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+            .FirstOrDefaultAsync();
+
+        var currentDate = branch.CurrentDate;
+
+        var startOfMonth = currentDate.HasValue
+           ? new DateTime(currentDate.Value.Year, currentDate.Value.Month, 1)
+           : throw new InvalidOperationException("currentDate must have a value.");
+        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+
+        var query = _db.BonusDistribution
+               .Where(b => b.TenantId == branch.TenantId
+                   && b.BranchId == branch.BranchId
+                   && b.DistributionDate >= startOfMonth
+                   && b.DistributionDate <= endOfMonth
+                   && b.Status == "DISTRIBUTED")
+               .OrderByDescending(b => b.DistributionDate)
+               .ThenByDescending(b => b.BonusAmount);
+
+        return await query.ToListAsync();
+    }
+
+
+
 }

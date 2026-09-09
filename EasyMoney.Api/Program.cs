@@ -125,6 +125,7 @@ try
     builder.Services.AddScoped<IBranchService, BranchService>();
     builder.Services.AddScoped<IReportService, ReportService>();
 
+    builder.Services.AddScoped<BiddingService>(); // Add this line
 
 
     // ==== CORS ====

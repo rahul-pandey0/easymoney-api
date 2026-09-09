@@ -15,9 +15,9 @@ public interface IBranchService
     Task<List<BranchDto>> GetByTenantAsync(long tenantId);
 
     Task<IReadOnlyList<BranchDto>> GetAllAsync();
-    Task<BranchDto> UpdateAsync(
-        long branchId,
-        UpdateBranchRequest request);
+    Task<BranchDto> UpdateAsync( long branchId,UpdateBranchRequest request);
+    Task<BranchDto> UpdateBranchAsync(BranchDto b);
+    Task<BranchDto> GetByIdAsync(long? branchId);
 }
 
 public class BranchService : IBranchService
@@ -50,12 +50,8 @@ public class BranchService : IBranchService
         }
 
 
-        // Generate Branch Code
-        var lastBranch = await _db.Branches
-            .IgnoreQueryFilters()
-            .Where(b => b.TenantId == tenantId)
-            .OrderByDescending(b => b.BranchId)
-            .FirstOrDefaultAsync();
+        var lastBranch = await _db.Branches .IgnoreQueryFilters()  .Where(b => b.TenantId == tenantId)
+            .OrderByDescending(b => b.BranchId)  .FirstOrDefaultAsync();
 
         int sequence = 1;
 
@@ -68,9 +64,7 @@ public class BranchService : IBranchService
 
 
         // Check duplicate
-        var exists = await _db.Branches
-            .AnyAsync(x =>
-                x.TenantId == tenantId &&
+        var exists = await _db.Branches .AnyAsync(x =>x.TenantId == tenantId &&
                 x.BranchCode == branchCode);
 
         if (exists)
@@ -80,9 +74,7 @@ public class BranchService : IBranchService
         var branch = new Branch
         {
             TenantId = tenantId,
-
-            BranchCode = branchCode,   // <-- use generated code here
-
+            BranchCode = branchCode,   
             BranchName = request.BranchName,
             BankId = request.BankId,
             RegistrationNo = request.RegistrationNo,
@@ -116,7 +108,11 @@ public class BranchService : IBranchService
             OtherBank2 = request.OtherBank2,
 
             CreatedAt = DateTime.UtcNow,
-            CreatedBy = _ctx.UserId
+            CreatedBy = _ctx.UserId,
+            PreviousDate =request.PreviousDate,
+            NextDate =request.NextDate,
+            CurrentDate =request.CurrentDate
+
                 ?? throw new DomainException("User is not authenticated")
         };
 
@@ -126,6 +122,25 @@ public class BranchService : IBranchService
         return ToDto(branch);
     }
     public async Task<BranchDto?> GetByIdAsync(long branchId)
+    {
+        Console.WriteLine($"Current TenantId: {_ctx.TenantId}");
+
+        var branch = await _db.Branches
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.BranchId == branchId);
+
+        if (branch == null)
+        {
+            Console.WriteLine("Branch not found");
+            return null;
+        }
+
+        Console.WriteLine($"Found Branch TenantId: {branch.TenantId}");
+
+        return ToDto(branch);
+    }
+
+    public async Task<BranchDto> GetByIdAsync(long? branchId)
     {
         Console.WriteLine($"Current TenantId: {_ctx.TenantId}");
 
@@ -154,46 +169,48 @@ public class BranchService : IBranchService
 
         return branches.Select(ToDto).ToList();
     }
-    private static BranchDto ToDto(Branch x)
+    private static BranchDto ToDto(Branch branch)
     {
-        return new BranchDto(
-            x.BranchId,
-            x.TenantId,
-            x.BranchCode,
-            x.BranchName,
-            x.BankId,
-            x.RegistrationNo,
-            x.RegistrationDate,
-            x.BranchRegistrationDate,
-            x.Address,
-            x.PhoneNumber,
-            x.Email,
-            x.ReferenceNo,
-            x.CashGlId,
-            x.AdjustmentGlId,
-            x.TransferGlId,
-            x.BiddingDate,
-            x.CutoffDate,
-            x.BonusPaymentDate,
-            x.Status,
-            x.MinimumRate,
-            x.MaximumRate,
-            x.Penalty,
-            x.DoublePaymentAllowed,
-            x.MinimumIncrementAmount,
-            x.MinimumInstallmentAmount,
-            x.MaximumInstallmentAmount,
-            x.OtherBank1,
-            x.OtherBank2,
-            x.CreatedAt
+        return new BranchDto( 
+            branch.BranchId,
+               branch.TenantId,
+               branch.BranchCode,
+               branch.BranchName,
+               branch.BankId,
+               branch.RegistrationNo,
+               branch.RegistrationDate,
+               branch.BranchRegistrationDate,
+               branch.Address,
+               branch.PhoneNumber,
+               branch.Email,
+               branch.ReferenceNo,
+               branch.CashGlId,
+               branch.AdjustmentGlId,
+               branch.TransferGlId,
+               branch.BiddingDate,
+               branch.CutoffDate,
+               branch.BonusPaymentDate,
+               branch.Status,
+               branch.MinimumRate,
+               branch.MaximumRate,
+               branch.Penalty,
+               branch.DoublePaymentAllowed,
+               branch.MinimumIncrementAmount,
+               branch.MinimumInstallmentAmount,
+               branch.MaximumInstallmentAmount,
+               branch.OtherBank1,
+               branch.OtherBank2,
+               branch.CreatedAt,
+               branch.ModifiedAt,
+               branch.ModifiedBy,
+               branch.PreviousDate,
+               branch.CurrentDate,
+               branch.NextDate
         );
     }
-    public async Task<BranchDto> UpdateAsync(
-    long branchId,
-    UpdateBranchRequest request)
+    public async Task<BranchDto> UpdateAsync( long branchId, UpdateBranchRequest request)
     {
-        var branch = await _db.Branches
-            .FirstOrDefaultAsync(x => x.BranchId == branchId);
+        var branch = await _db.Branches.FirstOrDefaultAsync(x => x.BranchId == branchId);
 
         if (branch == null)
             throw new DomainException("Branch not found");
@@ -206,80 +223,59 @@ public class BranchService : IBranchService
         branch.BranchCode = request.BranchCode;
         branch.BranchName = request.BranchName;
         branch.BankId = request.BankId;
-
         branch.RegistrationNo = request.RegistrationNo;
         branch.RegistrationDate = request.RegistrationDate;
         branch.BranchRegistrationDate = request.BranchRegistrationDate;
-
         branch.Address = request.Address;
         branch.PhoneNumber = request.PhoneNumber;
         branch.Email = request.Email;
-
         branch.ReferenceNo = request.ReferenceNo;
-
         branch.CashGlId = request.CashGlId;
         branch.AdjustmentGlId = request.AdjustmentGlId;
         branch. TransferGlId = request.TransferGlId;
-
         branch.BiddingDate = request.BiddingDate;
         branch.CutoffDate = request.CutoffDate;
         branch.BonusPaymentDate = request.BonusPaymentDate;
-
         branch.Status = request.Status;
-
         branch.MinimumRate = request.MinimumRate;
         branch.MaximumRate = request.MaximumRate;
         branch.Penalty = request.Penalty;
-
         branch.DoublePaymentAllowed = request.DoublePaymentAllowed;
-
         branch.MinimumIncrementAmount = request.MinimumIncrementAmount;
         branch.MinimumInstallmentAmount = request.MinimumInstallmentAmount;
         branch.MaximumInstallmentAmount = request.MaximumInstallmentAmount;
-
         branch.OtherBank1 = request.OtherBank1;
         branch.OtherBank2 = request.OtherBank2;
-
-        //branch.UpdatedAt = DateTime.UtcNow;
-        //branch.UpdatedBy = _ctx.UserId;
-
+        branch.ModifiedAt = DateTime.UtcNow;
+        branch.ModifiedBy = _ctx.UserId;
+        branch.PreviousDate = request.PreviousDate;
+        branch.CurrentDate = request.CurrentDate;
+        branch.NextDate = request.NextDate;
 
         await _db.SaveChangesAsync();
 
+        return MapToBranchDto(branch);
 
-        return new BranchDto(
-            branch.BranchId,
-            branch.TenantId,
-            branch.BranchCode,
-            branch.BranchName,
-            branch.BankId,
-            branch.RegistrationNo,
-            branch.RegistrationDate,
-            branch.BranchRegistrationDate,
-            branch.Address,
-            branch.PhoneNumber,
-            branch.Email,
-            branch.ReferenceNo,
-            branch.CashGlId,
-            branch.AdjustmentGlId,
-            branch.TransferGlId,
-            branch.BiddingDate,
-            branch.CutoffDate,
-            branch.BonusPaymentDate,
-            branch.Status,
-            branch.MinimumRate,
-            branch.MaximumRate,
-            branch.Penalty,
-            branch.DoublePaymentAllowed,
-            branch.MinimumIncrementAmount,
-            branch.MinimumInstallmentAmount,
-            branch.MaximumInstallmentAmount,
-            branch.OtherBank1,
-            branch.OtherBank2,
-            branch.CreatedAt
-        );
     }
 
+
+    public async Task<BranchDto> UpdateBranchAsync(BranchDto b) 
+    {
+        var branch = await _db.Branches.FirstOrDefaultAsync(x => x.BranchId == b.BranchId);
+
+        if (branch == null)
+            throw new DomainException("Branch not found");
+
+        if (!_ctx.IsSifin && branch.TenantId != _ctx.TenantId)
+            throw new DomainException("Unauthorized access");
+    
+        branch.PreviousDate = b.PreviousDate;
+        branch.CurrentDate = b.CurrentDate;
+        branch.NextDate = b.NextDate;
+
+        await _db.SaveChangesAsync();
+        return MapToBranchDto(branch);
+    }
     public async Task<List<BranchDto>> GetByTenantAsync(long tenantId)
     {
         Console.WriteLine($"Current TenantId: {_ctx.TenantId}");
@@ -298,5 +294,45 @@ public class BranchService : IBranchService
         Console.WriteLine($"Found {branches.Count} branches");
 
         return branches.Select(b => ToDto(b)).ToList();
+    }
+    private BranchDto MapToBranchDto(Branch branch)
+    {
+        return new BranchDto(
+                    branch.BranchId,
+                    branch.TenantId,
+                    branch.BranchCode,
+                    branch.BranchName,
+                    branch.BankId,
+                    branch.RegistrationNo,
+                    branch.RegistrationDate,
+                    branch.BranchRegistrationDate,
+                    branch.Address,
+                    branch.PhoneNumber,
+                    branch.Email,
+                    branch.ReferenceNo,
+                    branch.CashGlId,
+                    branch.AdjustmentGlId,
+                    branch.TransferGlId,
+                    branch.BiddingDate,
+                    branch.CutoffDate,
+                    branch.BonusPaymentDate,
+                    branch.Status,
+                    branch.MinimumRate,
+                    branch.MaximumRate,
+                    branch.Penalty,
+                    branch.DoublePaymentAllowed,
+                    branch.MinimumIncrementAmount,
+                    branch.MinimumInstallmentAmount,
+                    branch.MaximumInstallmentAmount,
+                    branch.OtherBank1,
+                    branch.OtherBank2,
+                    branch.CreatedAt,
+                    branch.ModifiedAt,
+                    branch.ModifiedBy,
+                    branch.PreviousDate,
+                    branch.CurrentDate,
+                    branch.NextDate
+                 );
+
     }
 }

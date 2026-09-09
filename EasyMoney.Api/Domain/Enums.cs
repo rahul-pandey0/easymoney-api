@@ -19,7 +19,7 @@ public enum KycDocType
 public enum KycDocStatus { UPLOADED, VERIFIED, REJECTED }
 public enum AuthStatus { PENDING, APPROVED, REJECTED }
 
-public enum AccountStatus { ACTIVE, PRIZED, EXITED, COMPLETED, SUSPENDED }
+public enum AccountStatus { ACTIVE, PRIZED, EXITED, COMPLETED, SUSPENDED, CLOSED }
 public enum CycleStatus { OPEN, CLOSED, RESOLVED, NO_BID }
 public enum LoanStatus { ACTIVE, REPAID, PENDING , APPROVED , DEFAULTED , CANCELLED }
 public enum LedgerEntryType
@@ -106,4 +106,11 @@ public enum ReportsType
     LoanReport=7,
     BiddingReports= 8,
     InstallmentPayments=9,
+    BidderList = 10,  
+    PereviousBidder = 11,  
+    ClosureReport = 12, 
+    Bonusreports=13,
+
 }
+
+

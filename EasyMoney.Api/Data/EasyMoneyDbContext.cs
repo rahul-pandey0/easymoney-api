@@ -1,6 +1,7 @@
 using EasyMoney.Api.Auth;
 using EasyMoney.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection.Emit;
 using static Dapper.SqlMapper;
 
 namespace EasyMoney.Api.Data;
@@ -34,6 +35,8 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
     public DbSet<KycReview> KycReviews => Set<KycReview>();
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<AccountClosure> AccountClosure => Set<AccountClosure>();
+
     public DbSet<BiddingCycle> BiddingCycles => Set<BiddingCycle>();
     public DbSet<Bid> Bids => Set<Bid>();
     public DbSet<Loan> Loans => Set<Loan>();
@@ -53,6 +56,9 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<PaymentDetail> PaymentDetail => Set<PaymentDetail>();
+    public DbSet<BonusDetail> BonusDetails => Set<BonusDetail>(); 
+    public DbSet<Bonus> Bonus => Set<Bonus>();  
+    public DbSet<BonusDistribution> BonusDistribution => Set<BonusDistribution>(); 
 
 
     //public DbSet<IndividualDetail> IndividualDetails { get; set; }
@@ -183,6 +189,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.MinimumInstallmentAmount).HasColumnName("minimum_installment_amount");
             e.Property(x => x.MaximumInstallmentAmount).HasColumnName("maximum_installment_amount");
 
+            e.Property(x => x.BonusGl).HasColumnName("bonus_gl");
+            e.Property(x => x.BonusGlId).HasColumnName("bonus_gl_id");
         });
 
         b.Entity<SchemeMaster>(e =>
@@ -746,11 +754,50 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.FirstPaymentFlag).HasColumnName("first_payment_flag");
             e.Property(x => x.IsBidding).HasColumnName("is_bidding");
             e.Property(x => x.CustomerCode).HasColumnName("customer_code");
+            e.Property(x => x.ClosedDate).HasColumnName("closed_date");
 
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
+        b.Entity<AccountClosure>(e =>
+        {
+            e.ToTable("account_closure");
+            e.HasKey(x => x.ClosureId);
+            e.Property(x => x.ClosureId).HasColumnName("closure_id"); 
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+            e.Property(x => x.AccountId).HasColumnName("account_id");
+            e.Property(x => x.AccountNumber).HasColumnName("account_number");
+            e.Property(x => x.CustomerName).HasColumnName("customer_name");
+            e.Property(x => x.PhoneNo).HasColumnName("phone_no");
+            e.Property(x => x.InstallmentAmount).HasColumnName("installment_amount");
+            e.Property(x => x.TargetAmount).HasColumnName("target_amount").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.LoanAmount).HasColumnName("loan_amount").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.ClosureDate).HasColumnName("closure_date");
+            e.Property(x => x.Duration).HasColumnName("duration");
+            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.ServFeeRate).HasColumnName("serv_fee_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.ServiceFee).HasColumnName("service_fee").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.AmountPayable).HasColumnName("amount_payable").HasColumnType("decimal(14,2)").HasDefaultValue(0m);
+            e.Property(x => x.PaymentMode).HasColumnName("payment_mode");
+            e.Property(x => x.GlName).HasColumnName("gl_name");
+            e.Property(x => x.VoucherNo).HasColumnName("voucher_no");
+            e.Property(x => x.Remarks).HasColumnName("remarks");
+            e.Property(x => x.Status).HasColumnName("status").HasConversion<string>();
+            e.Property(x => x.ClosedAt).HasColumnName("closed_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.Durations).HasColumnName("durations");
+            e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
+            e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+
+            e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+        });
         b.Entity<BiddingCycle>(e =>
         {
             e.ToTable("bidding_cycle");
@@ -799,6 +846,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.AllotmentAmount).HasColumnName("allotment_amount");
             e.Property(x => x.TragetAmount).HasColumnName("target_amount");
             e.Property(x => x.TenantCommissionPct).HasColumnName("tenant_commission_pct");
+            e.Property(x => x.BidReferenceNo).HasColumnName("bid_reference_no");
 
 
         });
@@ -847,6 +895,18 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.LoanReleaseStatus).HasColumnName("loan_release_status");
             e.Property(x => x.Remarks).HasColumnName("remark");
             e.Property(x => x.DisbursementStatus).HasColumnName("disbursement_status");
+
+
+            e.Property(x => x.LoanReferenceNo).HasColumnName("loan_reference_no");
+            e.Property(x => x.BidReferenceNo).HasColumnName("bid_reference_no");
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount");
+            e.Property(x => x.BranchCode).HasColumnName("branch_code");
+            e.Property(x => x.TenantCommission).HasColumnName("tenant_commission");
+            e.Property(x => x.TotalDeductions).HasColumnName("total_deductions");
+
+
+
+
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
 
@@ -1133,102 +1193,72 @@ public class EasyMoneyDbContext : DbContext
 
             e.Property(x => x.BranchId).HasColumnName("branch_id");
             e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchCode).HasColumnName("branch_code") .HasMaxLength(20);
 
-            e.Property(x => x.BranchCode)
-                .HasColumnName("branch_code")
-                .HasMaxLength(20);
-
-            e.Property(x => x.BranchName)
-                .HasColumnName("branch_name")
+            e.Property(x => x.BranchName).HasColumnName("branch_name")
                 .HasMaxLength(100);
 
             e.Property(x => x.BankId).HasColumnName("bank_id");
 
-            e.Property(x => x.RegistrationNo)
-                .HasColumnName("registration_no");
+            e.Property(x => x.RegistrationNo).HasColumnName("registration_no");
 
-            e.Property(x => x.RegistrationDate)
-                .HasColumnName("registration_date");
+            e.Property(x => x.RegistrationDate).HasColumnName("registration_date");
 
-            e.Property(x => x.BranchRegistrationDate)
-                .HasColumnName("branch_registration_date");
+            e.Property(x => x.BranchRegistrationDate).HasColumnName("branch_registration_date");
 
-            e.Property(x => x.Address)
-                .HasColumnName("address");
+            e.Property(x => x.Address).HasColumnName("address");
 
-            e.Property(x => x.PhoneNumber)
-                .HasColumnName("phone_number");
+            e.Property(x => x.PhoneNumber).HasColumnName("phone_number");
 
             //e.Property(x => x.Fax)
             //    .HasColumnName("fax");
 
-            e.Property(x => x.Email)
-                .HasColumnName("email");
+            e.Property(x => x.Email).HasColumnName("email");
 
-            e.Property(x => x.ReferenceNo)
-                .HasColumnName("reference_no");
+            e.Property(x => x.ReferenceNo).HasColumnName("reference_no");
 
-            e.Property(x => x.CashGlId)
-                .HasColumnName("cash_gl_id");
+            e.Property(x => x.CashGlId).HasColumnName("cash_gl_id");
 
-            e.Property(x => x.TransferGlId)
-               .HasColumnName("transfer_gl_id");
+            e.Property(x => x.TransferGlId).HasColumnName("transfer_gl_id");
 
 
-            e.Property(x => x.AdjustmentGlId)
-                .HasColumnName("adjustment_gl_id");
+            e.Property(x => x.AdjustmentGlId).HasColumnName("adjustment_gl_id");
 
-            e.Property(x => x.BiddingDate)
-                .HasColumnName("bidding_date");
+            e.Property(x => x.BiddingDate).HasColumnName("bidding_date");
 
-            e.Property(x => x.CutoffDate)
-                .HasColumnName("cutoff_date");
+            e.Property(x => x.CutoffDate).HasColumnName("cutoff_date");
 
-            e.Property(x => x.BonusPaymentDate)
-                .HasColumnName("bonus_payment_date");
+            e.Property(x => x.BonusPaymentDate).HasColumnName("bonus_payment_date");
 
-            e.Property(x => x.Status)
-                 .HasColumnName("status")
-                 .HasConversion<string>();
+            e.Property(x => x.Status).HasColumnName("status").HasConversion<string>();
 
-            e.Property(x => x.MinimumRate)
-                .HasColumnName("minimum_rate");
+            e.Property(x => x.MinimumRate).HasColumnName("minimum_rate");
 
-            e.Property(x => x.MaximumRate)
-                .HasColumnName("maximum_rate");
+            e.Property(x => x.MaximumRate).HasColumnName("maximum_rate");
 
-            e.Property(x => x.Penalty)
-                .HasColumnName("penalty");
+            e.Property(x => x.Penalty).HasColumnName("penalty");
 
-            e.Property(x => x.DoublePaymentAllowed)
-                .HasColumnName("double_payment_allowed");
+            e.Property(x => x.DoublePaymentAllowed).HasColumnName("double_payment_allowed");
 
-            e.Property(x => x.MinimumInstallmentAmount)
-                .HasColumnName("minimum_installment_amount");
+            e.Property(x => x.MinimumInstallmentAmount).HasColumnName("minimum_installment_amount");
 
-            e.Property(x => x.MaximumInstallmentAmount)
-                .HasColumnName("maximum_installment_amount");
+            e.Property(x => x.MaximumInstallmentAmount).HasColumnName("maximum_installment_amount");
 
-            e.Property(x => x.MinimumIncrementAmount)
-                .HasColumnName("minimum_increment_amount");
+            e.Property(x => x.MinimumIncrementAmount).HasColumnName("minimum_increment_amount");
 
-            e.Property(x => x.OtherBank1)
-                .HasColumnName("other_bank1");
+            e.Property(x => x.OtherBank1) .HasColumnName("other_bank1");
 
-            e.Property(x => x.OtherBank2)
-                .HasColumnName("other_bank2");
+            e.Property(x => x.OtherBank2).HasColumnName("other_bank2");
 
-            e.Property(x => x.CreatedAt)
-                .HasColumnName("created_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+              e.Property(x => x.CreatedBy).HasColumnName("created_by");
 
-            e.Property(x => x.CreatedBy)
-                .HasColumnName("created_by");
+            e.Property(x => x.ModifiedAt).HasColumnName("modified_at");
 
-            e.Property(x => x.ModifiedAt)
-                .HasColumnName("modified_at");
-
-            e.Property(x => x.ModifiedBy)
-                .HasColumnName("modified_by");
+            e.Property(x => x.ModifiedBy).HasColumnName("modified_by");
+            e.Property(x => x.PreviousDate).HasColumnName("previous_date");
+            e.Property(x => x.CurrentDate).HasColumnName("current_date");
+            e.Property(x => x.NextDate).HasColumnName("next_date");
 
             e.HasIndex(x => new { x.TenantId, x.BranchCode })
                 .IsUnique();
@@ -1259,109 +1289,139 @@ public class EasyMoneyDbContext : DbContext
                   .HasMaxLength(20);
         });
 
-        //b.Entity<IndividualDetail>(e =>
-        //{
-        //    e.ToTable("individual_detail");
+        b.Entity<Bonus>(e =>
+        {
+            e.ToTable("bonus");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.BidReferenceNo).HasColumnName("bid_reference_no").HasMaxLength(45);
+            e.Property(x => x.BounsAmount).HasColumnName("bonus_amount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.BidDate).HasColumnName("bid_date");
+            e.Property(x => x.RecordStatus).HasColumnName("record_status").HasMaxLength(1);
+            e.Property(x => x.AuthStatus).HasColumnName("auth_status").HasMaxLength(1);
+            e.Property(x => x.AuthorisedBy).HasColumnName("authorised_by");
+            e.Property(x => x.AuthorisedDate).HasColumnName("authorised_date");
+            e.Property(x => x.BranchCode).HasColumnName("branch_code").HasMaxLength(45);
+            e.Property(x => x.CoopCode).HasColumnName("coop_code").HasMaxLength(45);
+            e.Property(x => x.BonusRate).HasColumnName("bonus_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.TotalMembers).HasColumnName("total_members");
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20);
+            e.Property(x => x.DistributedDate).HasColumnName("distributed_date");
+            e.Property(x => x.DistributedStatus).HasColumnName("distributed_status");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.HasIndex(x => x.BidReferenceNo).HasDatabaseName("idx_bid_reference_no");
+            e.HasIndex(x => new { x.BranchCode, x.BranchId }).HasDatabaseName("idx_branch");
+            e.HasIndex(x => x.TenantId).HasDatabaseName("idx_tenant");
+            e.HasIndex(x => x.Status).HasDatabaseName("idx_status");
 
-        //    e.HasKey(x => x.IndividualDetailId);
+            // Tenant Filter
+            e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+        });
 
-        //    e.Property(x => x.IndividualDetailId).HasColumnName("individual_detail_id");
+        // ============================================
+        // BONUS DETAILS ENTITY CONFIGURATION
+        // ============================================
+        b.Entity<BonusDetail>(e =>
+        {
+            e.ToTable("bonus_details");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
 
-        //    // Personal Details
-        //    e.Property(x => x.CustomerId).HasColumnName("customer_id").HasMaxLength(45);
-        //    e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
-        //    e.Property(x => x.FatherOrSpouseName).HasColumnName("father_or_spouse_name").HasMaxLength(100);
-        //    e.Property(x => x.Address).HasColumnName("address");
-        //    e.Property(x => x.MobileNumber).HasColumnName("mobile_number").HasMaxLength(20);
-        //    e.Property(x => x.ResidencePhone).HasColumnName("residence_phone").HasMaxLength(20);
-        //    e.Property(x => x.OfficePhone).HasColumnName("office_phone").HasMaxLength(20);
-        //    e.Property(x => x.Email).HasColumnName("email").HasMaxLength(100);
-        //    e.Property(x => x.DateOfBirth).HasColumnName("date_of_birth");
-        //    e.Property(x => x.Age).HasColumnName("age");
-        //    e.Property(x => x.Education).HasColumnName("education").HasMaxLength(100);
-        //    e.Property(x => x.MaritalStatus).HasColumnName("marital_status").HasMaxLength(30);
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.BidReferenceNo).HasColumnName("bid_reference_no").HasMaxLength(45);
+            e.Property(x => x.EMReferenceNo).HasColumnName("em_reference_no").HasMaxLength(45);
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.dtDate).HasColumnName("dt_date");
+            e.Property(x => x.BranchCode).HasColumnName("branch_code").HasMaxLength(45);
+            e.Property(x => x.CoopCode).HasColumnName("coop_code").HasMaxLength(45);
+            e.Property(x => x.BonusRate).HasColumnName("bonus_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.LoanReferenceNo).HasColumnName("loan_reference_no").HasMaxLength(45);
+            e.Property(x => x.MemberId).HasColumnName("member_id");
+            e.Property(x => x.MemberName).HasColumnName("member_name").HasMaxLength(255);
+            e.Property(x => x.MonthlyAmount).HasColumnName("monthly_amount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasColumnType("decimal(18,2)");
+            e.Property(x => x.TotalBonusAmount).HasColumnName("total_bonus_amount").HasColumnType("decimal(18,2)");
+            //e.Property(x => x.BiddingRate).HasColumnName("bidding_rate").HasColumnType("decimal(10,2)");
+            //e.Property(x => x.BankCommissionRate).HasColumnName("bank_commission_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20);
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
 
-        //    // ID Details
-        //    e.Property(x => x.IdType).HasColumnName("id_type").HasMaxLength(50);
-        //    e.Property(x => x.IdNumber).HasColumnName("id_number").HasMaxLength(100);
-        //    e.Property(x => x.AddressProof).HasColumnName("address_proof").HasMaxLength(100);
-        //    e.Property(x => x.DocumentNumber).HasColumnName("document_number").HasMaxLength(100);
-        //    e.Property(x => x.CustomerImage).HasColumnName("customer_image").HasMaxLength(255);
-        //    e.Property(x => x.IdImage).HasColumnName("id_image").HasMaxLength(255);
-        //    e.Property(x => x.DocumentImage).HasColumnName("document_image").HasMaxLength(255);
+            // Indexes
+            e.HasIndex(x => x.BidReferenceNo).HasDatabaseName("idx_bid_reference_no");
+            e.HasIndex(x => x.EMReferenceNo).HasDatabaseName("idx_em_reference_no");
+            e.HasIndex(x => x.LoanReferenceNo).HasDatabaseName("idx_loan_reference_no");
+            e.HasIndex(x => new { x.BranchCode, x.BranchId }).HasDatabaseName("idx_branch");
+            e.HasIndex(x => x.TenantId).HasDatabaseName("idx_tenant");
+            e.HasIndex(x => x.MemberId).HasDatabaseName("idx_member");
+            e.HasIndex(x => x.dtDate).HasDatabaseName("idx_dt_date");
+            e.HasIndex(x => x.Status).HasDatabaseName("idx_status");
+            e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+        });
+        b.Entity<BonusDistribution>(e =>
+        {
+            e.ToTable("bonus_distribution");
+            e.HasKey(x => x.DistributionId);
 
-        //    // Member Details
-        //    //e.Property(x => x.MembershipNumber).HasColumnName("membership_number").HasMaxLength(50);
-        //    //e.Property(x => x.AccountType).HasColumnName("account_type").HasMaxLength(30);
-        //    //e.Property(x => x.AccountNumber).HasColumnName("account_number").HasMaxLength(50);
+            e.Property(x => x.DistributionId).HasColumnName("distribution_id").ValueGeneratedOnAdd();
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.BranchCode).HasColumnName("branch_code").HasMaxLength(50);
+            e.Property(x => x.BidReferenceNo).HasColumnName("bid_reference_no").HasMaxLength(50).IsRequired();
+            e.Property(x => x.CycleId).HasColumnName("cycle_id");
+            e.Property(x => x.AccountId).HasColumnName("account_id").IsRequired();
+            e.Property(x => x.AccountNumber).HasColumnName("account_number").HasMaxLength(30).IsRequired();
+            e.Property(x => x.MemberId).HasColumnName("member_id").IsRequired();
+            e.Property(x => x.MemberName).HasColumnName("member_name").HasMaxLength(100);
+            e.Property(x => x.CustomerCode).HasColumnName("customer_code").HasMaxLength(15);
+            e.Property(x => x.MonthlyContribution).HasColumnName("monthly_contribution").HasColumnType("decimal(15,2)");
+            e.Property(x => x.BonusAmount).HasColumnName("bonus_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.InterestAmount).HasColumnName("interest_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.TotalAmount).HasColumnName("total_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.BonusRate).HasColumnName("bonus_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.InterestRate).HasColumnName("interest_rate").HasColumnType("decimal(5,2)");
+            e.Property(x => x.BiddingRate).HasColumnName("bidding_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.CommissionRate).HasColumnName("commission_rate").HasColumnType("decimal(10,2)");
+            e.Property(x => x.DistributionDate).HasColumnName("distribution_date");
+            e.Property(x => x.BidDate).HasColumnName("bid_date");
+            e.Property(x => x.PayDate).HasColumnName("pay_date");
+            e.Property(x => x.Status).HasColumnName("status").HasMaxLength(20);
+            e.Property(x => x.IsApproved).HasColumnName("is_approved");
+            e.Property(x => x.ApprovedBy).HasColumnName("approved_by");
+            e.Property(x => x.ApprovedAt).HasColumnName("approved_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.Remarks).HasColumnName("remarks").HasMaxLength(255);
+            e.Property(x => x.ReferenceNo).HasColumnName("reference_no").HasMaxLength(100);
+            e.Property(x => x.SourceType).HasColumnName("source_type").HasMaxLength(50);
 
-        //    // Other Bank Details
-        //    e.Property(x => x.BankName).HasColumnName("bank_name").HasMaxLength(100);
-        //    e.Property(x => x.SavingsAccountNumber).HasColumnName("savings_account_number").HasMaxLength(50);
-        //    e.Property(x => x.CurrentAccountNumber).HasColumnName("current_account_number").HasMaxLength(50);
+            // Indexes
+            e.HasIndex(x => new { x.TenantId, x.BranchId }).HasDatabaseName("idx_tenant_branch");
+            e.HasIndex(x => x.BidReferenceNo).HasDatabaseName("idx_bid_reference");
+            e.HasIndex(x => x.AccountId).HasDatabaseName("idx_account");
+            e.HasIndex(x => x.AccountNumber).HasDatabaseName("idx_account_number");
+            e.HasIndex(x => x.MemberId).HasDatabaseName("idx_member");
+            e.HasIndex(x => x.DistributionDate).HasDatabaseName("idx_distribution_date");
+            e.HasIndex(x => x.Status).HasDatabaseName("idx_status");
+            e.HasIndex(x => x.CycleId).HasDatabaseName("idx_cycle");
+            e.HasIndex(x => new { x.DistributionDate, x.Status }).HasDatabaseName("idx_month_year");
+            e.HasIndex(x => new { x.TenantId, x.BidReferenceNo, x.Status }).HasDatabaseName("idx_tenant_bid_status");
+            e.HasIndex(x => x.BonusAmount).HasDatabaseName("idx_bonus_amount");
 
-        //    // KYC
-        //    e.Property(x => x.NomineeName).HasColumnName("nominee_name").HasMaxLength(100);
-        //    e.Property(x => x.NomineeRelation).HasColumnName("nominee_relation").HasMaxLength(50);
-        //    e.Property(x => x.NomineeDob).HasColumnName("nominee_dob");
-        //    e.Property(x => x.Occupation).HasColumnName("occupation").HasMaxLength(100);
-        //    e.Property(x => x.AnnualIncomeBand).HasColumnName("annual_income_band").HasMaxLength(50);
-        //    e.Property(x => x.PermanentAddressLine).HasColumnName("permanent_address_line");
-        //    e.Property(x => x.PermanentCity).HasColumnName("permanent_city").HasMaxLength(100);
-        //    e.Property(x => x.PermanentState).HasColumnName("permanent_state").HasMaxLength(100);
-        //    e.Property(x => x.PermanentPincode).HasColumnName("permanent_pincode").HasMaxLength(20);
-        //    e.Property(x => x.Gender).HasColumnName("gender").HasMaxLength(20);
-        //    e.Property(x => x.PanNumber).HasColumnName("pan_number").HasMaxLength(20);
-        //    e.Property(x => x.AadhaarNumber).HasColumnName("aadhaar_number").HasMaxLength(20);
+            // Relationships
+         
 
-        //    // Family Details
-        //    e.Property(x => x.TotalFamilyMembers).HasColumnName("total_family_members");
-        //    e.Property(x => x.DependentFamilyMembers).HasColumnName("dependent_family_members");
-        //    e.Property(x => x.EarningFamilyMembers).HasColumnName("earning_family_members");
-        //    e.Property(x => x.AdditionalPersonalDetails).HasColumnName("additional_personal_details");
-        //    e.Property(x => x.Remarks).HasColumnName("remarks");
-        //    e.Property(x => x.Remarks1).HasColumnName("remarks1");
-
-        //    // Vehicle Details
-        //    e.Property(x => x.BikeModel).HasColumnName("bike_model").HasMaxLength(100);
-        //    e.Property(x => x.BikeCompany).HasColumnName("bike_company").HasMaxLength(100);
-        //    e.Property(x => x.CarModel).HasColumnName("car_model").HasMaxLength(100);
-        //    e.Property(x => x.CarCompany).HasColumnName("car_company").HasMaxLength(100);
-        //    e.Property(x => x.TractorModel).HasColumnName("tractor_model").HasMaxLength(100);
-        //    e.Property(x => x.TractorCompany).HasColumnName("tractor_company").HasMaxLength(100);
-        //    e.Property(x => x.HeavyVehicleModel).HasColumnName("heavy_vehicle_model").HasMaxLength(100);
-        //    e.Property(x => x.HeavyVehicleCompany).HasColumnName("heavy_vehicle_company").HasMaxLength(100);
-
-        //    // Property Details
-        //    e.Property(x => x.AgricultureLand).HasColumnName("agriculture_land");
-        //    e.Property(x => x.AgricultureArea).HasColumnName("agriculture_area").HasColumnType("decimal(18,2)");
-        //    e.Property(x => x.AgricultureSurveyNo).HasColumnName("agriculture_survey_no").HasMaxLength(100);
-        //    e.Property(x => x.AgricultureValue).HasColumnName("agriculture_value").HasColumnType("decimal(18,2)");
-
-        //    e.Property(x => x.SiteDetails).HasColumnName("site_details");
-        //    e.Property(x => x.SiteArea).HasColumnName("site_area").HasColumnType("decimal(18,2)");
-        //    e.Property(x => x.SiteSurveyNo).HasColumnName("site_survey_no").HasMaxLength(100);
-        //    e.Property(x => x.SiteValue).HasColumnName("site_value").HasColumnType("decimal(18,2)");
-
-        //    e.Property(x => x.PlantationDetails).HasColumnName("plantation_details");
-        //    e.Property(x => x.PlantationArea).HasColumnName("plantation_area").HasColumnType("decimal(18,2)");
-        //    e.Property(x => x.PlantationSurveyNo).HasColumnName("plantation_survey_no").HasMaxLength(100);
-        //    e.Property(x => x.PlantationValue).HasColumnName("plantation_value").HasColumnType("decimal(18,2)");
-
-        //    e.Property(x => x.HouseDetails).HasColumnName("house_details");
-        //    e.Property(x => x.HouseArea).HasColumnName("house_area").HasColumnType("decimal(18,2)");
-        //    e.Property(x => x.HouseNumber).HasColumnName("house_number").HasMaxLength(100);
-        //    e.Property(x => x.HouseValue).HasColumnName("house_value").HasColumnType("decimal(18,2)");
-
-        //    // Occupational Details
-        //    e.Property(x => x.EmploymentNature).HasColumnName("employment_nature").HasMaxLength(100);
-        //    e.Property(x => x.EmployerName).HasColumnName("employer_name").HasMaxLength(150);
-        //    e.Property(x => x.SalaryDetails).HasColumnName("salary_details").HasColumnType("decimal(18,2)");
-        //    e.Property(x => x.Designation).HasColumnName("designation").HasMaxLength(100);
-        //    e.Property(x => x.OrganizationNature).HasColumnName("organization_nature").HasMaxLength(100);
-        //    e.Property(x => x.Department).HasColumnName("department").HasMaxLength(100);
-        //    e.Property(x => x.OfficeAddress).HasColumnName("office_address");
-        //});
+            // Tenant Filter (Global Query Filter)
+            e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
+        });
 
     }
     private static string IncomeBandToDb(IncomeBand b) => b switch

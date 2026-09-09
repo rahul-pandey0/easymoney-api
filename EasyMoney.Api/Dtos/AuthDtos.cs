@@ -13,19 +13,37 @@ public record LoginResponse(
     string Role,
     long? TenantId, 
     long? MemberId, 
-    string? TenantName, 
-    long ? BranchId, 
-    string ? BranchName
+    string? TenantName,
+    long ? BranchId,
+    string? BranchName,
+    DateOnly? previousDate,
+    DateOnly? CurrentDate,
+    DateOnly? Nextdate
+
 
     );
-
+public record BranchsDto(
+    long BranchId,
+    long TenantId,
+    string BranchCode,
+    string BranchName,
+    string? PreviousDate,
+    string? CurrentDate,
+    string? NextDate,
+    string Status,
+    string Address,
+    string? PhoneNumber,
+    string? Email
+);
 public record MeResponse(
     long UserId,
     string Email,
     string Role,
     long? TenantId,
     long? MemberId,
-    bool IsActive);
+    bool IsActive,
+    long? Branchid
+    );
 
 public record CreateUserRequest(
     string Email,
