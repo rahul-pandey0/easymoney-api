@@ -51,7 +51,18 @@ public class AuthController : ControllerBase
         var u = await _db.AppUsers.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.UserId == userId);
         if (u is null) return Unauthorized();
         var branch = _db.Branches.IgnoreQueryFilters().FirstOrDefault(b => b.BranchId == u.BranchId);
-        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId,branch.BranchName,
-            branch.PreviousDate,  branch.CurrentDate, branch.NextDate));
+        string? branchName = null;
+        DateOnly? previousDate = null;
+        DateOnly? currentDate = null;
+        DateOnly? nextDate = null;
+        if (branch != null)
+        {
+            branchName = branch.BranchName;
+            previousDate = branch.PreviousDate;
+            currentDate = branch.CurrentDate;
+            nextDate = branch.NextDate;
+        }
+        return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId, branchName,
+           previousDate, currentDate, nextDate));
     }
 }
