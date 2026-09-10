@@ -59,6 +59,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<BonusDetail> BonusDetails => Set<BonusDetail>(); 
     public DbSet<Bonus> Bonus => Set<Bonus>();  
     public DbSet<BonusDistribution> BonusDistribution => Set<BonusDistribution>(); 
+    public DbSet<SifinCommission> SifinCommission => Set<SifinCommission>(); 
 
 
     //public DbSet<IndividualDetail> IndividualDetails { get; set; }
@@ -1424,6 +1425,40 @@ public class EasyMoneyDbContext : DbContext
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
+        b.Entity<SifinCommission>(e =>
+        {
+            e.ToTable("sifin_commission");
+            e.HasKey(x => x.SifinId);
+            e.Property(x => x.SifinId).HasColumnName("sifin_id").ValueGeneratedOnAdd();
+            e.Property(x => x.TenantId).HasColumnName("tenant_id").IsRequired();
+            e.Property(x => x.TenantName).HasColumnName("tenant_name").HasMaxLength(100).IsRequired();
+            e.Property(x => x.BranchId).HasColumnName("branch_id").IsRequired();
+            e.Property(x => x.BranchCode).HasColumnName("branch_code").HasMaxLength(50);
+            e.Property(x => x.LastPaidAmount).HasColumnName("last_paid_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.LastPaidDate).HasColumnName("last_paid_date");
+            e.Property(x => x.CommissionAmount).HasColumnName("commission_amount").HasColumnType("decimal(15,2)").IsRequired();
+            e.Property(x => x.TDSAmount).HasColumnName("tds_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.ServTaxAmount).HasColumnName("serv_tax_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.PaymentAmount).HasColumnName("payment_amount").HasColumnType("decimal(15,2)");
+            e.Property(x => x.PaymentMode).HasColumnName("payment_mode").HasMaxLength(50).IsRequired().HasConversion<string>();
+            e.Property(x => x.GlName).HasColumnName("gl_name").HasMaxLength(100);
+            e.Property(x => x.GlCode).HasColumnName("gl_code").HasMaxLength(50);
+            e.Property(x => x.VocherNo).HasColumnName("voucher_no").HasMaxLength(50).IsRequired();
+            e.Property(x => x.Remark).HasColumnName("remark").HasMaxLength(100).IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.HasIndex(x => x.TenantId).HasDatabaseName("idx_tenant_id");
+            e.HasIndex(x => x.TenantName).HasDatabaseName("idx_tenant_name");
+            e.HasIndex(x => x.BranchId).HasDatabaseName("idx_branch_id");
+            e.HasIndex(x => x.BranchCode).HasDatabaseName("idx_branch_code");
+            e.HasIndex(x => x.PaymentMode).HasDatabaseName("idx_payment_mode");
+            e.HasIndex(x => x.VocherNo).HasDatabaseName("idx_voucher_no");
+            e.HasIndex(x => x.LastPaidDate).HasDatabaseName("idx_last_paid_date");
+            e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_created_at");
+            e.HasIndex(x => x.VocherNo).IsUnique().HasDatabaseName("unique_voucher_no");
+        });
     }
     private static string IncomeBandToDb(IncomeBand b) => b switch
     {

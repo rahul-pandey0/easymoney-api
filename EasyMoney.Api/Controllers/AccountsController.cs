@@ -342,7 +342,35 @@ public class AccountsController : ControllerBase
             return StatusCode(500, new { error = "An error occurred while updating the account period" });
         }
     }
+     
+    [HttpPost("sifin-commission")]
+    public async Task<ActionResult<SifinCommission>> SaveSiffinCommssion ([FromBody] SifinCommission request) 
+    {
+        try
+        {
+            request.TenantId=_ctx.TenantId;
+            request.BranchId = _ctx.BranchId;
+            var accdata = await _accounts.SifinAccountAsync(request);
+            return Ok(accdata);
+        }
+        catch (Exception ex)
+        {
+            //_logger.LogError(ex, "Error closing account");
+            return StatusCode(500, new { message = "Failed to close account", error = ex.Message });
+        }
+    }
 
-
-
+    [HttpGet("sifin-commission-list")]
+    public async Task<ActionResult<SifinCommission>> SaveSiffinCommssiondata()
+    {
+        try
+        {
+            var accdata = await _accounts.GetsifinSummaryAsync();
+            return Ok(accdata);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Failed to close account", error = ex.Message });
+        }
+    }
 }

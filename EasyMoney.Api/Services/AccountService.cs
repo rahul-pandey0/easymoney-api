@@ -27,6 +27,9 @@ public interface IAccountService
     Task<Account> GetMemberAsync(int schemeId, long memberId); 
 
     Task<AccountClosure> ClosedAccountAsync(AccountClosureRequest payload);
+    Task<SifinCommission> SifinAccountAsync(SifinCommission payload);
+    Task<SifinCommission> GetsifinSummaryAsync();
+
     Task<Account> UpdatePeriodChangeAsync(long accountId, PeriodChangeRequest request);
 
 }
@@ -743,6 +746,90 @@ public class AccountService : IAccountService
         catch (Exception ex)
         {
             throw;
+        } 
+    }
+
+    public async Task<SifinCommission> SifinAccountAsync(SifinCommission request)
+    {
+        try
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            if (request.TenantId <= 0)
+                throw new ArgumentException("TenantId is required");
+
+            if (string.IsNullOrEmpty(request.GlCode))
+                throw new ArgumentException("GL Code is required");
+
+            if (request.CommissionAmount <= 0)
+                throw new ArgumentException("Commission amount must be greater than 0");
+
+            //if (string.IsNullOrEmpty(request.VocherNo))
+            //    throw new ArgumentException("Voucher number is required");
+
+            request.Remark = string.IsNullOrEmpty(request.Remark)
+                ? $"Sifin Commission from {request.TenantId} via {request.PaymentMode}"
+                : request.Remark;
+            //request.VocherNo =_ctx.TenantId+""+_ctx.BranchId+""+DateTime.Now;
+            var now = DateTime.Now;
+            request.VocherNo = $"{_ctx.TenantId}{_ctx.BranchId}{now:yyyyMMdd}{now:HHmmss}";
+
+            var commissionIncomeGl = await _db.GeneralLedgerMaster .Where(g => g.Code == "2003").Select(g => g.Code).FirstOrDefaultAsync();
+
+            var method = request.PaymentMode;
+            switch (method)
+            {
+                case PaymentMethod.NEFT:
+                case PaymentMethod.RTGS:
+                case PaymentMethod.BANK_TRANSFER:
+                    break;
+
+                case PaymentMethod.CASH:
+                    break;
+
+                default:
+                    throw new ArgumentException($"Unsupported payment method: {request.PaymentMode}");
+            }
+
+            await _db.SifinCommission.AddAsync(request);
+            await _db.SaveChangesAsync();
+
+            var journalId = await _accounting.PostJournalAsync(
+                tenantId: (long)request.TenantId,
+                entryDate: _ctx.CurrentDate,
+                sourceType: JournalSourceType.CONTRIBUTION,
+                sourceId: request.TenantId,
+                paymentMethod: method,
+                description: request.Remark,
+                lines: new[]  { new JournalLineInput(EntryTarget.GL,request.GlCode,null,request.CommissionAmount, 0 ),
+                //new JournalLineInput( EntryTarget.GL, null,  request.TenantId,  0, request.CommissionAmount )
+                 new JournalLineInput(EntryTarget.GL, commissionIncomeGl, null, 0, request.CommissionAmount)
+
+                },
+                createdBy: _ctx.UserId,
+                authorizedBy: _ctx.UserId); 
+
+            await _db.SaveChangesAsync();
+
+            _log.LogInformation(
+                "Closed account for tenant {TenantId} with amount {Amount:C}, Journal ID: {JournalId}, Voucher: {VoucherNo}",
+                request.TenantId,request.CommissionAmount,   request.VocherNo
+            );
+
+            return request;
         }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error closing account for tenant {TenantId}", request?.TenantId);
+            throw;
+        }
+    } 
+     
+    public async Task<SifinCommission> GetsifinSummaryAsync()
+    {
+        var a = await _db.SifinCommission.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == _ctx.TenantId)
+            ?? throw new DomainException($"Account {_ctx.TenantId} not found");
+        return a;
     }
 }

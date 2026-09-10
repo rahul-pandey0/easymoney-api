@@ -1481,10 +1481,7 @@ public class AccountClosure
   public DateTime? AuthorizedAt { get; set; } = DateTime.UtcNow;
 
 }
-//{"accountId":47,"accountNumber":"68000002","memberId":175,"tenantId":68,"branchId":32,"customerName":"NaveenKumar","phoneNo":"9345098123","installmentAmount":5000,
-//"targetAmount":75000,"bonusAmount":0,"loanAmount":0,"closureDate":"2026-09-09","duration":1,"interestAmount":0,"servFeeRate":0,"serviceFee":0,"amountPayable":10000,
-//"paymentMode":"Cash","glName":"Penalty Income (Early Exit)","glCode":"3002","voucherNo":"0987654321","remarks":"test","authorizedBy":0,"authorizedAt":"2026-09-09T05:39:48.121Z",
-//"durations":1}
+
 
 public class PeriodChangeRequest
 {
@@ -1707,12 +1704,26 @@ public class BonusDistribution
     //public virtual Member? Member { get; set; }
     //public virtual BiddingCycle? BiddingCycle { get; set; }
 }
-//public class BonusDetail
-//{
-//    public string BidReferenceNo { get; set; }
-//    public string AccountNo { get; set; }
-//    public decimal BonusAmount { get; set; }
-//    public decimal Rate { get; set; }
-//    public DateTime DistributionDate { get; set; }
-//    public string BranchCode { get; set; }
-//}
+
+public class SifinCommission
+{   public long SifinId { get; set; } 
+    public long? TenantId { get; set; }
+    public string? TenantName { get; set; }
+    public long? BranchId { get; set; }
+    public string? BranchCode { get; set; }
+    public decimal? LastPaidAmount { get; set; } 
+    public DateOnly? LastPaidDate { get; set; }  
+    public decimal CommissionAmount { get; set; } 
+    public decimal? TDSAmount { get; set; }   
+    public decimal? ServTaxAmount { get; set; }   
+    public decimal? PaymentAmount { get; set; }   
+    public PaymentMethod PaymentMode { get; set; }
+    public string? GlName { get; set; }
+    public string? GlCode { get; set; } 
+    public string? VocherNo { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedAt { get; set; } 
+    public string? CreatedBy { get; set; }
+    public string? UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
+}
