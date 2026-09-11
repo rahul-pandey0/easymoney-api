@@ -59,10 +59,8 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<BonusDetail> BonusDetails => Set<BonusDetail>(); 
     public DbSet<Bonus> Bonus => Set<Bonus>();  
     public DbSet<BonusDistribution> BonusDistribution => Set<BonusDistribution>(); 
-    public DbSet<SifinCommission> SifinCommission => Set<SifinCommission>(); 
-
-
-    //public DbSet<IndividualDetail> IndividualDetails { get; set; }
+    public DbSet<SifinCommission> SifinCommission => Set<SifinCommission>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
 
 
@@ -328,6 +326,11 @@ public class EasyMoneyDbContext : DbContext
                 e.Property(x => x.CreatedAt).HasColumnName("created_at");
                 e.Property(x => x.AuthorizedBy).HasColumnName("authorized_by");
                 e.Property(x => x.AuthorizedAt).HasColumnName("authorized_at");
+                e.Property(x => x.PasswordChangedAt).HasColumnName("password_changed_at");
+                e.Property(x => x.UpdatedAt).HasColumnName("update_at");
+                e.Property(x => x.HintAnswerHash).HasColumnName("hint_answer_hash");
+                e.Property(x => x.HintQuestion).HasColumnName("hint_question");
+
                 e.HasOne(u => u.Branch).WithMany().HasForeignKey(u => u.BranchId).OnDelete(DeleteBehavior.Restrict);
                 b.Entity<AppUser>()
         .HasOne(u => u.Member)
@@ -968,6 +971,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
             e.Property(x => x.PaymentStatus).HasColumnName("payment_status");
             e.Property(x => x.PaymentDate).HasColumnName("payment_date");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
 
         });
 
@@ -1458,6 +1462,25 @@ public class EasyMoneyDbContext : DbContext
             e.HasIndex(x => x.LastPaidDate).HasDatabaseName("idx_last_paid_date");
             e.HasIndex(x => x.CreatedAt).HasDatabaseName("idx_created_at");
             e.HasIndex(x => x.VocherNo).IsUnique().HasDatabaseName("unique_voucher_no");
+        });
+
+       b.Entity<PasswordResetToken>(e =>
+        {
+            e.ToTable("password_reset_token");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.TokenHash).HasColumnName("token_hash");
+            e.Property(x => x.ExpiresAt).HasColumnName("expires_at");
+            e.Property(x => x.UsedAt).HasColumnName("used_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.HasOne<AppUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
     }
     private static string IncomeBandToDb(IncomeBand b) => b switch

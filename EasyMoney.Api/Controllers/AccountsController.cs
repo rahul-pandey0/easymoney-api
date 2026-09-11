@@ -373,4 +373,18 @@ public class AccountsController : ControllerBase
             return StatusCode(500, new { message = "Failed to close account", error = ex.Message });
         }
     }
+
+    [HttpGet("poolmoney")]
+    public async Task<ActionResult<PoolMoneySummary>> getpoolmoney() 
+    {
+        try
+        {
+            var accdata = await _accounts.GetPoolMoneyAsync();
+            return Ok(accdata);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Failed to close account", error = ex.Message });
+        }
+    }
 }

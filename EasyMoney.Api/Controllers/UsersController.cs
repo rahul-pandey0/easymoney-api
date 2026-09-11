@@ -44,7 +44,9 @@ public class UsersController : ControllerBase
     u.CreatedBy,
     u.CreatedAt,
     u.AuthorizedBy,
-    u.AuthorizedAt);
+    u.AuthorizedAt,
+        u.HintQuestion,
+        u.HintAnswerHash);
 
     // POST /api/v1/users  — create a new user (org or SIFIN-level)
     // SIFIN can create any role; ORG_ADMIN can create org-scoped roles for their own tenant.
@@ -72,7 +74,7 @@ public class UsersController : ControllerBase
         {
             // preAuthorized=true for SIFIN-created users; org-created users may still need MC approval
             bool preAuth = _ctx.IsSifin;
-            var u = await _auth.CreateUserAsync(tenantId, req.Email, req.Password, role, req.MemberId,req.BranchId, _ctx.UserId, preAuth);
+            var u = await _auth.CreateUserAsync(tenantId, req.Email, req.Password, role, req.MemberId,req.BranchId, _ctx.UserId, preAuth, req.UserName, req.HintAnswer , req.HintQuestion);
             var user = await _db.AppUsers
         .Include(x => x.Member)
         .Include(x => x.Branch)
@@ -130,7 +132,10 @@ public class UsersController : ControllerBase
     u.CreatedBy,
     u.CreatedAt,
     u.AuthorizedBy,
-    u.AuthorizedAt))
+    u.AuthorizedAt,
+            u.HintQuestion,
+        u.HintAnswerHash
+    ))
             .ToListAsync();
         return Ok(users);
     }
@@ -180,7 +185,11 @@ public class UsersController : ControllerBase
     u.CreatedBy,
     u.CreatedAt,
     u.AuthorizedBy,
-    u.AuthorizedAt))
+    u.AuthorizedAt,
+            u.HintQuestion,
+        u.HintAnswerHash
+    
+    ))
             .ToListAsync();
         return Ok(users);
     }
@@ -221,11 +230,13 @@ public class UsersController : ControllerBase
     u.CreatedBy,
     u.CreatedAt,
     u.AuthorizedBy,
-    u.AuthorizedAt));
+    u.AuthorizedAt,
+    u.HintQuestion,
+    u.HintAnswerHash ));
     }
 
-        // PUT /api/v1/users/{userId}/status  — activate or deactivate
-        [HttpPut("users/{userId:long}/status"),
+    // PUT /api/v1/users/{userId}/status  — activate or deactivate
+    [HttpPut("users/{userId:long}/status"),
      Authorize(Roles = Roles.AnySifin + "," + Roles.OrgAdmin + "," + Roles.OrgAuthorizer)]
     public async Task<IActionResult> ChangeStatus(long userId, [FromBody] ChangeUserStatusRequest req)
     {
@@ -273,7 +284,14 @@ public class UsersController : ControllerBase
         u.CreatedBy,
         u.CreatedAt,
         u.AuthorizedBy,
-        u.AuthorizedAt));
+        u.AuthorizedAt,
+                   u.HintQuestion,
+        u.HintAnswerHash
+
+    
+        
+        
+        ));
         }
 
             catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
@@ -333,7 +351,11 @@ public class UsersController : ControllerBase
          u.CreatedBy,
          u.CreatedAt,
          u.AuthorizedBy,
-         u.AuthorizedAt));
+         u.AuthorizedAt,
+              u.HintQuestion,
+        u.HintAnswerHash
+
+         ));
             }
             catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }

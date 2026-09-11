@@ -119,7 +119,11 @@ public record UserCreatePayload(
     string Password,
     string Role,
     long? MemberId,
-    long? BranchId);
+    long? BranchId,
+        string? UserName,
+    string? HintAnswerHash, string? HintQuestion
+
+    );
 
 public record UserRoleChangePayload(string NewRole);
 

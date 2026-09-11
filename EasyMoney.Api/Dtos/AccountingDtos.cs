@@ -131,4 +131,10 @@ public record IncomeStatementDto(
     decimal NetIncome);
 
 
+public sealed record PoolMoneySummary(
+    decimal PoolMoney,
+    decimal TargetAmount,
+    DateOnly MonthStart,
+    DateOnly MonthEnd
+);
 

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using System.Security.Permissions;
 namespace EasyMoney.Api.Domain;
 
 public class Tenant
@@ -232,6 +233,12 @@ public class AppUser
     public DateTime? AuthorizedAt { get; set; }
     public Member? Member { get; set; }
     public Tenant? Tenant { get; set; }
+    public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    public string? HintQuestion { get; set; }
+    public string? HintAnswerHash {  get; set; }  
+     
 }
 
 public class RefreshToken
@@ -762,7 +769,8 @@ public class LedgerEntry
     public DateTime? UpdatedAt { get; set; }
     public bool? PaymentStatus { get; set; }
     public DateTime? PaymentDate { get; set; }
-}
+    public long ? BranchId { get; set; }
+} 
 
 public class Dividend
 {
@@ -1726,4 +1734,13 @@ public class SifinCommission
     public string? CreatedBy { get; set; }
     public string? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
+}
+public class PasswordResetToken
+{
+    public long Id { get; set; }
+    public long UserId { get; set; }
+    public string TokenHash { get; set; } = null!;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? UsedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

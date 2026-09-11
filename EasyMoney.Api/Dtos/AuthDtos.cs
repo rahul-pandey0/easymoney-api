@@ -55,7 +55,14 @@ public record CreateUserRequest(
     string Role,
     long? TenantId,   // ignored when caller is ORG_ADMIN (forced to caller's tenant)
     long? MemberId,
-    long? BranchId);
+    long? BranchId,
+    string? HintQuestion,
+    string? HintAnswer,
+    string UserName
+
+
+
+    );
 
 public record UserDto(
     long UserId,
@@ -72,7 +79,10 @@ public record UserDto(
     long? CreatedBy,
     DateTime CreatedAt,
     long? AuthorizedBy,
-    DateTime? AuthorizedAt);
+    DateTime? AuthorizedAt,
+    string? HintQuestion,
+    string? HintAnswer
+    );
 
 public record ChangeUserStatusRequest(bool IsActive);
 public record ChangeUserRoleRequest(string NewRole);
@@ -144,3 +154,49 @@ public record GeneralLedgerDto(
     int? ParentGl,
     string? Type
     );
+
+
+
+public record ChangePasswordRequest(
+    string CurrentPassword,
+    string NewPassword
+);
+
+public record ResetPasswordRequest(
+    long UserId,
+    string NewPassword
+);
+
+public record ChangePasswordResponse(
+    string Message
+);
+
+public record VerifyUserRequest(
+    string Identifier,  
+    string? HintQuestion, 
+    string? HintAnswer
+);
+
+public record VerifyUserResponse(
+    string ResetToken,   
+    DateTime ExpiresAt
+);
+
+public record ForgotPasswordResetRequest(
+    string ResetToken,
+    string NewPassword,
+    string RetypePassword
+);
+
+
+public record HintQuestionRequest(string Identifier);          // email OR username
+public record HintQuestionResponse(string HintQuestion);
+
+
+public record ForgotPasswordRequest(
+    string Identifier,
+    string ResetToken,
+    string NewPassword,
+    string RetypePassword);
+
+public record ForgotPasswordResponse(string Message);

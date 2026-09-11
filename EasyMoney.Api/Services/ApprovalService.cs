@@ -248,7 +248,7 @@ public class ApprovalService : IApprovalService
                     throw new DomainException("Invalid role");
                 var authSvc = _sp.GetRequiredService<IAuthService>();
                 var u = await authSvc.CreateUserAsync(p.TenantId ?? req.TenantId, p.Email, p.Password, role,
-                    p.MemberId, p.BranchId, createdBy: req.RequestedBy, preAuthorized: true);
+                    p.MemberId, p.BranchId, createdBy: req.RequestedBy, preAuthorized: true,p.UserName ,p.HintAnswerHash , p.HintQuestion);
                 req.EntityId = u.UserId;
                 break;
             }

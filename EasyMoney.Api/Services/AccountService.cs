@@ -29,6 +29,7 @@ public interface IAccountService
     Task<AccountClosure> ClosedAccountAsync(AccountClosureRequest payload);
     Task<SifinCommission> SifinAccountAsync(SifinCommission payload);
     Task<SifinCommission> GetsifinSummaryAsync();
+    Task<PoolMoneySummary> GetPoolMoneyAsync();
 
     Task<Account> UpdatePeriodChangeAsync(long accountId, PeriodChangeRequest request);
 
@@ -832,4 +833,53 @@ public class AccountService : IAccountService
             ?? throw new DomainException($"Account {_ctx.TenantId} not found");
         return a;
     }
+
+
+    public async Task<PoolMoneySummary> GetPoolMoneyAsync()
+    {
+        // Use ctx date, fall back to now if null
+        var baseDate = (_ctx.CurrentDate != default
+            ? _ctx.CurrentDate
+            : DateOnly.FromDateTime(DateTime.UtcNow));
+
+        var today = baseDate;
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var monthEnd = monthStart.AddMonths(1);
+
+        // Convert DateOnly to DateTime for provider-agnostic comparison
+        var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);
+        var monthEndDt = monthEnd.ToDateTime(TimeOnly.MinValue);
+
+        _log.LogInformation(
+            "GetPoolMoneyAsync: tenant={Tenant}, branch={Branch}, from={From}, to={To}",
+            _ctx.TenantId, _ctx.BranchId, monthStartDt, monthEndDt);
+
+        var totals = await _db.LedgerEntries
+            .AsNoTracking()
+            .Where(x => x.TenantId == _ctx.TenantId
+                     && x.BranchId == _ctx.BranchId               
+                     && x.EntryDate.ToDateTime(TimeOnly.MinValue) >= monthStartDt // Convert EntryDate to DateTime
+                     && x.EntryDate.ToDateTime(TimeOnly.MinValue) < monthEndDt)  // Convert EntryDate to DateTime
+            .GroupBy(x => x.EntryType)
+            .Select(g => new
+            {
+                EntryType = g.Key,
+                Total = g.Sum(x => x.Amount)  
+            })
+            .ToListAsync();
+
+        var poolMoney = totals
+            .FirstOrDefault(t => t.EntryType == LedgerEntryType.PAYMENT_RECEIVED)?.Total ?? 0m;
+
+        var targetAmount = totals
+            .FirstOrDefault(t => t.EntryType == LedgerEntryType.CONTRIBUTION_DUE)?.Total ?? 0m;
+
+        _log.LogInformation(
+            "GetPoolMoneyAsync: poolMoney={Pool}, target={Target}",
+            poolMoney, targetAmount);
+
+        return new PoolMoneySummary(poolMoney, targetAmount, monthStart, monthEnd);
+    }
+
+
 }

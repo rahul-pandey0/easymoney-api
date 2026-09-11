@@ -19,7 +19,7 @@ namespace EasyMoney.Api.Controllers
     {
         private readonly EasyMoneyDbContext _data;
         private readonly ITenantContext _ctx;
-        private readonly BiddingService _bid; 
+        private readonly BiddingService _bid;
         private readonly ILogger _log;
         private readonly IBiddingService _biddingService;
         private readonly ILogger<EODController> _logger;
@@ -29,9 +29,9 @@ namespace EasyMoney.Api.Controllers
         //}
 
 
-        public EODController(EasyMoneyDbContext data,IBiddingService biddingService, ITenantContext ctx,ILogger<EODController> logger)
+        public EODController(EasyMoneyDbContext data, IBiddingService biddingService, ITenantContext ctx, ILogger<EODController> logger)
         {
-            _data = data;_biddingService = biddingService;  _ctx = ctx;_logger = logger;
+            _data = data; _biddingService = biddingService; _ctx = ctx; _logger = logger;
         }
 
         [HttpPost("eod")]
@@ -779,36 +779,32 @@ namespace EasyMoney.Api.Controllers
         //            Message = "An error occurred while updating EOD dates",
         //            Error = ex.Message
         //        });
-        //    }
+        //    } 
         //}
-        //public async Task<IActionResult> UpdateBranchDates([FromBody] EODRequest request)
+        //[HttpPost("datechange")] 
+        //public async Task<IActionResult> UpdateDatesChanges([FromBody] EODRequest request)
         //{
         //    try
         //    {
-        //        // Validate request
         //        if (request == null)
         //            return BadRequest(new { Success = false, Message = "Invalid request" });
 
         //        if (request.NumberOfDays <= 0)
         //            return BadRequest(new { Success = false, Message = "Number of days must be greater than 0" });
 
-        //        // Get branch ID from context
         //        var branchId = _ctx.BranchId;
 
         //        if (branchId <= 0)
         //            return BadRequest(new { Success = false, Message = "Invalid branch ID" });
 
-        //        // Get branch from database
         //        var branch = await _data.Branches.FirstOrDefaultAsync(b => b.BranchId == branchId);
-
-        //        if (branch == null)
+        //                   if (branch == null)
         //            return NotFound(new { Success = false, Message = $"Branch not found for ID: {branchId}" });
 
-        //        // Verify tenant access
         //        if (branch.TenantId != _ctx.TenantId)
         //            return Unauthorized(new { Success = false, Message = "Unauthorized access to this branch" });
 
-        //        // Store original dates for logging
+
         //        var originalPreviousDate = branch.PreviousDate;
         //        var originalCurrentDate = branch.CurrentDate;
         //        var originalNextDate = branch.NextDate;
@@ -836,7 +832,7 @@ namespace EasyMoney.Api.Controllers
         //        branch.CurrentDate = newCurrentDate;
         //        branch.NextDate = newNextDate;
         //        branch.ModifiedAt = DateTime.UtcNow;
-        //        branch.ModifiedBy = _ctx.UserId ;
+        //        branch.ModifiedBy = _ctx.UserId;
 
         //        // Save changes
         //        await _data.SaveChangesAsync();
@@ -862,14 +858,81 @@ namespace EasyMoney.Api.Controllers
         //        });
         //    }
         //}
+
+
+        [HttpPost("datechange")]
+        public async Task<IActionResult> UpdateCurrentDate([FromBody] EODRequest? request)
+        {
+            try
+            {
+                // 1. Validate the request object exists
+                if (request == null)
+                    return BadRequest(new { Success = false, Message = "Invalid request" });
+
+                // 2. Fall back to server context date ONLY if the client didn't send one
+                var newCurrentDate = request.CurrentDate != default
+                    ? request.CurrentDate
+                    : _ctx.CurrentDate;
+
+                if (newCurrentDate == default)
+                    return BadRequest(new { Success = false, Message = "Current date is required" });
+
+                var branchId = _ctx.BranchId;
+                if (branchId <= 0)
+                    return BadRequest(new { Success = false, Message = "Invalid branch ID" });
+
+                var branch = await _data.Branches
+                    .FirstOrDefaultAsync(b => b.BranchId == branchId);
+
+                if (branch == null)
+                    return NotFound(new { Success = false, Message = $"Branch not found for ID: {branchId}" });
+
+                if (branch.TenantId != _ctx.TenantId)
+                    return Unauthorized(new { Success = false, Message = "Unauthorized access to this branch" });
+
+                // 3. Derive Previous / Next from the CHOSEN date
+                var newPreviousDate = newCurrentDate.AddDays(-1);
+                var newNextDate = newCurrentDate.AddDays(1);
+
+                // 4. Apply
+                branch.PreviousDate = newPreviousDate;
+                branch.CurrentDate = newCurrentDate;
+                branch.NextDate = newNextDate;
+                branch.ModifiedAt = DateTime.UtcNow;
+                branch.ModifiedBy = _ctx.UserId;
+
+                await _data.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    Success = true,
+                    Message = $"Current date set to {newCurrentDate:yyyy-MM-dd}",
+                    BranchId = branch.BranchId,
+                    TenantId = branch.TenantId,
+                    PreviousDate = newPreviousDate.ToString("yyyy-MM-dd"),
+                    CurrentDate = newCurrentDate.ToString("yyyy-MM-dd"),
+                    NextDate = newNextDate.ToString("yyyy-MM-dd")
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Success = false,
+                    Message = "An error occurred while updating EOD dates",
+                    Error = ex.Message
+                });
+            }
+        }
     }
 
-    // Request model
+        // Request model
     public class EODRequest
     {
-        public int NumberOfDays { get; set; }
-
+        public int NumberOfDays { get; set; } 
         public DateOnly? CycleMonth { get; set; } // Optional: specific month to open
         public DateOnly? BiddingDate { get; set; } // Optional: specific bidding date
+        public DateOnly CurrentDate { get; set; }
+
     }
 }

@@ -65,4 +65,63 @@ public class AuthController : ControllerBase
         return Ok(new MeResponse(u.UserId, u.Email, u.Role.ToString(), u.TenantId, u.MemberId, u.IsActive,u.BranchId, branchName,
            previousDate, currentDate, nextDate));
     }
+
+    [HttpPut("change-password"), Authorize]
+    public async Task<ActionResult<ChangePasswordResponse>> ChangePassword(ChangePasswordRequest req)
+    {
+        try
+        {
+            await _auth.ChangePasswordAsync(req.CurrentPassword, req.NewPassword);
+            return Ok(new ChangePasswordResponse("Password changed successfully. Please log in again."));
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("hint-question"), AllowAnonymous]
+    public async Task<ActionResult<HintQuestionResponse>> GetHintQuestion(HintQuestionRequest req)
+    {
+        try
+        {
+            return Ok(await _auth.GetHintQuestionAsync(req.Identifier));
+        }
+        catch (DomainException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("verify-user"), AllowAnonymous]
+    public async Task<ActionResult<VerifyUserResponse>> VerifyUser(VerifyUserRequest req)
+    {
+        try
+        {
+            return Ok(await _auth.VerifyUserAsync(req.Identifier, req.HintAnswer,req.HintQuestion));
+        }
+        catch (DomainException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    // ---------- Step 3: reset password with token + retype ----------
+    [HttpPost("forgot-password"), AllowAnonymous]
+    public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword(ForgotPasswordRequest req)
+    {
+        try
+        {
+            await _auth.ResetForgotPasswordAsync(
+                req.Identifier, req.ResetToken, req.NewPassword, req.RetypePassword);
+            return Ok(new ForgotPasswordResponse(
+                "Password reset successfully. Please log in."));
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+
 }
