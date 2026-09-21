@@ -19,6 +19,7 @@ public interface IAccountService
     Task<AccountSummaryDto> GetAccountAsync(long accountId); 
     Task<IReadOnlyList<AccountSummaryDto>> ListByMemberAsync(long memberId); 
     Task<IReadOnlyList<AccountSummaryDto>> ListByTenantAsync(int skip, int take);
+    Task<IReadOnlyList<AccountDto>> ListledgerEntrydata(int skip, int take); 
     Task<IReadOnlyList<AccountSummaryDto>> ListByAccountclosed(int skip, int take); 
 
 
@@ -364,13 +365,41 @@ public class AccountService : IAccountService
     {
         var accts = await _db.Accounts
 
-            .OrderBy(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 200))
+            .OrderBy(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 200)) 
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
         foreach (var a in accts) result.Add(await BuildSummaryAsync(a));
         return result; 
     }
+    //public async Task<IReadOnlyList<AccountSummaryDto>> ListledgerEntrydata(int skip, int take)
+    //{
+    //    // 🔹 Take the login working date (28-08-2026)
+    //    var loginDate = _ctx.PreviousDate;          // or _ctx.CurrentDate, whichever you want as "today"
 
+    //    // 🔹 Derive month start and next-month start from it
+    //    var monthStart = new DateOnly(loginDate.Year, loginDate.Month, 1);        // 2026-08-01
+    //    var nextMonthStart = monthStart.AddMonths(1);                                // 2026-09-01
+
+    //    var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);                 // 2026-08-01 00:00
+    //    var monthEndDt = nextMonthStart.ToDateTime(TimeOnly.MinValue);             // 2026-09-01 00:00 (exclusive)
+
+    //    var accts = await _db.LedgerEntries
+    //        .AsNoTracking()
+    //        .Where(x => x.TenantId == _ctx.TenantId
+    //                 && x.BranchId == _ctx.BranchId
+    //                 && x.EntryDate.ToDateTime(TimeOnly.MinValue) >= monthStartDt
+    //                 && x.EntryDate.ToDateTime(TimeOnly.MinValue) < monthEndDt
+    //                 && x.EntryType == LedgerEntryType.PAYMENT_RECEIVED)
+    //        .OrderBy(x => x.AccountId)
+    //        .Skip(skip)
+    //        .Take(Math.Clamp(take, 1, 200))
+    //        .ToListAsync();
+
+    //    // Map to AccountSummaryDto (adjust to your real mapping)
+    //    var result = new List<AccountSummaryDto>();
+   
+    //    return result;
+    //}
 
 
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByAccountclosed(int skip, int take)
@@ -880,6 +909,109 @@ public class AccountService : IAccountService
 
         return new PoolMoneySummary(poolMoney, targetAmount, monthStart, monthEnd);
     }
+    public async Task<IReadOnlyList<AccountDto>> ListledgerEntrydata(int skip, int take)
+    {
+        // 🔹 Login working date → derive the calendar month
+        var loginDate = _ctx.PreviousDate;                                  // 2026-08-28
+        var monthStart = new DateOnly(loginDate.Year, loginDate.Month, 1);   // 2026-08-01
+        var nextMonthStart = monthStart.AddMonths(1);                            // 2026-09-01
 
+        var monthStartDt = monthStart.ToDateTime(TimeOnly.MinValue);             // 2026-08-01 00:00
+        var monthEndDt = nextMonthStart.ToDateTime(TimeOnly.MinValue);         // 2026-09-01 00:00 (exclusive)
 
+        // 🔹 Join ledger → account, group by account so each account appears once
+        var rows = await (
+            from l in _db.LedgerEntries.AsNoTracking()
+            join a in _db.Accounts.AsNoTracking() on l.AccountId equals a.AccountId
+            where l.TenantId == _ctx.TenantId
+               && l.BranchId == _ctx.BranchId
+               && l.EntryDate.ToDateTime(TimeOnly.MinValue) >= monthStartDt
+               && l.EntryDate.ToDateTime(TimeOnly.MinValue) < monthEndDt
+               && l.EntryType == LedgerEntryType.PAYMENT_RECEIVED
+            group new { l, a } by new
+            {
+                a.AccountId,
+                a.AccountNumber,
+                a.MemberId,
+                a.TenantId,
+                a.MonthlyContribution,
+                a.AccountOpenDate,
+                a.TenureEndDate,
+                a.Status,
+                a.InstallmentsPaid,
+                a.IsPrized,
+                a.CreatedAt,
+                a.OldAccountNo,
+                a.PhoneNo,
+                a.CustomerName,
+                a.InterestRate,
+                a.TargetAmount,
+                a.LoanAmount,
+                a.BonusAmount,
+                a.InterestAmount,
+                a.TotalAmount,
+                a.Remarks,
+                a.SchemeId,
+                a.BranchId,
+                a.IsBidding,
+                a.CustomerCode,
+                a.ClosedDate,
+                a.Tenure,
+                // 🔹 Added fields
+                //a.IsEligibleToBid,
+                //a.IsEligibleForDividend,
+                //a.CorpusBalance,
+                //a.PrizeWonInCycleId
+            }
+            into g
+            orderby g.Key.AccountId
+            select new
+            {
+                g.Key,
+                PaymentDate = g.Max(x => x.l.EntryDate),   // latest payment in month
+                PaidAmount = g.Sum(x => x.l.Amount)       // total paid in month
+            })
+            .Skip(skip)
+            .Take(Math.Clamp(take, 1, 200))
+            .ToListAsync();
+
+        // 🔹 Project to AccountSummaryDto
+        var result = rows.Select(r => new AccountDto(
+            AccountId: r.Key.AccountId,
+            AccountNumber: r.Key.AccountNumber,
+            MemberId: r.Key.MemberId,
+            TenantId: r.Key.TenantId,
+            MonthlyContribution: r.Key.MonthlyContribution,
+            AccountOpenDate: r.Key.AccountOpenDate,
+            TenureEndDate: r.Key.TenureEndDate,
+            Status: r.Key.Status.ToString(),
+            InstallmentsPaid: r.Key.InstallmentsPaid,
+            IsPrized: r.Key.IsPrized,
+            //IsEligibleToBid: r.Key.IsEligibleToBid,
+            //IsEligibleForDividend: r.Key.IsEligibleForDividend,
+            //CorpusBalance: r.Key.CorpusBalance,
+            //PrizeWonInCycleId: r.Key.PrizeWonInCycleId,
+            CreatedAt: r.Key.CreatedAt,
+            OldAccountNo: r.Key.OldAccountNo ?? string.Empty,
+            PhoneNo: r.Key.PhoneNo ?? string.Empty,
+            CustomerName: r.Key.CustomerName ?? string.Empty,
+            InterestRate: r.Key.InterestRate,
+            TargetAmount: r.Key.TargetAmount,
+            PaymentDate: r.PaymentDate,
+            PaidAmount: r.PaidAmount,
+            LoanAmount: r.Key.LoanAmount,
+            //BonusAmount: r.Key.BonusAmount,
+            InterestAmount: r.Key.InterestAmount,
+            TotalAmount: r.Key.TotalAmount,
+            Remarks: r.Key.Remarks ?? string.Empty,
+            SchemeId: r.Key.SchemeId,
+            BranchId: r.Key.BranchId,
+            IsBidding: r.Key.IsBidding,
+            //CustomerCode: r.Key.CustomerCode,
+            ClosedDate: r.Key.ClosedDate,
+            Tenure: r.Key.Tenure
+        )).ToList();
+
+        return result;
+    }
 }

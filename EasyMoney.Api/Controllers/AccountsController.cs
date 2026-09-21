@@ -116,6 +116,12 @@ public class AccountsController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50) =>
         Ok(await _accounts.ListByTenantAsync(skip, take));
 
+     
+    [HttpGet("ledger_entry")] 
+    public async Task<ActionResult<IReadOnlyList<AccountSummaryDto>>> ListledgerEntrydata( 
+        [FromQuery] int skip = 0, [FromQuery] int take = 50) =>
+        Ok(await _accounts.ListledgerEntrydata(skip, take));
+
     [HttpGet("accounts/{accountId:long}")]
     public async Task<ActionResult<AccountSummaryDto>> Get(long accountId)
     {

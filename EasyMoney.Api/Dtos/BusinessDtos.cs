@@ -51,7 +51,43 @@ public record AccountSummaryDto(
     decimal CorpusBalance, long? PrizeWonInCycleId, 
     DateTime CreatedAt, string OldAccountNo, string PhoneNo, string CustomerName, decimal InterestRate, decimal TargetAmount,
     DateOnly? PaymentDate, decimal PaidAmount, decimal? LoanAmount,decimal bonusAmount, decimal InterestAmount,
-        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding,string ? customerCode ,DateTime? ClosedDate,long ? Tenure); 
+        decimal TotalAmount, string Remarks, int? SchemeId , long? BranchId , string ? IsBidding,string ? customerCode ,DateTime? ClosedDate,long ? Tenure);
+
+ 
+public record AccountDto(
+    long AccountId,
+    string AccountNumber,
+    long MemberId,
+    long TenantId,
+    decimal MonthlyContribution,
+    DateOnly AccountOpenDate,
+    DateOnly TenureEndDate,
+    string Status,
+    int InstallmentsPaid,
+    bool IsPrized,
+    //bool IsEligibleToBid,
+    //bool IsEligibleForDividend,
+    //decimal CorpusBalance,
+    //long? PrizeWonInCycleId,
+    DateTime CreatedAt,
+    string OldAccountNo,
+    string PhoneNo,
+    string CustomerName,
+    decimal InterestRate,
+    decimal TargetAmount,
+    DateOnly? PaymentDate,
+    decimal PaidAmount,
+    decimal? LoanAmount,
+    //decimal BonusAmount,
+    decimal InterestAmount,
+    decimal TotalAmount,
+    string Remarks,
+    int? SchemeId,
+    long? BranchId,
+    string? IsBidding,
+    //string? CustomerCode,
+    DateTime? ClosedDate,
+    long? Tenure);
 
 // ============================================================
 // Payment / Ledger
