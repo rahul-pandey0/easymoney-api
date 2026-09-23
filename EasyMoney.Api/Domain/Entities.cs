@@ -326,6 +326,7 @@ public class RelationMaster
 public class IndividualKycDetail
 {
     public long? BranchId { get; set; }
+    public long? TenantId { get; set; }  
 
     public long MemberId { get; set; }
     public string? CustomerId { get; set; }
@@ -608,7 +609,7 @@ public class Account
     public string? IsBidding { get; set; }
     public string? CustomerCode { get; set; }
     public DateTime? ClosedDate { get; set; }
-    public long ? Tenure { get; set; } 
+    public long? Tenure { get; set; } 
 
 
 

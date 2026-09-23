@@ -422,6 +422,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.MemberId).HasColumnName("member_id");
             // Personal Details
             e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
 
             e.Property(x => x.CustomerId).HasColumnName("customer_id").HasMaxLength(45);
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(100);
@@ -759,6 +760,7 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.IsBidding).HasColumnName("is_bidding");
             e.Property(x => x.CustomerCode).HasColumnName("customer_code");
             e.Property(x => x.ClosedDate).HasColumnName("closed_date");
+            e.Property(x => x.Tenure).HasColumnName("tenure");
 
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);

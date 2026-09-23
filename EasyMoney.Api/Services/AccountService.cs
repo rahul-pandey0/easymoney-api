@@ -108,6 +108,7 @@ public class AccountService : IAccountService
             CustomerCode = req.CustomerCode,
             IsBidding = "N",
             FirstPaymentFlag = "N",
+            Tenure = req.Tenure
 
         };
         _db.Accounts.Add(acct);
@@ -738,7 +739,7 @@ public class AccountService : IAccountService
 
             if (account.Status == AccountStatus.CLOSED)
             {
-                throw new DomainException($"Cannot update closed account {account.AccountNumber}");
+                throw new DomainException($"The closed account {account.AccountNumber} cannot be updated.");
             }
 
             if (request.Period <= 0)
@@ -775,8 +776,9 @@ public class AccountService : IAccountService
         }
         catch (Exception ex)
         {
+            _log.LogError(ex, "Failed to update period for account {AccountId}", accountId);
             throw;
-        } 
+        }
     }
 
     public async Task<SifinCommission> SifinAccountAsync(SifinCommission request)

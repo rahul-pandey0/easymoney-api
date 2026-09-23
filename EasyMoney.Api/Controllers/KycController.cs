@@ -13,11 +13,14 @@ namespace EasyMoney.Api.Controllers;
 public class KycController : ControllerBase
 {
     private readonly IKycService _kyc;
-    private readonly IKycDocumentService _docs;
+    private readonly IKycDocumentService _docs; 
+    private readonly ITenantContext _ctx;
+    private readonly ILogger<KycController> _log;
 
-    public KycController(IKycService kyc, IKycDocumentService docs)
+
+    public KycController(IKycService kyc, IKycDocumentService docs, ITenantContext ctx, ILogger<KycController> log)
     {
-        _kyc = kyc; _docs = docs;
+        _kyc = kyc; _docs = docs; ctx = _ctx; _log = log;
     }
 
     // ============================================================
@@ -143,4 +146,47 @@ public class KycController : ControllerBase
     [HttpGet("kyc-review")]
     public async Task<ActionResult<IReadOnlyList<KycReviewDto>>> History(long memberId)
         => Ok(await _kyc.GetReviewHistoryAsync(memberId));
+
+    [HttpGet("{documentId:long}/preview"),
+        Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer)]
+    public async Task<IActionResult> Preview(long memberId, long documentId)
+    {
+        var doc = await _kyc.GetAsync(documentId);
+        if (doc == null || doc.MemberId != memberId) return NotFound();
+
+        if (string.IsNullOrWhiteSpace(doc.FilePath))
+            return NotFound("No file path stored");
+
+        // Normalize separators ("\\" and "/")
+        var normalized = doc.FilePath.Replace('\\', '/');
+
+        if (!System.IO.File.Exists(normalized))
+        {
+            _log.LogWarning("KYC file not found: {Path}", normalized);
+            return NotFound($"File not found on disk: {normalized}");
+        }
+
+        var ext = Path.GetExtension(normalized).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream",
+        };
+
+        var bytes = await System.IO.File.ReadAllBytesAsync(normalized);
+        var base64 = Convert.ToBase64String(bytes);
+
+        return Ok(new
+        {
+            fileName = Path.GetFileName(normalized),
+            contentType,
+            base64,
+            // convenience: full data URL you can drop straight into <img src>
+            dataUrl = $"data:{contentType};base64,{base64}"
+        });
+    }
 }

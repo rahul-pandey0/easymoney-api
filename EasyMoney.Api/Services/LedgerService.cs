@@ -502,7 +502,8 @@ public class LedgerService : ILedgerService
                 Amount = a.MonthlyContribution,
                 EntryDate = dueMonth,
                 Description = $"Contribution due for {dueMonth:yyyy-MM}",
-                CreatedBy = _ctx.UserId
+                CreatedBy = _ctx.UserId,
+                BranchId =_ctx.BranchId
             });
         }
 

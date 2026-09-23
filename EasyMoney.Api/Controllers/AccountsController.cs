@@ -79,7 +79,9 @@ public class AccountsController : ControllerBase
                 BranchId: _ctx.BranchId,
                 IsBidding :"N",
                 FirstPayment:"Y",
-                CustomerCode : req.CustomerCode
+                CustomerCode : req.CustomerCode,
+                Tenure:req.tenure
+                
 
             );
 

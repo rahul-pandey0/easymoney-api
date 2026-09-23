@@ -1,4 +1,4 @@
-using EasyMoney.Api.Auth;
+﻿using EasyMoney.Api.Auth;
 using EasyMoney.Api.Data;
 using EasyMoney.Api.Domain;
 using EasyMoney.Api.Dtos;
@@ -22,6 +22,7 @@ public interface IKycService
     // Helpers
     Task<IndividualKycDetail?> GetIndividualDetailAsync(long memberId);
     Task<CorporateKycDetail?> GetCorporateDetailAsync(long memberId);
+    Task<KycDocument?> GetAsync(long id);
 }
 
 public class KycService : IKycService
@@ -92,6 +93,7 @@ public class KycService : IKycService
             _db.IndividualKycDetails.Add(detail);
         }
         detail.BranchId = _ctx.BranchId;
+        detail.TenantId = _ctx.TenantId;
         // Personal Details
         detail.CustomerId = req.CustomerId ?? detail.CustomerId;
         detail.Name = req.Name ?? detail.Name;
@@ -477,4 +479,9 @@ public class KycService : IKycService
         (_, KycStatus.PENDING) => true,
         _ => false
     };
+    public async Task<KycDocument?> GetAsync(long id)
+    {
+        return await _db.KycDocuments
+            .FirstOrDefaultAsync(d => d.DocumentId == id); // ← must match column name
+    }
 }

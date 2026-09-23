@@ -151,7 +151,8 @@ public record AccountOpenPayload(
     long ? BranchId,
     string ? IsBidding,
     string ?FirstPayment,
-    string? CustomerCode
+    string? CustomerCode,
+    long ? Tenure
     );
 
 public record AccountUpdatePayload(

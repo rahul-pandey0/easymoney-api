@@ -6,9 +6,9 @@ namespace EasyMoney.Api.Dtos;
 // Account
 // ============================================================
 public record OpenAccountRequest(decimal MonthlyContribution, DateOnly AccountOpenDate ,  long MemberId,
-    string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount,
+    string? OldAccountNo, string? PhoneNo,string? CustomerName, decimal InterestRate,decimal TargetAmount, 
     DateOnly? PaymentDate,decimal PaidAmount, decimal LoanAmount, decimal BonusAmount, decimal InterestAmount,
-    decimal TotalAmount, string? Remarks,int  SchemeId,long BranchId ,string CustomerCode);
+    decimal TotalAmount, string? Remarks,int  SchemeId,long BranchId ,string CustomerCode , long? tenure);
  
 //public record UpdateAccountRequest(string accountNumber,decimal MonthlyContribution, DateOnly AccountOpenDate, long MemberId,
 //    string? OldAccountNo, string? PhoneNo, string? CustomerName, decimal InterestRate, decimal TargetAmount,
