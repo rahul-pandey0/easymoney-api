@@ -87,8 +87,8 @@ public class LedgerService : ILedgerService
      
         }
                var alreadyPaid = await _db.LedgerEntries.IgnoreQueryFilters()
-                .AnyAsync(e => e.EntryDate.Year == DateTime.UtcNow.Year
-                                      && e.EntryDate.Month == DateTime.UtcNow.Month && e.AccountId==a.AccountId && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
+                .AnyAsync(e => e.EntryDate.Year == _ctx.CurrentDate.Year
+                                      && e.EntryDate.Month == _ctx.CurrentDate.Month && e.AccountId==a.AccountId && e.EntryType == LedgerEntryType.PAYMENT_RECEIVED);
         //e.LinkedEntryId == dueId.Value && 
 
         if (alreadyPaid)
@@ -115,7 +115,7 @@ public class LedgerService : ILedgerService
             PaymentStatus = (PaymentMethod)PaymentStatus.COMPLETED,
             ReferenceNumber = GenerateReferenceNumber(), // Optional: generate unique reference
             CreatedBy = _ctx.UserId,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
             ChequeDate =chequeDate,
             ChequeNumber =chequeNo,
             UPIId =upiId
@@ -171,8 +171,8 @@ public class LedgerService : ILedgerService
 
 
         var dueEntry = await _db.LedgerEntries.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(e => e.EntryDate.Year == DateTime.UtcNow.Year
-                                      && e.EntryDate.Month == DateTime.UtcNow.Month
+            .FirstOrDefaultAsync(e => e.EntryDate.Year == _ctx.CurrentDate.Year
+                                      && e.EntryDate.Month == _ctx.CurrentDate.Month
                                       && e.AccountId == a.AccountId
                                       && e.EntryType == LedgerEntryType.CONTRIBUTION_DUE);
 
@@ -184,9 +184,12 @@ public class LedgerService : ILedgerService
             dueEntry.Description = $"Payment received via {method} for {paidDate:yyyy-MM}";
             dueEntry.PaymentDetailId = paymentDetail.PaymentDetailId;
             dueEntry.UpdatedBy = _ctx.UserId;
-            dueEntry.UpdatedAt = DateTime.UtcNow;
+            dueEntry.UpdatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
+
             dueEntry.LinkedEntryId = dueEntry.EntryId;
-            dueEntry.PaymentDate = DateTime.UtcNow;
+            //dueEntry.PaymentDate = _ctx.CurrentDate;
+            dueEntry.PaymentDate = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
+
             dueEntry.PaymentStatus = true;
 
             _log.LogInformation($"Updated due entry {dueEntry.EntryId} for account {accountId} for {paidDate:yyyy-MM}");

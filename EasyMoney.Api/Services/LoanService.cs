@@ -60,9 +60,9 @@ public class LoanService : ILoanService
             AccountId = a.AccountId,
             CycleId = cycleId,
             PrincipalAmount = principal,
-            DisbursedAt = DateTime.UtcNow,
+            DisbursedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
             AuthorizedBy = _ctx.UserId,
-            AuthorizedAt = DateTime.UtcNow
+            AuthorizedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
         };
         _db.Loans.Add(loan);
 
@@ -138,11 +138,11 @@ public class LoanService : ILoanService
                 SifinCommission = createLoanDto.SifinCommission,
                 NetDisbursementAmount = createLoanDto.NetDisbursementAmount,
                 ProcessingFee = createLoanDto.ProcessingFee,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
                 CreatedBy = _ctx.UserId,
                 AuthStatus = false,
                 BidReferenceNo=bid.BidReferenceNo,
-                LoanReferenceNo = $"{_ctx.TenantId}{_ctx.BranchId}{DateTime.Now:yyyyMMddHHmmss}",
+                LoanReferenceNo = $"{_ctx.TenantId}{_ctx.BranchId}{_ctx.CurrentDate:yyyyMMdd}",
                 LoanRemark = createLoanDto.LoanRemark ?? "LOAN Creation",
                 LoanApplicationStatus = createLoanDto.LoanApplicationStatus,
                 SecurityDocStatus = createLoanDto.SecurityDocStatus,
@@ -181,7 +181,7 @@ public class LoanService : ILoanService
                     CoopAccountNumber = cb.CoopAccountNumber,
                     CoBorrowerRemarks = cb.CoBorrowerRemarks,
                     IsPrimaryCoBorrower = cb.IsPrimaryCoBorrower,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
                     CreatedBy = _ctx.UserId,
                     IsActive = true
                 }).ToList();
@@ -210,7 +210,7 @@ public class LoanService : ILoanService
                 }),
                 Status = ApprovalStatus.PENDING,
                 RequestedBy = _ctx.UserId.Value,
-                RequestedAt = DateTime.UtcNow
+                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
             };
 
             _db.ApprovalRequests.Add(approval);
@@ -525,7 +525,7 @@ public class LoanService : ILoanService
 
         // Approve the loan
         loan.AuthStatus = true;
-        loan.AuthorizedAt = DateTime.UtcNow;
+        loan.AuthorizedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
         loan.AuthorizedBy = _ctx.UserId;
         loan.Status = "ACTIVE";
         loan.BranchId = _ctx.BranchId;
@@ -1760,7 +1760,7 @@ public class LoanService : ILoanService
 
             loan.Status = "ACTIVE";
             loan.PrincipalAmount = request.TargetAmount;
-            loan.DisbursedAt = request.DisbursedAt ?? DateTime.UtcNow;
+            loan.DisbursedAt = request.DisbursedAt ?? _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue); 
             loan.OutstandingBalance = netAmount;
             loan.NetDisbursementAmount = netAmount;
             loan.DisbursementStatus = "Y";
@@ -1792,7 +1792,7 @@ public class LoanService : ILoanService
                 totalBonusAmount: bonusCalculation.TotalBonusAmount,
                 monthlyAmount: bonusCalculation.MonthlyAmount,
                 userId: _ctx.UserId,
-                today: DateTime.Today
+                today: _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
             );
 
             // ============================================================
@@ -2043,7 +2043,8 @@ public class LoanService : ILoanService
                 Amount = netAmount,
                 EntryDate = cycle.CycleMonth,
                 Description = $"Loan disbursed (cycle {cycle.CycleMonth:yyyy-MM}) - Voucher: {voucherNumber}",
-                CreatedBy = _ctx.UserId
+                CreatedBy = _ctx.UserId,
+                BranchId =_ctx.BranchId
             });
 
             await _db.SaveChangesAsync();
@@ -2076,7 +2077,7 @@ public class LoanService : ILoanService
 
                 AccountNumber = account.AccountNumber,
                 Status = "COMPLETED",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
             };
             await _db.SaveChangesAsync();
 
@@ -2186,7 +2187,7 @@ public class LoanService : ILoanService
                             existingCoBorrower.CoBorrowerRemarks = cbDto.CoBorrowerRemarks;
                             existingCoBorrower.IsPrimaryCoBorrower = cbDto.IsPrimaryCoBorrower;
                             existingCoBorrower.CoBorrowerAccountId = cbDto.CoBorrowerAccountId;
-                            existingCoBorrower.UpdatedAt = DateTime.UtcNow;
+                            existingCoBorrower.UpdatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
                             existingCoBorrower.UpdatedBy = _ctx.UserId;
                         }
                     }
@@ -2209,7 +2210,7 @@ public class LoanService : ILoanService
                             CoopAccountNumber = cbDto.CoopAccountNumber,
                             CoBorrowerRemarks = cbDto.CoBorrowerRemarks,
                             IsPrimaryCoBorrower = cbDto.IsPrimaryCoBorrower,
-                            CreatedAt = DateTime.UtcNow,
+                            CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
                             CreatedBy = _ctx.UserId,
                             //IsActive = cbDto.IsActive
                         };
@@ -2238,11 +2239,11 @@ public class LoanService : ILoanService
                     loan.PrincipalAmount,
                     loan.DisbursedAt,
                     loan.Status,
-                    UpdateTimestamp = DateTime.UtcNow
+                    UpdateTimestamp = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
                 }),
                 Status = ApprovalStatus.PENDING,
                 RequestedBy = _ctx.UserId.Value,
-                RequestedAt = DateTime.UtcNow
+                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
             };
 
             _db.ApprovalRequests.Add(approval);
@@ -2501,7 +2502,7 @@ public class LoanService : ILoanService
                 existingBonus.MemberId = memberId.HasValue ? (int)memberId.Value : (int?)null;
                 existingBonus.MemberName = memberName;
                 existingBonus.UpdatedBy = userId;
-                existingBonus.UpdatedAt = DateTime.UtcNow;
+                existingBonus.UpdatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
                 existingBonus.dtDate = today;
 
                 _log.LogInformation($"Updated existing bonus for BidRef: {bidReferenceNo}, EMRef: {emReferenceNo}, Month: {currentMonth}/{currentYear}");
@@ -2530,7 +2531,7 @@ public class LoanService : ILoanService
                     //BankCommissionRate = null, // Set if available
                     Status = "ACTIVE",
                     CreatedBy = userId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
                 };
 
                 _db.BonusDetails.Add(bonusDetail);
@@ -2555,7 +2556,7 @@ public class LoanService : ILoanService
                 mainBonus.BounsAmount = (mainBonus.BounsAmount ?? 0) + (double)bonusAmount;
                 mainBonus.BonusRate = (double)bonusRate;
                 mainBonus.TotalMembers = (mainBonus.TotalMembers ?? 0) + 1;
-                mainBonus.UpdatedAt = DateTime.UtcNow;
+                mainBonus.UpdatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
             }
             else
             {
@@ -2576,7 +2577,8 @@ public class LoanService : ILoanService
                     BonusRate = (double)bonusRate,
                     TotalMembers = 1,
                     Status = "ACTIVE",
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
+                    DistributedStatus ="N",
                 };
 
                 _db.Bonus.Add(newBonus);

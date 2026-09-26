@@ -600,7 +600,8 @@ namespace EasyMoney.Api.Services
                 command.Parameters.AddWithValue("@p_BidReferenceNo", request.BidReferenceNo);
                 command.Parameters.AddWithValue("@p_TotalBonusAmt", request.BonusAmount);
                 command.Parameters.AddWithValue("@p_BidDate", request.BidDate);
-                command.Parameters.AddWithValue("@p_Today", DateTime.Today);
+                //command.Parameters.AddWithValue("@p_Today", _ctx.CurrentDate);
+                command.Parameters.AddWithValue("@p_Today", _ctx.CurrentDate.ToString("yyyy-MM-dd"));
                 command.Parameters.AddWithValue("@p_BranchId", _ctx.BranchId);
                 command.Parameters.AddWithValue("@p_TenantId", _ctx.TenantId);
                 command.Parameters.AddWithValue("@p_UserId", _ctx.UserId);

@@ -42,7 +42,7 @@ public class LoansController : ControllerBase
     }
 
     [HttpPost, Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.SifinAdmin)]
-        public async Task<ActionResult<LoanDto>> CreateLoan(CreateLoanDto loan)  
+    public async Task<ActionResult<LoanDto>> CreateLoan(CreateLoanDto loan)  
     {
         var l = await _loans.CreateLoanAsync(loan);
         if (l is null) return NotFound();

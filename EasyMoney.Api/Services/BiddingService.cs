@@ -1337,9 +1337,9 @@ public class BiddingService : IBiddingService
 
     public async Task<Bonus> GetByBonusDetails(string refNo)
     {
-        var branch = await _db.Branches
-            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
-            .FirstOrDefaultAsync();
+        //var branch = await _db.Branches
+        //    .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+        //    .FirstOrDefaultAsync();
 
         // Get single record by reference number
         var bonus = await _db.Bonus
