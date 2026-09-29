@@ -200,3 +200,50 @@ public record ForgotPasswordRequest(
     string RetypePassword);
 
 public record ForgotPasswordResponse(string Message);
+
+
+// DTOs/DashboardDto.cs
+public class DashboardCountDto 
+{ 
+    public string TenantName { get; set; }
+    public string RegistrationNumber { get; set; }
+    public string? LogoBase64 { get; set; }
+    public string? LogoContentType { get; set; }
+
+    public DashboardStats Stats { get; set; }
+    public DashboardCharts Charts { get; set; }
+}
+
+public class DashboardStats
+{
+    // SIFIN Only
+    public int? TotalTenants { get; set; }
+    public int? TotalAccounts { get; set; }
+    public int? TotalLoans { get; set; }
+    public int? ActiveTenants { get; set; }
+
+    // Shared
+    public int TotalMembers { get; set; }
+    public int PendingKyc { get; set; }
+    public int PendingApprovals { get; set; }
+    public decimal TotalCollections { get; set; }
+
+    // Tenant Admin Only
+    public int? ActiveAccounts { get; set; }
+    public int? ActiveLoans { get; set; }
+    public decimal? TodayCollections { get; set; }
+    public decimal? OutstandingLoanAmount { get; set; }
+    public string? CurrentBiddingCycle { get; set; }
+    public int? BiddingDaysLeft { get; set; }
+}
+
+public class DashboardCharts
+{
+    public List<TrendPoint> CollectionsTrend { get; set; }
+    public List<StatusCount> LoanOverview { get; set; }
+    public List<GrowthPoint> TenantGrowth { get; set; } // SIFIN only
+}
+
+public class TrendPoint { public string Date { get; set; } public decimal Amount { get; set; } }
+public class StatusCount { public string Status { get; set; } public int Count { get; set; } }
+public class GrowthPoint { public string Month { get; set; } public int Tenants { get; set; } public int Members { get; set; } }
