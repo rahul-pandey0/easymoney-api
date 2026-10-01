@@ -257,10 +257,10 @@ public class Member
     public long TenantId { get; set; } 
     public long? BranchId { get; set; }
 
-    public string CustomerIdentifierCode { get; set; } = string.Empty;
+    public string?   CustomerIdentifierCode { get; set; }
     public MemberType MemberType { get; set; }
-    public string FullName { get; set; } = null!;
-    public string Phone { get; set; } = null!;
+    public string? FullName { get; set; } = null!;
+    public string? Phone { get; set; } = null!;
     public string? Email { get; set; }
     public string? PanNumber { get; set; }
     public string? IdType { get; set; }

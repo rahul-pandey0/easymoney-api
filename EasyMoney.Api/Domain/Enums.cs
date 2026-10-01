@@ -116,4 +116,9 @@ public enum ReportsType
 
 }
 
+public enum ModelToUpload
+{
+    KycDetail = 1,   // add your value
+}
+
 
