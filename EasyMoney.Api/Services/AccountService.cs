@@ -7,6 +7,15 @@ using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Asn1.Ocsp;
 using System;
 using System.Reflection.Emit;
+using MySql.Data.MySqlClient;
+using System.IO;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using OfficeOpenXml;
+using System.Configuration;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EasyMoney.Api.Services;
 
@@ -34,6 +43,15 @@ public interface IAccountService
 
     Task<Account> UpdatePeriodChangeAsync(long accountId, PeriodChangeRequest request);
 
+    Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidLedgerData(IFormFile file, string fileExtension, string batchCode);
+    Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidAccData(IFormFile file, string fileExtension, string batchCode); 
+    Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidApaymentData(IFormFile file, string fileExtension, string batchCode);
+    Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode);
+    Task<(bool isSuccess, string errorMessage)> InsertToPaymentDatabase(string batchCode); 
+    Task<(bool isSuccess, string errorMessage)> InsertToLedgerDatabase(string batchCode);
+
+    //Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode); 
+
 }
 
 public class AccountService : IAccountService
@@ -43,10 +61,12 @@ public class AccountService : IAccountService
     private readonly IAccountingService _accounting;
     private readonly ILedgerService _ledger;
     private readonly ILogger<AccountService> _log;
+    private readonly IConfiguration _configuration;
 
-    public AccountService(EasyMoneyDbContext db, ITenantContext ctx, IAccountingService accounting, ILedgerService ledger, ILogger<AccountService> log)
+    public AccountService(EasyMoneyDbContext db, ITenantContext ctx, IAccountingService accounting, ILedgerService ledger, ILogger<AccountService> log, IConfiguration configuration)
     {
-        _db = db; _ctx = ctx; _accounting = accounting; _ledger = ledger; _log = log;
+        _db = db; _ctx = ctx; _accounting = accounting; _ledger = ledger; _log = log; _configuration = configuration;
+
     }
 
     public async Task<Account> OpenAccountAsync(long memberId, decimal monthlyContribution, DateOnly openDate, long? createdBy, long? authorizedBy, AccountOpenPayload req)
@@ -71,7 +91,7 @@ public class AccountService : IAccountService
             .Where(a => a.TenantId == member.TenantId).CountAsync() + 1;
         //var accountNumber = $"EM-{member.TenantId}-{seq:D6}";
 
-        var accountNumber = $"{member.TenantId}{scheme.SchemeCode}{seq:D6}";
+        //var accountNumber = $"{member.TenantId}{member.BranchId}{seq:D6}";
 
         var tenureEnd = openDate.AddMonths(scheme.TenureMonths);
 
@@ -80,7 +100,7 @@ public class AccountService : IAccountService
             TenantId = member.TenantId,
             BranchId = member.BranchId,
             MemberId = memberId,
-            AccountNumber = accountNumber,
+            AccountNumber = await GenerateAccountNumberAsync(member.TenantId, member.BranchId),
             MonthlyContribution = monthlyContribution,
             AccountOpenDate = openDate,
             TenureEndDate = tenureEnd,
@@ -118,11 +138,39 @@ public class AccountService : IAccountService
         await _ledger.GenerateAllDuesForAccountAsync(acct.AccountId);
 
         _log.LogInformation("Opened account {Aid} {Num} for member {Mid} (tenant {Tid}, ₹{Cont}/mo, tenure {End})",
-            acct.AccountId, accountNumber, memberId, member.TenantId, monthlyContribution, tenureEnd);
+            acct.AccountId,  memberId, member.TenantId, monthlyContribution, tenureEnd);
         return acct;
     }
+    public async Task<string> GenerateAccountNumberAsync(long tenantId, long? branchId)
+    {
+        if (!branchId.HasValue)
+            throw new ArgumentNullException(nameof(branchId));
 
+        var conn = _db.Database.GetDbConnection();
+        if (conn.State != ConnectionState.Open)
+            await conn.OpenAsync();
 
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "next_branch_account_seq";
+        cmd.CommandType = CommandType.StoredProcedure;
+
+        if (_db.Database.CurrentTransaction is { } efTx)
+            cmd.Transaction = efTx.GetDbTransaction();
+
+        var pT = cmd.CreateParameter(); pT.ParameterName = "@p_tenant_id"; pT.Value = tenantId; cmd.Parameters.Add(pT);
+        var pB = cmd.CreateParameter(); pB.ParameterName = "@p_branch_id"; pB.Value = branchId.Value; cmd.Parameters.Add(pB);
+
+        var pOut = cmd.CreateParameter();
+        pOut.ParameterName = "@p_seq";
+        pOut.DbType = DbType.UInt64;
+        pOut.Direction = ParameterDirection.Output;
+        cmd.Parameters.Add(pOut);
+
+        await cmd.ExecuteNonQueryAsync();
+
+        long nextSeq = Convert.ToInt64(pOut.Value);
+        return $"{tenantId}{branchId.Value}{nextSeq:D6}";
+    }
     public async Task<Account> UpdateAccountAsync(
     long accountId,
     long memberId,
@@ -362,11 +410,12 @@ public class AccountService : IAccountService
         return result;
     }
 
+
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByTenantAsync(int skip, int take)
     {
         var accts = await _db.Accounts
 
-            .OrderBy(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 200)) 
+            .OrderByDescending(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 999999999)) 
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
         foreach (var a in accts) result.Add(await BuildSummaryAsync(a));
@@ -407,7 +456,7 @@ public class AccountService : IAccountService
     {
         var accts = await _db.Accounts
             .Where(a=> a.Status == AccountStatus.CLOSED && a.TenantId ==_ctx.TenantId)
-            .OrderBy(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 200))
+            .OrderByDescending(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 999999999))
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
         foreach (var a in accts) result.Add(await BuildSummaryAsync(a));
@@ -1012,8 +1061,641 @@ public class AccountService : IAccountService
             //CustomerCode: r.Key.CustomerCode,
             ClosedDate: r.Key.ClosedDate,
             Tenure: r.Key.Tenure
-        )).ToList();
+        )).ToList(); 
 
         return result;
     }
+
+    public async Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidLedgerData(IFormFile file, string fileExtension, string batchCode)
+    {
+        var modifiedRows = new List<string>();
+        var rowCount = 0;
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            string[] columns;
+            List<string[]> rows;
+
+            if (fileExtension == ".csv")
+                (columns, rows) = ParseCsv(stream);
+            else if (fileExtension == ".xlsx")
+                (columns, rows) = ParseExcel(stream);
+            else
+                throw new Exception("Unsupported file format.");
+
+            // Remove blank rows, trim values
+            rows = rows
+                .Where(r => r.Any(v => !string.IsNullOrWhiteSpace(v)))
+                .Select(r => r.Select(v => v?.Trim() ?? "").ToArray())
+                .ToList();
+
+            rowCount = rows.Count;
+
+            // Bulk insert into staging table
+            var (inserted, error) = InsertRowsToStaging(rows, columns, batchCode);
+            if (!inserted) return (false, rowCount, error);
+
+            // Call MySQL validation function
+            var (isValid, errCsv) = CallKycValidationFunction();
+            if (!isValid)
+                return (false, rowCount, errCsv);
+
+            return (true, rowCount, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error processing KYC file");
+            throw;
+        }
+    }
+    private (bool, string) CallKycValidationFunction()
+    {
+        return (true, null);
+    }
+
+    private (string[] columns, List<string[]> rows) ParseCsv(Stream fileStream)
+    {
+        var rows = new List<string[]>();
+        string[] columns;
+
+        using (var reader = new StreamReader(fileStream))
+        {
+            var headerLine = reader.ReadLine();
+            if (headerLine == null)
+                throw new Exception("CSV file is empty.");
+
+            columns = headerLine.Split(',');
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                rows.Add(line.Split(','));
+            }
+        }
+
+        return (columns, rows);
+    }
+
+
+
+
+    // Resolve the ambiguity by using fully qualified names for ExcelPackage
+    private (string[] columns, List<string[]> rows) ParseExcel(Stream fileStream)
+    {
+        var rows = new List<string[]>();
+        ExcelPackage.License.SetNonCommercialPersonal("TechVerve");
+
+
+        using (var package = new ExcelPackage(fileStream)) // Fully qualified name
+        {
+            var worksheet = package.Workbook.Worksheets[0];
+            var rowCount = worksheet.Dimension.Rows;
+            var colCount = worksheet.Dimension.Columns;
+
+            var columns = new string[colCount];
+            for (int col = 1; col <= colCount; col++)
+            {
+                columns[col - 1] = worksheet.Cells[1, col].Text;
+            }
+
+            for (int row = 2; row <= rowCount; row++)
+            {
+                var values = new string[colCount];
+                for (int col = 1; col <= colCount; col++)
+                {
+                    values[col - 1] = worksheet.Cells[row, col].Text;
+                }
+                rows.Add(values);
+            }
+
+            return (columns, rows);
+        }
+    }
+
+    private (bool, string) InsertRowsToStaging(List<string[]> rows, string[] columns, string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+
+        using var connection = new MySqlConnection(connectionString);
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        try
+        {
+
+            var colNames = string.Join(", ", columns.Select(c => $"`{c}`")) + ", `batch_code`";
+            var paramPlaceholders = string.Join(", ",
+                Enumerable.Range(0, columns.Length + 1).Select(i => $"@p{i}"));
+
+            var insertSql = $"INSERT INTO temp_ledger_entry ({colNames}) VALUES ({paramPlaceholders})";
+
+            //foreach (var row in rows)
+            //{
+            //    using var cmd = new MySqlCommand(insertSql, connection, tx);
+            //    for (int i = 0; i < columns.Length; i++)
+            //    {
+            //        cmd.Parameters.AddWithValue($"@p{i}",
+            //            i < row.Length ? (object?)row[i] ?? DBNull.Value : DBNull.Value);
+            //    }
+            //    cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+            //    cmd.ExecuteNonQuery();
+            //}
+
+            foreach (var row in rows)
+            {
+                using var cmd = new MySqlCommand(insertSql, connection, tx);
+
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    object value = DBNull.Value;
+
+                    if (i < row.Length && row[i] != null)
+                    {
+                        string? s = row[i]?.ToString()?.Trim();
+
+                        // treat these as NULL
+                        bool isNullLike =
+                            string.IsNullOrEmpty(s) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("N/A", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NA", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s == "-" ||
+                            s == "\\N";   // MySQL's own NULL marker in TSV files
+
+                        if (!isNullLike)
+                        {
+                            value = row[i];   // keep original type for numeric columns
+                        }
+                    }
+
+                    cmd.Parameters.AddWithValue($"@p{i}", value);
+                }
+
+                cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+                cmd.ExecuteNonQuery();
+            }
+
+            long? bankId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+            using (var cmd = new MySqlCommand("CALL upload_ledger_data(@bankId,@branchId)", connection, tx))
+            {
+                cmd.Parameters.AddWithValue("@bankId", bankId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+
+                cmd.ExecuteNonQuery();
+            }
+
+            int errorCount;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM temp_ledger_entry WHERE error = 1", connection, tx))
+            {
+                errorCount = Convert.ToInt32(cmd.ExecuteScalar());
+            }
+
+            if (errorCount > 0)
+            {
+                var output = new List<string>();
+                using (var errCmd = new MySqlCommand(
+                    "SELECT * FROM temp_ledger_entry WHERE error = 1", connection, tx))
+                using (var reader = errCmd.ExecuteReader())
+                {
+                    var include = new List<int>();
+                    var headerNames = new List<string>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var name = reader.GetName(i);
+                        if (name is "batch_code" or "error") continue;
+                        include.Add(i);
+                        headerNames.Add(name);
+                    }
+                    output.Add(string.Join(",", headerNames));
+
+                    while (reader.Read())
+                    {
+                        var vals = include
+                            .Select(i => reader.IsDBNull(i) ? "NULL" : reader.GetValue(i).ToString())
+                            .Select(v => v!.Replace(",", " ")); // avoid breaking CSV columns
+                        output.Add(string.Join(",", vals));
+                    }
+                } // ← reader disposed here, connection free again
+
+                tx.Rollback();
+                return (false, string.Join(Environment.NewLine, output));
+            }
+
+            tx.Commit();
+            return (true, null!);
+        }
+        catch (MySqlException ex)
+        {
+            try { tx.Rollback(); } catch { /* ignore */ }
+            _log.LogError(ex, "MySQL error in InsertRowsToStaging"); 
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidAccData(IFormFile file, string fileExtension, string batchCode)
+    {
+        var modifiedRows = new List<string>();
+        var rowCount = 0;
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            string[] columns;
+            List<string[]> rows;
+
+            if (fileExtension == ".csv")
+                (columns, rows) = ParseCsv(stream);
+            else if (fileExtension == ".xlsx")
+                (columns, rows) = ParseExcel(stream);
+            else
+                throw new Exception("Unsupported file format.");
+
+            // Remove blank rows, trim values
+            rows = rows
+                .Where(r => r.Any(v => !string.IsNullOrWhiteSpace(v)))
+                .Select(r => r.Select(v => v?.Trim() ?? "").ToArray())
+                .ToList();
+
+            rowCount = rows.Count;
+
+            // Bulk insert into staging table
+            var (inserted, error) = InsertAccountData(rows, columns, batchCode);
+            if (!inserted) return (false, rowCount, error);
+
+            // Call MySQL validation function
+            var (isValid, errCsv) = CallKycValidationFunction();
+            if (!isValid)
+                return (false, rowCount, errCsv);
+
+            return (true, rowCount, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error processing KYC file");
+            throw;
+        }
+    }
+    private (bool, string) InsertAccountData(
+  List<string[]> rows, string[] columns, string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+
+        using var connection = new MySqlConnection(connectionString);
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        try
+        {
+
+            var colNames = string.Join(", ", columns.Select(c => $"`{c}`")) + ", `batch_code`";
+            var paramPlaceholders = string.Join(", ",
+                Enumerable.Range(0, columns.Length + 1).Select(i => $"@p{i}"));
+
+            var insertSql =
+                $"INSERT INTO temp_account({colNames}) VALUES ({paramPlaceholders})";
+
+            foreach (var row in rows)
+            {
+                using var cmd = new MySqlCommand(insertSql, connection, tx);
+
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    object value = DBNull.Value;
+
+                    if (i < row.Length && row[i] != null)
+                    {
+                        string? s = row[i]?.ToString()?.Trim();
+
+                        // treat these as NULL
+                        bool isNullLike =
+                            string.IsNullOrEmpty(s) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("N/A", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NA", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s == "-" ||
+                            s == "\\N";   // MySQL's own NULL marker in TSV files
+
+                        if (!isNullLike)
+                        {
+                            value = row[i];   // keep original type for numeric columns
+                        }
+                    }
+
+                    cmd.Parameters.AddWithValue($"@p{i}", value);
+                }
+
+                cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+                cmd.ExecuteNonQuery();
+            }
+            long? bankId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+            using (var cmd = new MySqlCommand("CALL validate_upload_account(@bankId,@branchId)", connection, tx))
+            {
+                cmd.Parameters.AddWithValue("@bankId", bankId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+
+                cmd.ExecuteNonQuery();
+            }
+
+            int errorCount;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM temp_account WHERE error = 1", connection, tx))
+            {
+                errorCount = Convert.ToInt32(cmd.ExecuteScalar());
+            }
+
+            if (errorCount > 0)
+            {
+                var output = new List<string>();
+                using (var errCmd = new MySqlCommand(
+                    "SELECT * FROM temp_account WHERE error = 1", connection, tx))
+                using (var reader = errCmd.ExecuteReader())
+                {
+                    var include = new List<int>();
+                    var headerNames = new List<string>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var name = reader.GetName(i);
+                        if (name is "batch_code" or "error") continue;
+                        include.Add(i);
+                        headerNames.Add(name);
+                    }
+                    output.Add(string.Join(",", headerNames));
+
+                    while (reader.Read())
+                    {
+                        var vals = include
+                            .Select(i => reader.IsDBNull(i) ? "NULL" : reader.GetValue(i).ToString())
+                            .Select(v => v!.Replace(",", " ")); // avoid breaking CSV columns
+                        output.Add(string.Join(",", vals));
+                    }
+                } // ← reader disposed here, connection free again
+
+                tx.Rollback();
+                return (false, string.Join(Environment.NewLine, output));
+            }
+
+            tx.Commit();
+            return (true, null!);
+        }
+        catch (MySqlException ex)
+        {
+            try { tx.Rollback(); } catch { /* ignore */ }
+            _log.LogError(ex, "MySQL error in InsertRowsToStaging");
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+        var connection = new MySqlConnection(connectionString);
+        connection.Open();
+
+        try
+        {
+            long? tenantId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+
+            using (var cmd = new MySqlCommand("CALL upload_temp_account_data(@tenantId, @branchId)", connection))
+            {
+                cmd.Parameters.AddWithValue("@tenantId", tenantId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.ExecuteNonQuery();
+            }
+
+
+            return (true, null);
+        }
+
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error in InsertToDatabase");
+            return (false, $"Unexpected error: {ex.Message}");
+        }
+    }
+
+
+
+    public async Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidApaymentData(IFormFile file, string fileExtension, string batchCode)
+    {
+        var modifiedRows = new List<string>();
+        var rowCount = 0;
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            string[] columns;
+            List<string[]> rows;
+
+            if (fileExtension == ".csv")
+                (columns, rows) = ParseCsv(stream);
+            else if (fileExtension == ".xlsx")
+                (columns, rows) = ParseExcel(stream);
+            else
+                throw new Exception("Unsupported file format.");
+
+            // Remove blank rows, trim values
+            rows = rows
+                .Where(r => r.Any(v => !string.IsNullOrWhiteSpace(v)))
+                .Select(r => r.Select(v => v?.Trim() ?? "").ToArray())
+                .ToList();
+
+            rowCount = rows.Count;
+
+            // Bulk insert into staging table
+            var (inserted, error) = InsertpaymentData(rows, columns, batchCode);
+            if (!inserted) return (false, rowCount, error);
+
+            // Call MySQL validation function
+            var (isValid, errCsv) = CallKycValidationFunction();
+            if (!isValid)
+                return (false, rowCount, errCsv);
+
+            return (true, rowCount, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error processing KYC file");
+            throw;
+        }
+    }
+    private (bool, string) InsertpaymentData(
+  List<string[]> rows, string[] columns, string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+
+        using var connection = new MySqlConnection(connectionString);
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        try
+        {
+
+            var colNames = string.Join(", ", columns.Select(c => $"`{c}`")) + ", `batch_code`";
+            var paramPlaceholders = string.Join(", ",
+                Enumerable.Range(0, columns.Length + 1).Select(i => $"@p{i}"));
+
+            var del = "DELETE FROM temp_payment_detail";
+
+            var insertSql = $"INSERT INTO temp_payment_detail({colNames}) VALUES ({paramPlaceholders})";
+
+            foreach (var row in rows)
+            {
+                using var cmd = new MySqlCommand(insertSql, connection, tx);
+
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    object value = DBNull.Value;
+
+                    if (i < row.Length && row[i] != null)
+                    {
+                        string? s = row[i]?.ToString()?.Trim();
+
+                        // treat these as NULL
+                        bool isNullLike =
+                            string.IsNullOrEmpty(s) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("N/A", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NA", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s == "-" ||
+                            s == "\\N";   // MySQL's own NULL marker in TSV files
+
+                        if (!isNullLike)
+                        {
+                            value = row[i];   // keep original type for numeric columns
+                        }
+                    }
+
+                    cmd.Parameters.AddWithValue($"@p{i}", value);
+                }
+
+                cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+                cmd.ExecuteNonQuery();
+            }
+           long? bankId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+            using (var cmd = new MySqlCommand("CALL validate_upload_payment(@bankId,@branchId)", connection, tx))
+            {
+                cmd.Parameters.AddWithValue("@bankId", bankId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.CommandTimeout = 300; // 5 minutes
+
+                cmd.ExecuteNonQuery();
+            }
+
+            int errorCount;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM temp_payment_detail WHERE error = 1", connection, tx))
+            {
+                errorCount = Convert.ToInt32(cmd.ExecuteScalar());
+            }
+
+            if (errorCount > 0)
+            {
+                var output = new List<string>();
+                using (var errCmd = new MySqlCommand(
+                    "SELECT * FROM temp_payment_detail WHERE error = 1", connection, tx))
+                using (var reader = errCmd.ExecuteReader())
+                {
+                    var include = new List<int>();
+                    var headerNames = new List<string>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var name = reader.GetName(i);
+                        if (name is "batch_code" or "error") continue;
+                        include.Add(i);
+                        headerNames.Add(name);
+                    }
+                    output.Add(string.Join(",", headerNames));
+
+                    while (reader.Read())
+                    {
+                        var vals = include
+                            .Select(i => reader.IsDBNull(i) ? "NULL" : reader.GetValue(i).ToString())
+                            .Select(v => v!.Replace(",", " ")); // avoid breaking CSV columns
+                        output.Add(string.Join(",", vals));
+                    }
+                } // ← reader disposed here, connection free again
+
+                tx.Rollback();
+                return (false, string.Join(Environment.NewLine, output));
+            }
+
+            tx.Commit();
+            return (true, null!);
+        }
+        catch (MySqlException ex)
+        {
+            try { tx.Rollback(); } catch { /* ignore */ }
+            _log.LogError(ex, "MySQL error in InsertRowsToStaging");
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool isSuccess, string errorMessage)> InsertToPaymentDatabase(string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+        var connection = new MySqlConnection(connectionString); 
+        connection.Open();
+
+        try
+        {
+            long? tenantId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+
+            using (var cmd = new MySqlCommand("CALL upload_temp_account_data(@tenantId, @branchId)", connection))
+            {
+                cmd.Parameters.AddWithValue("@tenantId", tenantId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.ExecuteNonQuery();
+            }
+
+
+            return (true, null);
+        }
+
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error in InsertToDatabase");
+            return (false, $"Unexpected error: {ex.Message}");
+        }
+    }
+
+
+    public async Task<(bool isSuccess, string errorMessage)> InsertToLedgerDatabase(string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default"); 
+        var connection = new MySqlConnection(connectionString);
+        connection.Open();
+
+        try
+        {
+            long? tenantId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+
+            using (var cmd = new MySqlCommand("CALL upload_ledger_detail_data(@tenantId, @branchId)", connection))
+            {
+                cmd.Parameters.AddWithValue("@tenantId", tenantId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.ExecuteNonQuery();
+            }
+
+
+            return (true, null);
+        }
+
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error in InsertToDatabase");
+            return (false, $"Unexpected error: {ex.Message}");
+        }
+    }
+
 }

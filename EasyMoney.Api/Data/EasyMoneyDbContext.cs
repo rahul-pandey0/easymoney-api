@@ -383,6 +383,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.BankIfsc).HasColumnName("bank_ifsc");
             e.Property(x => x.BankHolderName).HasColumnName("bank_holder_name");
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.OldCifId).HasColumnName("old_cif_id");
+            e.Property(x => x.OldCustomerId).HasColumnName("old_customer_id");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
@@ -534,6 +536,9 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.OfficeAddress).HasColumnName("office_address");
 
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+
+            e.Property(x => x.OldCifId).HasColumnName("old_cif_id");
+            e.Property(x => x.OldCustomerId).HasColumnName("old_customer_id");
         });
 
         b.Entity<CorporateKycDetail>(e =>
@@ -702,6 +707,12 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.UploadedAt).HasColumnName("uploaded_at");
             e.Property(x => x.VerifiedAt).HasColumnName("verified_at");
             e.Property(x => x.VerifiedBy).HasColumnName("verified_by");
+            e.Property(x => x.FileDataBase64).HasColumnName("file_data_base64");
+            e.Property(x => x.FileName).HasColumnName("file_name");
+            e.Property(x => x.ContentType).HasColumnName("content_type");
+            e.Property(x => x.FileSize).HasColumnName("file_size");
+            e.Property(x => x.OldCifId).HasColumnName("old_cif_id");
+            e.Property(x => x.OldCustomerId).HasColumnName("old_customer_id");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
@@ -717,6 +728,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.Remarks).HasColumnName("remarks");
             e.Property(x => x.ReviewedBy).HasColumnName("reviewed_by");
             e.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+            e.Property(x => x.OldCifId).HasColumnName("old_cif_id");
+            e.Property(x => x.OldCustomerId).HasColumnName("old_customer_id");
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });
 
@@ -761,7 +774,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CustomerCode).HasColumnName("customer_code");
             e.Property(x => x.ClosedDate).HasColumnName("closed_date");
             e.Property(x => x.Tenure).HasColumnName("tenure");
-
+            e.Property(x => x.OldCustomerId).HasColumnName("old_customer_id");
+            e.Property(x => x.OldAccountId).HasColumnName("old_account_id");
 
             e.HasQueryFilter(x => _ctx.BypassTenantFilter || x.TenantId == _ctx.TenantId);
         });

@@ -5,6 +5,17 @@ using EasyMoney.Api.Dtos;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Ocsp;
+using Org.BouncyCastle.Asn1.Ocsp;
+using System;
+using System.Reflection.Emit;
+using MySql.Data.MySqlClient;
+using System.IO;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using OfficeOpenXml;
+using System.Configuration;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 
 namespace EasyMoney.Api.Services;
 
@@ -34,8 +45,11 @@ public interface IBiddingService
 
     Task<IReadOnlyList<BonusDistribution>> GetBonusData();
      
-    Task<Bonus> GetByBonusDetails(string refNo);  
-     
+    Task<Bonus> GetByBonusDetails(string refNo);
+    Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidData(IFormFile file, string fileExtension, string batchCode);
+    Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode);
+
+
     //Task SubmitOrUpdateBidAsync(long accountId, SubmitBidReq req);
 }
 
@@ -46,11 +60,13 @@ public class BiddingService : IBiddingService
     private readonly ILoanService _loans;
     private readonly ITenantContext _ctx;
     private readonly ILogger<BiddingService> _log;
+    private readonly IConfiguration _configuration;
 
     public BiddingService(EasyMoneyDbContext db, IAccountingService accounting, ILoanService loans,
-        ITenantContext ctx, ILogger<BiddingService> log)
+        ITenantContext ctx, ILogger<BiddingService> log, IConfiguration configuration)
     {
         _db = db; _accounting = accounting; _loans = loans; _ctx = ctx; _log = log;
+        _configuration = configuration; 
     }
 
     public async Task<BiddingCycle> OpenCycleAsync(long tenantId, DateOnly cycleMonth, DateOnly? biddingDate = null)
@@ -1372,7 +1388,268 @@ public class BiddingService : IBiddingService
 
         return await query.ToListAsync();
     }
+    public async Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidData(IFormFile file, string fileExtension, string batchCode)
+    {
+        var modifiedRows = new List<string>();
+        var rowCount = 0;
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            string[] columns;
+            List<string[]> rows;
+
+            if (fileExtension == ".csv")
+                (columns, rows) = ParseCsv(stream);
+            else if (fileExtension == ".xlsx")
+                (columns, rows) = ParseExcel(stream);
+            else
+                throw new Exception("Unsupported file format.");
+
+            // Remove blank rows, trim values
+            rows = rows
+                .Where(r => r.Any(v => !string.IsNullOrWhiteSpace(v)))
+                .Select(r => r.Select(v => v?.Trim() ?? "").ToArray())
+                .ToList();
+
+            rowCount = rows.Count;
+
+            // Bulk insert into staging table
+            var (inserted, error) = InsertRowsToStaging(rows, columns, batchCode);
+            if (!inserted) return (false, rowCount, error);
+
+            // Call MySQL validation function
+            var (isValid, errCsv) = CallKycValidationFunction();
+            if (!isValid)
+                return (false, rowCount, errCsv);
+
+            return (true, rowCount, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error processing KYC file");
+            throw;
+        }
+    }
+    private (bool, string) CallKycValidationFunction()
+    {
+        return (true, null);
+    }
+
+    private (string[] columns, List<string[]> rows) ParseCsv(Stream fileStream)
+    {
+        var rows = new List<string[]>();
+        string[] columns;
+
+        using (var reader = new StreamReader(fileStream))
+        {
+            var headerLine = reader.ReadLine();
+            if (headerLine == null)
+                throw new Exception("CSV file is empty.");
+
+            columns = headerLine.Split(',');
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                rows.Add(line.Split(','));
+            }
+        }
+
+        return (columns, rows);
+    }
 
 
+
+
+    // Resolve the ambiguity by using fully qualified names for ExcelPackage
+    private (string[] columns, List<string[]> rows) ParseExcel(Stream fileStream)
+    {
+        var rows = new List<string[]>();
+        ExcelPackage.License.SetNonCommercialPersonal("TechVerve");
+
+
+        using (var package = new ExcelPackage(fileStream)) // Fully qualified name
+        {
+            var worksheet = package.Workbook.Worksheets[0];
+            var rowCount = worksheet.Dimension.Rows;
+            var colCount = worksheet.Dimension.Columns;
+
+            var columns = new string[colCount];
+            for (int col = 1; col <= colCount; col++)
+            {
+                columns[col - 1] = worksheet.Cells[1, col].Text;
+            }
+
+            for (int row = 2; row <= rowCount; row++)
+            {
+                var values = new string[colCount];
+                for (int col = 1; col <= colCount; col++)
+                {
+                    values[col - 1] = worksheet.Cells[row, col].Text;
+                }
+                rows.Add(values);
+            }
+
+            return (columns, rows);
+        }
+    }
+     
+
+    private (bool, string) InsertRowsToStaging(List<string[]> rows, string[] columns, string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+
+        using var connection = new MySqlConnection(connectionString);
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        try
+        {
+
+            var colNames = string.Join(", ", columns.Select(c => $"`{c}`")) + ", `batch_code`";
+            var paramPlaceholders = string.Join(", ",
+                Enumerable.Range(0, columns.Length + 1).Select(i => $"@p{i}"));
+
+            var insertSql = $"INSERT INTO temp_bid_entry ({colNames}) VALUES ({paramPlaceholders})";
+
+            //foreach (var row in rows)
+            //{
+            //    using var cmd = new MySqlCommand(insertSql, connection, tx);
+            //    for (int i = 0; i < columns.Length; i++)
+            //    {
+            //        cmd.Parameters.AddWithValue($"@p{i}",
+            //            i < row.Length ? (object?)row[i] ?? DBNull.Value : DBNull.Value);
+            //    }
+            //    cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+            //    cmd.ExecuteNonQuery();
+            //}
+
+            foreach (var row in rows)
+            {
+                using var cmd = new MySqlCommand(insertSql, connection, tx);
+
+                for (int i = 0; i < columns.Length; i++)
+                {
+                    object value = DBNull.Value;
+
+                    if (i < row.Length && row[i] != null)
+                    {
+                        string? s = row[i]?.ToString()?.Trim();
+
+                        // treat these as NULL
+                        bool isNullLike =
+                            string.IsNullOrEmpty(s) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("N/A", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NA", StringComparison.OrdinalIgnoreCase) ||
+                            s.Equals("NULL", StringComparison.OrdinalIgnoreCase) ||
+                            s == "-" ||
+                            s == "\\N";   // MySQL's own NULL marker in TSV files
+
+                        if (!isNullLike)
+                        {
+                            value = row[i];   // keep original type for numeric columns
+                        }
+                    }
+
+                    cmd.Parameters.AddWithValue($"@p{i}", value);
+                }
+
+                cmd.Parameters.AddWithValue($"@p{columns.Length}", batchCode);
+                cmd.ExecuteNonQuery();
+            }
+
+            long? bankId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+            var batch = batchCode;
+            using (var cmd = new MySqlCommand("CALL validate_upload_bid(@bankId,@branchId,@batch)", connection, tx))
+            {
+                cmd.Parameters.AddWithValue("@bankId", bankId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.Parameters.AddWithValue("@batch", batch);
+
+                cmd.ExecuteNonQuery();
+            }
+
+            int errorCount;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM temp_bid_entry WHERE error = 1", connection, tx))
+            {
+                errorCount = Convert.ToInt32(cmd.ExecuteScalar());
+            }
+
+            if (errorCount > 0)
+            {
+                var output = new List<string>();
+                using (var errCmd = new MySqlCommand(
+                    "SELECT * FROM temp_bid_entry WHERE error = 1", connection, tx))
+                using (var reader = errCmd.ExecuteReader())
+                {
+                    var include = new List<int>();
+                    var headerNames = new List<string>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var name = reader.GetName(i);
+                        if (name is "batch_code" or "error") continue;
+                        include.Add(i);
+                        headerNames.Add(name);
+                    }
+                    output.Add(string.Join(",", headerNames));
+
+                    while (reader.Read())
+                    {
+                        var vals = include
+                            .Select(i => reader.IsDBNull(i) ? "NULL" : reader.GetValue(i).ToString())
+                            .Select(v => v!.Replace(",", " ")); // avoid breaking CSV columns
+                        output.Add(string.Join(",", vals));
+                    }
+                } // ← reader disposed here, connection free again
+
+                tx.Rollback();
+                return (false, string.Join(Environment.NewLine, output));
+            }
+
+            tx.Commit();
+            return (true, null!);
+        }
+        catch (MySqlException ex)
+        {
+            try { tx.Rollback(); } catch { /* ignore */ }
+            _log.LogError(ex, "MySQL error in InsertRowsToStaging");
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode)
+    {
+        string connectionString = _configuration.GetConnectionString("Default");
+        var connection = new MySqlConnection(connectionString); 
+        connection.Open();
+
+        try
+        {
+            long? tenantId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
+            var batch = batchCode;
+
+            using (var cmd = new MySqlCommand("CALL upload_bid_data(@tenantId, @branchId,@batch)", connection))
+            {
+                cmd.Parameters.AddWithValue("@tenantId", tenantId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.Parameters.AddWithValue("@batch", batch);
+                cmd.ExecuteNonQuery();
+            }
+
+
+            return (true, null);
+        }
+
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Error in InsertToDatabase");
+            return (false, $"Unexpected error: {ex.Message}");
+        }
+    }
 
 }

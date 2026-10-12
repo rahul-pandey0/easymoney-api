@@ -38,7 +38,6 @@ public interface IMemberService
 
 }
 
-
 public class MemberService : IMemberService
 {
     private readonly EasyMoneyDbContext _db;
@@ -430,17 +429,7 @@ public class MemberService : IMemberService
                 cmd.ExecuteNonQuery();
             }
 
-            //// Batch master
-            //using (var cmd = new MySqlCommand(
-            //    @"INSERT INTO batch_master (module, batch_code, tenant_id, branch_id, status)
-            //      VALUES ('KYC', @batch, @tenant, @branch, 'UPLOADED')", connection))
-            //{
-            //    cmd.Parameters.AddWithValue("@batch", batchCode);
-            //    cmd.Parameters.AddWithValue("@tenant", tenantId);
-            //    cmd.Parameters.AddWithValue("@branch", branchId);
-            //    cmd.ExecuteNonQuery();
-            //}
-
+          
             return (true, null);
         }
 
@@ -619,9 +608,12 @@ public class MemberService : IMemberService
 
             // 3) Call validation PROCEDURE (not function) — ExecuteNonQuery
             long? bankId = _ctx.TenantId;
-            using (var cmd = new MySqlCommand("CALL validate_upload_kyc(@bankId)", connection, tx))
+            long ? branchId = _ctx.BranchId;
+            using (var cmd = new MySqlCommand("CALL validate_upload_kyc(@bankId,@branchId)", connection, tx))
             {
                 cmd.Parameters.AddWithValue("@bankId", bankId);
+                cmd.Parameters.AddWithValue("@branchId", branchId);
+
                 cmd.ExecuteNonQuery();
             }
 

@@ -89,14 +89,14 @@ public class KycController : ControllerBase
         long memberId,
         [FromForm] KycDocType docType,
         [FromForm] string? docNumber,
-        IFormFile file)
+        IFormFile file, string? contentType = null)
     {
         if (file is null || file.Length == 0)
             return BadRequest(new { error = "file is required" });
         try
         {
             await using var s = file.OpenReadStream();
-            var doc = await _docs.UploadAsync(memberId, docType, docNumber, s, file.FileName);
+            var doc = await _docs.UploadAsync(memberId, docType, docNumber, s, file.FileName, file.ContentType);
             return Ok(new KycDocumentDto(
                 doc.DocumentId, doc.MemberId, doc.DocType.ToString(),
                 doc.DocNumber, doc.FilePath, doc.FileHash, doc.Status.ToString(),
@@ -143,50 +143,159 @@ public class KycController : ControllerBase
         catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
     }
 
-    [HttpGet("kyc-review")]
-    public async Task<ActionResult<IReadOnlyList<KycReviewDto>>> History(long memberId)
-        => Ok(await _kyc.GetReviewHistoryAsync(memberId));
+    //[HttpGet("kyc-review")]
+    //public async Task<ActionResult<IReadOnlyList<KycReviewDto>>> History(long memberId)
+    //    => Ok(await _kyc.GetReviewHistoryAsync(memberId));
 
-    [HttpGet("{documentId:long}/preview"),
-        Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer)]
+    //[HttpGet("{documentId:long}/preview"),
+    //    Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer)]
+    //public async Task<IActionResult> Preview(long memberId, long documentId)
+    //{
+    //    var doc = await _kyc.GetAsync(documentId);
+    //    if (doc == null || doc.MemberId != memberId) return NotFound();
+
+    //    if (string.IsNullOrWhiteSpace(doc.FilePath))
+    //        return NotFound("No file path stored");
+
+    //    // Normalize separators ("\\" and "/")
+    //    var normalized = doc.FilePath.Replace('\\', '/');
+
+    //    if (!System.IO.File.Exists(normalized))
+    //    {
+    //        _log.LogWarning("KYC file not found: {Path}", normalized);
+    //        return NotFound($"File not found on disk: {normalized}");
+    //    }
+
+    //    var ext = Path.GetExtension(normalized).ToLowerInvariant();
+    //    var contentType = ext switch
+    //    {
+    //        ".png" => "image/png",
+    //        ".jpg" or ".jpeg" => "image/jpeg",
+    //        ".gif" => "image/gif",
+    //        ".webp" => "image/webp",
+    //        ".pdf" => "application/pdf",
+    //        _ => "application/octet-stream",
+    //    };
+
+    //    var bytes = await System.IO.File.ReadAllBytesAsync(normalized);
+    //    var base64 = Convert.ToBase64String(bytes);
+
+    //    return Ok(new
+    //    {
+    //        fileName = Path.GetFileName(normalized),
+    //        contentType,
+    //        base64,
+    //        // convenience: full data URL you can drop straight into <img src>
+    //        dataUrl = $"data:{contentType};base64,{base64}"
+    //    });
+    //}
+
+    [HttpGet("{documentId:long}/preview")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer + "," + Roles.Member)]
     public async Task<IActionResult> Preview(long memberId, long documentId)
     {
         var doc = await _kyc.GetAsync(documentId);
         if (doc == null || doc.MemberId != memberId) return NotFound();
 
-        if (string.IsNullOrWhiteSpace(doc.FilePath))
-            return NotFound("No file path stored");
+        // Members may only preview their own documents.
+        //if (_ctx.Role == Roles.Member )
+        //    return Forbid();
 
-        // Normalize separators ("\\" and "/")
+        // ---------- 1. Prefer base64 stored in DB ----------
+        //if (!string.IsNullOrWhiteSpace(doc.FileDataBase64))
+        //{
+            // Strip any pre-existing `data:...;base64,` prefix if it was stored that way.
+
+            // Fix for CS1503: Convert byte[] to Base64 string before checking for null or whitespace
+            if (doc.FileDataBase64 != null && doc.FileDataBase64.Length > 0)
+            {
+                var base64String = Convert.ToBase64String(doc.FileDataBase64);
+                if (!string.IsNullOrWhiteSpace(base64String))
+                {
+                    // Strip any pre-existing `data:...;base64,` prefix if it was stored that way.
+                    var raw = base64String;
+                    if (raw.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var idx = raw.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
+                        if (idx >= 0) raw = raw[(idx + 7)..];
+                    }
+
+                    var ct = string.IsNullOrWhiteSpace(doc.ContentType)
+                        ? InferContentType(doc.FileName ?? doc.FilePath)
+                        : doc.ContentType!;
+
+                    var name = doc.FileName
+                               ?? (doc.FilePath is not null
+                                    ? Path.GetFileName(doc.FilePath)
+                                    : $"document-{doc.DocumentId}");
+
+                    return Ok(new
+                    {
+                        fileName = name,
+                        contentType = ct,
+                        base64 = raw,
+                        dataUrl = $"data:{ct};base64,{raw}"
+                    });
+                }
+            }
+            
+        
+
+        // ---------- 2. Fallback: read from disk (legacy rows) ----------
+        if (string.IsNullOrWhiteSpace(doc.FilePath))
+            return NotFound("No file content or path stored");
+
         var normalized = doc.FilePath.Replace('\\', '/');
 
-        if (!System.IO.File.Exists(normalized))
+        // Path traversal guard — only allow reads under the configured KYC root.
+
+        //var root = _cfg["KycDocStorage:Root"] ?? Path.Combine(AppContext.BaseDirectory, "kyc_storage");
+
+        var fullPath = Path.GetFullPath(normalized);
+        //var rootFull = Path.GetFullPath(root);
+        //if (!fullPath.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+        //{
+        //    _log.LogWarning("Blocked path traversal attempt for doc {DocId}: {Path}", documentId, normalized);
+        //    return NotFound("Invalid file path");
+        //}
+
+        if (!System.IO.File.Exists(fullPath))
         {
-            _log.LogWarning("KYC file not found: {Path}", normalized);
-            return NotFound($"File not found on disk: {normalized}");
+            _log.LogWarning("KYC file not found: {Path}", fullPath);
+            return NotFound($"File not found on disk: {fullPath}");
         }
 
-        var ext = Path.GetExtension(normalized).ToLowerInvariant();
-        var contentType = ext switch
+        var contentType = InferContentType(fullPath);
+        var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
+        var base64 = Convert.ToBase64String(bytes);
+
+        return Ok(new
+        {
+            fileName = Path.GetFileName(fullPath),
+            contentType,
+            base64,
+            dataUrl = $"data:{contentType};base64,{base64}"
+        });
+    }
+
+    /// <summary>
+    /// Map a file path/name extension to a MIME type.
+    /// </summary>
+    private static string InferContentType(string? path)
+    {
+        var ext = Path.GetExtension(path ?? string.Empty).ToLowerInvariant();
+        return ext switch
         {
             ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",
             ".gif" => "image/gif",
             ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".svg" => "image/svg+xml",
+            ".tif" or ".tiff" => "image/tiff",
             ".pdf" => "application/pdf",
-            _ => "application/octet-stream",
+            //_ => "application/octet-stream",
         };
-
-        var bytes = await System.IO.File.ReadAllBytesAsync(normalized);
-        var base64 = Convert.ToBase64String(bytes);
-
-        return Ok(new
-        {
-            fileName = Path.GetFileName(normalized),
-            contentType,
-            base64,
-            // convenience: full data URL you can drop straight into <img src>
-            dataUrl = $"data:{contentType};base64,{base64}"
-        });
     }
+
 }

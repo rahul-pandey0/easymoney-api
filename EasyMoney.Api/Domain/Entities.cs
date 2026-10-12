@@ -277,7 +277,12 @@ public class Member
     public string? BankAccountNo { get; set; }
     public string? BankIfsc { get; set; }
     public string? BankHolderName { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } //= DateTime.UtcNow;
+
+    public string? OldCifId { get; set; } 
+    public string? OldCustomerId { get; set; } 
+
+
 }
 
 
@@ -417,6 +422,8 @@ public class IndividualKycDetail
     public string? OfficeAddress { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+    public string? OldCifId { get; set; }
+    public string? OldCustomerId { get; set; }
 }
 //public class CorporateKycDetail
 //{
@@ -556,6 +563,15 @@ public class KycDocument
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     public DateTime? VerifiedAt { get; set; }
     public long? VerifiedBy { get; set; }
+
+    //new columns
+    public byte[]? FileDataBase64 { get; set; }  // <-- NEW: base64 content
+    public string? FileName { get; set; }        // original name (useful now)
+    public string? ContentType { get; set; }
+    public long FileSize { get; set; }
+    public string? OldCifId { get; set; }
+    public string? OldCustomerId { get; set; }
+
 }
 
 public class KycReview
@@ -567,7 +583,9 @@ public class KycReview
     public KycStatus ToStatus { get; set; }
     public string? Remarks { get; set; }
     public long ReviewedBy { get; set; }
-    public DateTime ReviewedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ReviewedAt { get; set; } //= DateTime.UtcNow;
+    public string? OldCifId { get; set; }
+    public string? OldCustomerId { get; set; }
 }
 
 public class Account
@@ -609,9 +627,11 @@ public class Account
     public string? IsBidding { get; set; }
     public string? CustomerCode { get; set; }
     public DateTime? ClosedDate { get; set; }
-    public long? Tenure { get; set; } 
+    public long? Tenure { get; set; }
 
-
+    public long? OldCustomerId { get; set; }
+    //public string? OldCustomerId { get; set; }
+    public long? OldAccountId { get; set; } 
 
 
 }

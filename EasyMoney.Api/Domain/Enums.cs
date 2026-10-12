@@ -119,6 +119,12 @@ public enum ReportsType
 public enum ModelToUpload
 {
     KycDetail = 1,   // add your value
+    AccountDetails = 2,   // add your value
+    LedgerDetails =3,
+    PaymentData =4,
+    Bid =5,
+    Loan =6,
+
 }
 
 
