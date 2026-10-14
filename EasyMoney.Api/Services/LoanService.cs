@@ -369,7 +369,7 @@ public class LoanService : ILoanService
 
     public Task<List<Loan>> GetByAccountbytenant() =>
         _db.Loans.IgnoreQueryFilters()
-            .Where(l => l.TenantId == _ctx.TenantId)
+            .Where(l => l.TenantId == _ctx.TenantId && l.BranchId == _ctx.BranchId)
             .ToListAsync();
 
 

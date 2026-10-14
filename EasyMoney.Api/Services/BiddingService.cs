@@ -1104,7 +1104,7 @@ public class BiddingService : IBiddingService
         // Get the current cycle (OPEN, CLOSED, or RESOLVED)
         var cycle = await _db.BiddingCycles
             .IgnoreQueryFilters()
-            .Where(c => c.TenantId == tenantId
+            .Where(c => c.TenantId == tenantId && c.BranchId ==_ctx.BranchId
                        && (c.Status == CycleStatus.OPEN
                            || c.Status == CycleStatus.CLOSED
                            || c.Status == CycleStatus.RESOLVED

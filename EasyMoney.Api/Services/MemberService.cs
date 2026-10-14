@@ -188,7 +188,7 @@ public class MemberService : IMemberService
         var totalCount = await q.CountAsync();
 
         var items = await q
-            .OrderByDescending(m => m.CreatedAt)
+            .OrderByDescending(m => m.CreatedAt).Where(u => u.BranchId == _ctx.BranchId)
             .Skip(skip)
             .Take(Math.Clamp(take, 1, 200))
             .Select(m => ToDto(m))
@@ -587,10 +587,12 @@ public class MemberService : IMemberService
             //    cmd.ExecuteNonQuery();
 
             // 2) Bulk insert
+            long? bankId = _ctx.TenantId;
+            long? branchId = _ctx.BranchId;
             var colNames = string.Join(", ", columns.Select(c => $"`{c}`")) + ", `batch_code`";
             var paramPlaceholders = string.Join(", ",
                 Enumerable.Range(0, columns.Length + 1).Select(i => $"@p{i}"));
-
+            var del = $"DELETE FROM upload_kyc_detail WHERE branch_id = {branchId} AND tenant_id = {bankId}";
             var insertSql =
                 $"INSERT INTO upload_kyc_detail ({colNames}) VALUES ({paramPlaceholders})";
 
@@ -607,8 +609,7 @@ public class MemberService : IMemberService
             }
 
             // 3) Call validation PROCEDURE (not function) — ExecuteNonQuery
-            long? bankId = _ctx.TenantId;
-            long ? branchId = _ctx.BranchId;
+
             using (var cmd = new MySqlCommand("CALL validate_upload_kyc(@bankId,@branchId)", connection, tx))
             {
                 cmd.Parameters.AddWithValue("@bankId", bankId);

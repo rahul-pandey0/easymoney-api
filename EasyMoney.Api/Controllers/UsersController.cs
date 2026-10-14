@@ -108,6 +108,7 @@ public class UsersController : ControllerBase
     .Include(u => u.Tenant)
     .Include(x => x.Branch)
     .Where(u => u.TenantId == tenantId);
+        if (!_ctx.IsSifin)  q = q.Where(u => u.BranchId == _ctx.BranchId);
         if (isActive.HasValue) q = q.Where(u => u.IsActive == isActive.Value);
 
         var users = await q.OrderBy(u => u.UserId)

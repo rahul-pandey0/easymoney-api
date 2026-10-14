@@ -11,7 +11,7 @@ namespace EasyMoney.Api.Controllers
 {
     [ApiController]
     [Route("api/v1/upload")]
-    [Authorize]
+    //[Authorize]
     public class UploadController : ControllerBase
     {
         private readonly ITenantContext _ctx;
@@ -28,6 +28,8 @@ namespace EasyMoney.Api.Controllers
         }
 
         [HttpPost("Filevalidate")]
+        //Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.Member)]
+
         public async Task<IActionResult> FilevalidateUpload(IFormFile file, int modelId)
         //public async Task<IActionResult> FilevalidateUpload([FromForm] IFormFile file, [FromQuery] int modelId)
         {
@@ -125,6 +127,8 @@ namespace EasyMoney.Api.Controllers
         }
 
         [HttpPost("validationadata")]
+        //Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.Member)]
+
         public IActionResult Upload(int modelId, string batchCode)
         {
             try

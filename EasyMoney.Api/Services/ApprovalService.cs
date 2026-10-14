@@ -175,7 +175,7 @@ public class ApprovalService : IApprovalService
     public async Task<IReadOnlyList<ApprovalRequestDto>> ListAsync(
         ApprovalStatus? status, ApprovalActionType? actionType, long? tenantId, int skip, int take)
     {
-        var q = _db.ApprovalRequests.IgnoreQueryFilters().AsQueryable();
+        var q = _db.ApprovalRequests.Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId) .IgnoreQueryFilters().AsQueryable();
         // Role scoping for listing
         if (_ctx.Role is Roles.OrgAdmin or Roles.OrgAuthorizer or Roles.OrgOperator or Roles.Auditor)
             q = q.Where(r => r.TenantId == _ctx.TenantId);

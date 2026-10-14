@@ -740,7 +740,7 @@ public class AccountingService : IAccountingService
     public async Task<List<MemberAccountLedgerDto>> GetMemberAccountLedgerDetailsAsync(long tenantId, DateOnly? fromDate, DateOnly? toDate)
     {
         var accounts = await _db.Accounts.IgnoreQueryFilters()
-            .Where(a => a.TenantId == tenantId)
+            .Where(a => a.TenantId == tenantId && a.BranchId == _tenantCtx.BranchId)
             .ToListAsync();
 
         if (!accounts.Any())

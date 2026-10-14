@@ -924,7 +924,8 @@ public class Notification
 
 public class ApprovalRequest
 {
-    public long RequestId { get; set; }
+    public long RequestId { get; set; } 
+    public long? BranchId { get; set; }
     public long? TenantId { get; set; }
     public ApprovalActionType ActionType { get; set; }
     public string EntityType { get; set; } = null!;

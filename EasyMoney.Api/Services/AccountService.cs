@@ -379,7 +379,7 @@ public class AccountService : IAccountService
 
     public async Task<AccountSummaryDto> GetAccountAsync(long accountId)
     {
-        var a = await _db.Accounts.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId && x.TenantId==_ctx.TenantId)
+        var a = await _db.Accounts .Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId).IgnoreQueryFilters().FirstOrDefaultAsync(x => x.AccountId == accountId && x.TenantId==_ctx.TenantId)
             ?? throw new DomainException($"Account {accountId} not found");
         return await BuildSummaryAsync(a);
     }
@@ -414,7 +414,7 @@ public class AccountService : IAccountService
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByTenantAsync(int skip, int take)
     {
         var accts = await _db.Accounts
-
+               .Where(l => l.TenantId == _ctx.TenantId && l.BranchId == _ctx.BranchId)
             .OrderByDescending(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 999999999)) 
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
@@ -455,7 +455,7 @@ public class AccountService : IAccountService
     public async Task<IReadOnlyList<AccountSummaryDto>> ListByAccountclosed(int skip, int take)
     {
         var accts = await _db.Accounts
-            .Where(a=> a.Status == AccountStatus.CLOSED && a.TenantId ==_ctx.TenantId)
+            .Where(a=> a.Status == AccountStatus.CLOSED && a.TenantId ==_ctx.TenantId  && a.BranchId == _ctx.BranchId)
             .OrderByDescending(a => a.AccountId).Skip(skip).Take(Math.Clamp(take, 1, 999999999))
             .ToListAsync();
         var result = new List<AccountSummaryDto>();
@@ -642,7 +642,7 @@ public class AccountService : IAccountService
         try
         {
             // 1. Get the account - it's already being tracked
-            var account = await _db.Accounts
+            var account = await _db.Accounts .Where(u => u.BranchId == _ctx.BranchId && u.TenantId == _ctx.TenantId)
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(x => x.AccountId == request.AccountId);
 
@@ -700,7 +700,7 @@ public class AccountService : IAccountService
 
             account.Status = AccountStatus.CLOSED; // This should work if your entity uses the enum
                                                    // OR if the entity expects string:
-            var existingAccount = await _db.Accounts
+            var existingAccount = await _db.Accounts .Where(u => u.BranchId == _ctx.BranchId && u.TenantId == _ctx.TenantId)
               .IgnoreQueryFilters()
               .FirstOrDefaultAsync(a => a.AccountId == request.AccountId);
 
@@ -779,7 +779,7 @@ public class AccountService : IAccountService
         {
             var account = await _db.Accounts
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(a => a.AccountId == accountId && a.TenantId == _ctx.TenantId);
+                .FirstOrDefaultAsync(a => a.AccountId == accountId && a.TenantId == _ctx.TenantId && a.BranchId ==_ctx.BranchId);
 
             if (account == null)
             {
@@ -909,7 +909,8 @@ public class AccountService : IAccountService
      
     public async Task<SifinCommission> GetsifinSummaryAsync()
     {
-        var a = await _db.SifinCommission.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == _ctx.TenantId)
+        var a = await _db.SifinCommission.Where(a => a.TenantId == _ctx.TenantId   && a.BranchId == _ctx.BranchId) 
+            .IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == _ctx.TenantId)
             ?? throw new DomainException($"Account {_ctx.TenantId} not found");
         return a;
     }
@@ -934,7 +935,7 @@ public class AccountService : IAccountService
             "GetPoolMoneyAsync: tenant={Tenant}, branch={Branch}, from={From}, to={To}",
             _ctx.TenantId, _ctx.BranchId, monthStartDt, monthEndDt);
 
-        var totals = await _db.LedgerEntries
+        var totals = await _db.LedgerEntries .Where(a => a.TenantId == _ctx.TenantId  && a.BranchId == _ctx.BranchId)
             .AsNoTracking()
             .Where(x => x.TenantId == _ctx.TenantId
                      && x.BranchId == _ctx.BranchId               
