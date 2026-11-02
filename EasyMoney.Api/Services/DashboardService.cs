@@ -91,34 +91,32 @@ public class DashboardService
 
     public async Task<DashboardDto> GetDashboardAsync()
     {
-        var members = _ctx.BypassTenantFilter ? _db.Members.IgnoreQueryFilters() : _db.Members;
-        var accounts = _ctx.BypassTenantFilter ? _db.Accounts.IgnoreQueryFilters() : _db.Accounts;
-        var loans = _ctx.BypassTenantFilter ? _db.Loans.IgnoreQueryFilters() : _db.Loans;
-        var payment = _ctx.BypassTenantFilter ? _db.PaymentDetail.IgnoreQueryFilters() : _db.PaymentDetail;
+        var members = _ctx.BypassTenantFilter ? _db.Members.Where(a => a.TenantId ==_ctx.TenantId  && a.BranchId ==_ctx.BranchId) .IgnoreQueryFilters() : _db.Members;
+        var accounts = _ctx.BypassTenantFilter ? _db.Accounts.Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId) .IgnoreQueryFilters() : _db.Accounts;
+        var loans = _ctx.BypassTenantFilter ? _db.Loans.Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId).IgnoreQueryFilters() : _db.Loans;
+        var payment = _ctx.BypassTenantFilter ? _db.PaymentDetail.Where(a => a.TenantId ==_ctx.TenantId  && a.BranchId ==_ctx.BranchId).IgnoreQueryFilters() : _db.PaymentDetail;
         var branch = _ctx.BypassTenantFilter ? _db.Branches.IgnoreQueryFilters() : _db.Branches;
         var tenant = _ctx.BypassTenantFilter ? _db.Tenants.IgnoreQueryFilters() : _db.Tenants;
 
 
         var dto = new DashboardDto();
 
-        dto.TotalMembers = await members.CountAsync();
-        dto.TotalAccounts = await accounts.CountAsync();
-        dto.ActiveAccounts = await accounts.CountAsync(
-            a => a.Status == AccountStatus.ACTIVE ||
-                 a.Status == AccountStatus.PRIZED
-        ); dto.TotalLoans = await loans.CountAsync();
+        dto.TotalMembers = await members.CountAsync(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId);
+        dto.TotalAccounts = await accounts.CountAsync(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId);
+        dto.ActiveAccounts = await accounts.CountAsync(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId && (a.Status == AccountStatus.ACTIVE || a.Status == AccountStatus.PRIZED)  );
+        dto.TotalLoans = await loans.CountAsync(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId);
         dto.ActiveLoans = await loans.CountAsync(l => l.Status == "ACTIVE");
         dto.TotalTenants = await _db.Tenants.CountAsync();
-        dto.PendingKyc = await members.CountAsync(m => m.KycStatus == KycStatus.PENDING);
-        dto.ApprovedKyc = await members.CountAsync(m => m.KycStatus == KycStatus.APPROVED);
+        dto.PendingKyc = await members.CountAsync(m => m.KycStatus == KycStatus.PENDING &&  m.TenantId == _ctx.TenantId && m.BranchId == _ctx.BranchId);
+        dto.ApprovedKyc = await members.CountAsync(m => m.KycStatus == KycStatus.APPROVED && m.TenantId == _ctx.TenantId && m.BranchId == _ctx.BranchId);
 
         dto.CustomersWithoutAccounts = await members
-            .CountAsync(m => !accounts.Any(a => a.MemberId == m.MemberId));
+            .CountAsync(m => !accounts.Any(a => a.MemberId == m.MemberId && m.TenantId == _ctx.TenantId && m.BranchId == _ctx.BranchId));
 
-        dto.TotalLoanAmount = await loans
+        dto.TotalLoanAmount = await loans.Where(m => m.TenantId == _ctx.TenantId && m.BranchId == _ctx.BranchId)
             .SumAsync(x => (decimal?)x.PrincipalAmount) ?? 0;
 
-        dto.TotalOutstandingBalance = await loans
+        dto.TotalOutstandingBalance = await loans.Where(m => m.TenantId == _ctx.TenantId && m.BranchId == _ctx.BranchId)
             .SumAsync(l => (decimal?)l.OutstandingBalance) ?? 0;  // ✅ FIXED
 
 
@@ -174,12 +172,12 @@ public class DashboardService
         {
             var tenantId = _ctx.TenantId ?? 0;
             dto.PendingApprovals = await _db.ApprovalRequests
-                .CountAsync(a => a.Status == ApprovalStatus.PENDING && a.TenantId == tenantId);
+                .CountAsync(a => a.Status == ApprovalStatus.PENDING && a.TenantId == tenantId && a.BranchId == _ctx.BranchId);
 
 
             dto.TotalCollections = await _db.LedgerEntries
                 .IgnoreQueryFilters()
-                .Where(x => x.EntryType == LedgerEntryType.PAYMENT_RECEIVED &&  x.TenantId == tenantId)
+                .Where(x => x.EntryType == LedgerEntryType.PAYMENT_RECEIVED &&  x.TenantId == tenantId && x.BranchId == _ctx.BranchId)
                 .SumAsync(x => (decimal?)x.Amount) ?? 0;
 
             var branchs = await branch.FirstOrDefaultAsync(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId);
@@ -198,7 +196,7 @@ public class DashboardService
         var dailyCollections = await payment
            .Where(x =>
                x.PaymentDate.ToDateTime(TimeOnly.MinValue) >= fromDate.ToDateTime(TimeOnly.MinValue) &&
-               x.PaymentDate.ToDateTime(TimeOnly.MinValue) <= toDate.ToDateTime(TimeOnly.MinValue) && x.TenantId==_ctx.TenantId)
+               x.PaymentDate.ToDateTime(TimeOnly.MinValue) <= toDate.ToDateTime(TimeOnly.MinValue) && x.TenantId==_ctx.TenantId && x.BranchId == _ctx.BranchId)
            .GroupBy(x => x.PaymentDate)
            .Select(g => new DailyCollectionDto
            {

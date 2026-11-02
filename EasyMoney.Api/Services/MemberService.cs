@@ -182,6 +182,7 @@ public class MemberService : IMemberService
             q = q.Where(m =>
                 m.FullName.Contains(search) ||
                 (m.Phone != null && m.Phone.Contains(search)) ||
+                (m.CustomerIdentifierCode != null && m.CustomerIdentifierCode.Contains(search)) ||
                 (m.Email != null && m.Email.Contains(search)));
         }
 
@@ -290,7 +291,8 @@ public class MemberService : IMemberService
             }),
             Status = ApprovalStatus.PENDING,
             RequestedBy = _ctx.UserId.Value,
-            RequestedAt = DateTime.UtcNow
+            RequestedAt = DateTime.UtcNow,
+            BranchId = branchId,
         };
 
         _db.ApprovalRequests.Add(approval);

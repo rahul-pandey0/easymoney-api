@@ -224,7 +224,8 @@ public class LoanService : ILoanService
                 }),
                 Status = ApprovalStatus.PENDING,
                 RequestedBy = _ctx.UserId.Value,
-                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
+                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
+                BranchId =_ctx.BranchId.Value,
             };
 
             _db.ApprovalRequests.Add(approval);
@@ -2257,7 +2258,8 @@ public class LoanService : ILoanService
                 }),
                 Status = ApprovalStatus.PENDING,
                 RequestedBy = _ctx.UserId.Value,
-                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue)
+                RequestedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
+                BranchId=_ctx.BranchId.Value,
             };
 
             _db.ApprovalRequests.Add(approval);

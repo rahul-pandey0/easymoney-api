@@ -1650,11 +1650,19 @@ public class AccountService : IAccountService
         {
             long? tenantId = _ctx.TenantId;
             long? branchId = _ctx.BranchId;
+            var gl1 = await _db.GeneralLedgerMaster
+                .FirstOrDefaultAsync(g => g.Code == "1001");
 
-            using (var cmd = new MySqlCommand("CALL upload_temp_account_data(@tenantId, @branchId)", connection))
+            var gl2 = await _db.GeneralLedgerMaster
+                .FirstOrDefaultAsync(g => g.Code == "1002");
+
+
+            using (var cmd = new MySqlCommand("CALL sp_migrate_temp_payment_detail(@tenantId, @branchId,@gl1 ,@gl2)", connection))
             {
                 cmd.Parameters.AddWithValue("@tenantId", tenantId);
                 cmd.Parameters.AddWithValue("@branchId", branchId);
+                cmd.Parameters.AddWithValue("@gl1", gl1.GlId);
+                cmd.Parameters.AddWithValue("@gl2", gl2.GlId);
                 cmd.ExecuteNonQuery();
             }
 

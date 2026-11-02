@@ -25,15 +25,17 @@ public class BranchService : IBranchService
     private readonly EasyMoneyDbContext _db;
     private readonly ITenantContext _ctx;
     private readonly ILogger<BranchService> _log;
-
+    private readonly IBiddingService Ibid;
     public BranchService(
         EasyMoneyDbContext db,
         ITenantContext ctx,
-        ILogger<BranchService> log)
+        ILogger<BranchService> log,
+        IBiddingService ibid)
     {
         _db = db;
         _ctx = ctx;
         _log = log;
+        Ibid = ibid;
     }
     public async Task<BranchDto> CreateAsync(CreateBranchRequest request)
     {
@@ -112,12 +114,16 @@ public class BranchService : IBranchService
             PreviousDate =request.PreviousDate,
             NextDate =request.NextDate,
             CurrentDate =request.CurrentDate
+              ?? throw new DomainException("User is not authenticated"),
+            IsHeadOffice = request.IsHeadOffice,
 
-                ?? throw new DomainException("User is not authenticated")
         };
+
+
 
         _db.Branches.Add(branch);
         await _db.SaveChangesAsync();
+        var cycleopen = await Ibid.OpenCycle(branch.TenantId, branch.CurrentDate ?? throw new DomainException("CurrentDate is required"), branch.BiddingDate, branch.BranchId,branch.CurrentDate);
 
         return ToDto(branch);
     }
@@ -205,7 +211,8 @@ public class BranchService : IBranchService
                branch.ModifiedBy,
                branch.PreviousDate,
                branch.CurrentDate,
-               branch.NextDate
+               branch.NextDate,
+               branch.IsHeadOffice
         );
     }
     public async Task<BranchDto> UpdateAsync( long branchId, UpdateBranchRequest request)
@@ -251,6 +258,7 @@ public class BranchService : IBranchService
         branch.PreviousDate = request.PreviousDate;
         branch.CurrentDate = request.CurrentDate;
         branch.NextDate = request.NextDate;
+        branch.IsHeadOffice = request.IsHeadOffice;
 
         await _db.SaveChangesAsync();
 
@@ -331,7 +339,8 @@ public class BranchService : IBranchService
                     branch.ModifiedBy,
                     branch.PreviousDate,
                     branch.CurrentDate,
-                    branch.NextDate
+                    branch.NextDate,
+                    branch.IsHeadOffice
                  );
 
     }

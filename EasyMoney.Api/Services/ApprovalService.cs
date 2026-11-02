@@ -85,7 +85,9 @@ public class ApprovalService : IApprovalService
             Payload = payloadJson,
             Status = ApprovalStatus.PENDING,
             RequestedBy = requestedBy,
-            RequestedAt = DateTime.UtcNow
+            RequestedAt = DateTime.UtcNow,
+            BranchId =_ctx.BranchId,
+            
         };
         _db.ApprovalRequests.Add(req);
         await _db.SaveChangesAsync();
@@ -124,7 +126,7 @@ public class ApprovalService : IApprovalService
         if (req.Status != ApprovalStatus.PENDING)
             throw new DomainException($"Request is already {req.Status}");
         if (req.RequestedBy == deciderId)
-            throw new DomainException("Checker must differ from requester");
+            throw new DomainException("The checker must be different from the requester.");
 
         // Role gating: SIFIN-level actions require SIFIN_AUTHORIZER or SIFIN_ADMIN.
         //              Org actions require ORG_AUTHORIZER or ORG_ADMIN (within the same tenant).

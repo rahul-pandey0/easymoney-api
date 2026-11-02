@@ -1123,6 +1123,7 @@ public class Branch
     public DateOnly? PreviousDate { get; set; }
     public DateOnly? CurrentDate { get; set; } 
     public DateOnly? NextDate { get; set; }
+    public bool? IsHeadOffice { get; set; }
 }
 
 
@@ -1414,6 +1415,7 @@ public class PaymentDetail
     public DateTime? ModifiedAt { get; set; }
     public virtual Account Account { get; set; }
     public virtual Tenant Tenant { get; set; }
+    public long? BranchId { get; set; } 
 }
 
 public class BidderWithoutLoanDto

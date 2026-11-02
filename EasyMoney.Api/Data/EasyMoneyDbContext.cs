@@ -1167,6 +1167,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.DecidedBy).HasColumnName("decided_by");
             e.Property(x => x.DecidedAt).HasColumnName("decided_at");
             e.Property(x => x.DecisionRemarks).HasColumnName("decision_remarks");
+            e.Property(x => x.BranchId).HasColumnName("branch_id").IsRequired();
+
         });
 
         b.Entity<PaymentDetail>(e =>
@@ -1192,6 +1194,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP(6)").ValueGeneratedOnAdd();
             e.Property(x => x.ModifiedBy).HasColumnName("modified_by");
             e.Property(x => x.ModifiedAt).HasColumnName("modified_at").HasDefaultValueSql("NULL ON UPDATE CURRENT_TIMESTAMP(6)").ValueGeneratedOnUpdate();
+            e.Property(x => x.BranchId).HasColumnName("branch_id").IsRequired();
+
             //e.HasIndex(x => x.TenantId).HasDatabaseName("idx_payment_detail_tenant_id");
             //e.HasIndex(x => x.AccountId).HasDatabaseName("idx_payment_detail_account_id");
             //e.HasIndex(x => x.PaymentDate).HasDatabaseName("idx_payment_detail_payment_date");
@@ -1282,8 +1286,8 @@ public class EasyMoneyDbContext : DbContext
             e.Property(x => x.CurrentDate).HasColumnName("current_date");
             e.Property(x => x.NextDate).HasColumnName("next_date");
 
-            e.HasIndex(x => new { x.TenantId, x.BranchCode })
-                .IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.BranchCode }).IsUnique();
+            e.Property(x => x.IsHeadOffice).HasColumnName("is_head_office");
         });
         b.Entity<RelationMaster>(e =>
         {

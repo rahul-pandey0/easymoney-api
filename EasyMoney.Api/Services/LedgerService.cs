@@ -118,7 +118,8 @@ public class LedgerService : ILedgerService
             CreatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue),
             ChequeDate =chequeDate,
             ChequeNumber =chequeNo,
-            UPIId =upiId
+            UPIId =upiId,
+            BranchId = _ctx.BranchId
         };
 
         // Store method-specific details

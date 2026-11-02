@@ -37,7 +37,8 @@ public record CreateBranchRequest(
     string? OtherBank2,
     DateOnly? PreviousDate,
     DateOnly? CurrentDate,
-    DateOnly? NextDate
+    DateOnly? NextDate,
+    bool IsHeadOffice
 );
 
 public record UpdateBranchRequest(
@@ -70,7 +71,8 @@ public record UpdateBranchRequest(
     string? OtherBank2,
         DateOnly PreviousDate,
     DateOnly CurrentDate,
-    DateOnly NextDate
+    DateOnly NextDate,
+    bool IsHeadOffice
 );
 
 public record BranchDto(
@@ -108,6 +110,7 @@ public record BranchDto(
     long? modifiedBy,
     DateOnly? PreviousDate,
     DateOnly? CurrentDate,
-    DateOnly? NextDate
+    DateOnly? NextDate,
+    bool ? IsHeadOffice
 
 );

@@ -63,7 +63,7 @@ namespace EasyMoney.Api.Controllers
                 if (branch.TenantId != _ctx.TenantId)
                     return Unauthorized(new { Success = false, Message = "Unauthorized access to this branch" });
 
-                var today = DateOnly.FromDateTime(DateTime.Today);
+                var today = _ctx.CurrentDate;
 
                 // Determine base date
                 DateOnly currentBaseDate;

@@ -51,7 +51,14 @@ public class ApprovalRequestsController : ControllerBase
             var r = await _approvals.DecideAsync(requestId, req.Approve, req.Remarks);
             return Ok(ToDto(r));
         }
-        catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        //catch (DomainException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (DomainException ex)
+        {
+            return Problem(
+                title: "Approval decision rejected",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
     }
 
     private static ApprovalRequestDto ToDto(ApprovalRequest r) => new(
