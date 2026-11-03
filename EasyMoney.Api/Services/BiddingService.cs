@@ -399,6 +399,7 @@ public class BiddingService : IBiddingService
         var data = await _db.SchemeConfigs.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TenantId == a.TenantId);
 
         var bid = await _db.Bids.FirstOrDefaultAsync(b => b.CycleId == cycle.CycleId && b.AccountId == a.AccountId);
+        var bidReferenceNo = $"{_ctx.TenantId}{_ctx.BranchId}{_ctx.CurrentDate:ddMMyyyy}";
         if (bid is null)
         {
             bid = new Bid
@@ -418,6 +419,7 @@ public class BiddingService : IBiddingService
                 AllotmentAmount = req.AllotmentAmount,
                 TotalBid = req.BidPct + data.TenantCommission,
                 TenantCommissionPct = data.TenantCommission,
+                BidReferenceNo = bidReferenceNo,
 
             };
             _db.Bids.Add(bid);
@@ -430,6 +432,8 @@ public class BiddingService : IBiddingService
             bid.ApprovedAt = null;
             bid.ApprovedBy = null;
             bid.OrgFeePct = data.OrgFeePct;
+            bid.BidReferenceNo = bidReferenceNo;
+
             bid.SifinCommissionPct = data.SifinCommissionPct;
         }
 

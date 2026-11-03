@@ -1149,9 +1149,16 @@ await _db.SchemeMaster.IgnoreQueryFilters().FirstOrDefaultAsync()
 
         // Get the next running number for this category
         int nextNumber = await GetNextRunningNumber(p.Category);
+        int baseOffset = int.Parse(prefix) * 1000;        
+        int numericCode = baseOffset + nextNumber;
+        if (numericCode >= baseOffset + 1000)
+            throw new DomainException(
+                $"GL code sequence for category '{p.Category}' exhausted " +
+                $"(tried {numericCode}); widen the prefix scheme or archive old GLs.");
 
+        string generatedCode = numericCode.ToString();
         // Generate the code (e.g., "1001", "2001", etc.)
-        string generatedCode = $"{prefix}{nextNumber:D3}";
+        //string generatedCode = $"{prefix}{nextNumber:D3}";
 
         var schemedata = new GeneralLedgerMaster
         {

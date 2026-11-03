@@ -169,6 +169,7 @@ public class LoanService : ILoanService
                 LoanReleaseStatus = createLoanDto.LoanReleaseStatus ?? "N",
                 Remarks = createLoanDto.Remarks,
                 DisbursementStatus = "N",
+                
 
             };
 
@@ -373,6 +374,35 @@ public class LoanService : ILoanService
             .Where(l => l.TenantId == _ctx.TenantId && l.BranchId == _ctx.BranchId)
             .ToListAsync();
 
+    //public Task<List<Loan>> GetByAccountbytenant()
+    //{
+    //    return _db.Loans
+    //        .IgnoreQueryFilters()
+    //        .Where(l => l.TenantId == _ctx.TenantId && l.BranchId == _ctx.BranchId)
+    //        .Join(
+    //            _db.Accounts.IgnoreQueryFilters(),
+    //            loan => loan.AccountId,
+    //            account => account.AccountId,
+    //            (loan, account) => new Loan
+    //            {
+    //                LoanId = loan.LoanId,
+    //                AccountId = loan.AccountId,
+    //                TenantId = loan.TenantId,
+    //                BranchId = loan.BranchId,
+    //                CycleId = loan.CycleId,
+    //                PrincipalAmount = loan.PrincipalAmount,
+    //                OutstandingBalance = loan.OutstandingBalance,
+    //                Status = loan.Status,
+    //                AuthStatus = loan.AuthStatus,
+    //                DisbursedAt = loan.DisbursedAt,
+    //                RepaidAt = loan.RepaidAt,
+    //                CreatedAt = loan.CreatedAt,
+    //                PhoneNumber = loan.PhoneNumber,
+    //                CustomerName = account.CustomerName,
+    //                Remarks = loan.Remarks
+    //            })
+    //        .ToListAsync();
+    //}
 
     public async Task<Loan?> GetByAccountsdata(int loanId)
     {
@@ -2875,4 +2905,6 @@ public class LoanService : ILoanService
             return (false, $"Unexpected error: {ex.Message}");
         }
     }
+
+ 
 }

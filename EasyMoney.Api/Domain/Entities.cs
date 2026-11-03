@@ -1768,3 +1768,26 @@ public class PasswordResetToken
     public DateTime? UsedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
+
+public class LoanAccountDto
+{
+    public long LoanId { get; set; }
+    public long AccountId { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public long CustomerId { get; set; }         // adjust type to your Account model
+    public string? PhoneNumber { get; set; }
+    public long TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long CycleId { get; set; }
+    public decimal PrincipalAmount { get; set; }
+    public decimal OutstandingBalance { get; set; }
+    public decimal NetDisbursementAmount { get; set; }
+    public string? Status { get; set; }
+    public bool AuthStatus { get; set; }
+    public DateTime? DisbursedAt { get; set; }
+    public DateTime? RepaidAt { get; set; }
+    public DateOnly? BidDate { get; set; }
+    public string? LoanRemark { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}
