@@ -168,7 +168,7 @@ public class BranchService : IBranchService
     {
         var branches = await _db.Branches
             .AsNoTracking()
-            .OrderBy(x => x.BranchName)
+            .OrderByDescending(x => x.BranchId)
             .ToListAsync();
 
         Console.WriteLine($"Total branches from DB: {branches.Count}");

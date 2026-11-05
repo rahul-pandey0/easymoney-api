@@ -195,7 +195,7 @@ public class AuthService : IAuthService
             CreatedBy = createdBy,
             IsActive = true,
             AuthorizedBy = preAuthorized ? createdBy : null,
-            AuthorizedAt = preAuthorized ? DateTime.UtcNow : null,
+            AuthorizedAt = preAuthorized ? _tenantCtx.CurrentDate.ToDateTime(TimeOnly.MinValue) : null,
             HintAnswerHash=HintAnswerHash,
             HintQuestion=HintQuestion,
         };

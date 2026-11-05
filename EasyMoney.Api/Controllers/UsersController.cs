@@ -164,7 +164,7 @@ public class UsersController : ControllerBase
         if (!string.IsNullOrEmpty(role) && Enum.TryParse<UserRole>(role, true, out var r))
             q = q.Where(u => u.Role == r);
 
-        var users = await q.OrderBy(u => u.UserId)
+        var users = await q.OrderByDescending(u => u.UserId)
             .Skip(skip).Take(Math.Clamp(take, 1, 200))
             //.Select(u => new UserDto(
             //    u.UserId, u.TenantId, u.MemberId, u.Email,

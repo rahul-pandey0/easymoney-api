@@ -25,7 +25,9 @@ public class DashboardDto
     public DateOnly? BiddingDate { get; set; }
     public List<TenantCount> Count { get; set; }
     public int SuspendedTenantcount { get; set; } 
-}
+    public decimal PoolMoney { get; set; } 
+    public decimal PoolMoneyCollections { get; set; }  
+} 
 public class DailyCollectionDto
 {
     public DateTime Date { get; set; }

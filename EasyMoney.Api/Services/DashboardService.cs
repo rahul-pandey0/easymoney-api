@@ -97,6 +97,65 @@ public class DashboardService
         var payment = _ctx.BypassTenantFilter ? _db.PaymentDetail.Where(a => a.TenantId ==_ctx.TenantId  && a.BranchId ==_ctx.BranchId).IgnoreQueryFilters() : _db.PaymentDetail;
         var branch = _ctx.BypassTenantFilter ? _db.Branches.IgnoreQueryFilters() : _db.Branches;
         var tenant = _ctx.BypassTenantFilter ? _db.Tenants.IgnoreQueryFilters() : _db.Tenants;
+        //var poolmoney = _ctx.BypassTenantFilter ? _db.LedgerEntries.Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId).IgnoreQueryFilters() : _db.LedgerEntries;
+        //var poolmoneycollections  = _ctx.BypassTenantFilter ? _db.PaymentDetail.Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId && a.PaymentDate== _ctx.CurrentDate) .IgnoreQueryFilters() : _db.PaymentDetail;
+        //var now = _ctx.CurrentDate; // whatever type: DateOnly, DateTime, etc.
+        //int y = now.Year;
+        //int m = now.Month;
+        //var poolmoney = _ctx.BypassTenantFilter ? _db.LedgerEntries.IgnoreQueryFilters().Where(a => a.TenantId == _ctx.TenantId && a.BranchId == _ctx.BranchId && a.EntryDate.Year == y && a.EntryDate.Month == m) : _db.LedgerEntries;
+
+        //var poolMoneyCollections = _ctx.BypassTenantFilter ? _db.PaymentDetail.IgnoreQueryFilters().Where(a => a.TenantId == _ctx.TenantId  && a.BranchId == _ctx.BranchId   && a.PaymentDate.Year == y  && a.PaymentDate.Month == m): _db.PaymentDetail;
+
+        var now = _ctx.CurrentDate;
+        int y = now.Year;
+        int m = now.Month;
+        var startOfMonth = new DateTime(y, m, 1);
+        var startOfNextMonth = startOfMonth.AddMonths(1);
+
+        // ============================================================
+        // LEDGER ENTRIES  (join Account, exclude first-payment accounts)
+        // ============================================================
+        var ledgerQuery =
+            from a in _db.LedgerEntries
+            join acc in _db.Accounts on a.AccountId equals acc.AccountId
+            where a.TenantId == _ctx.TenantId
+               && a.BranchId == _ctx.BranchId
+               && a.EntryDate >= DateOnly.FromDateTime(startOfMonth)
+               && a.EntryDate < DateOnly.FromDateTime(startOfNextMonth)
+               && acc.FirstPaymentFlag != "Y"          // "remaining" only
+            select a;
+
+        if (_ctx.BypassTenantFilter)
+            ledgerQuery = ledgerQuery.IgnoreQueryFilters();
+
+        // ============================================================
+        // PAYMENT DETAILS  (join Account, exclude first-payment accounts)
+        // ============================================================
+        var paymentQuery =
+            from p in _db.PaymentDetail
+            join acc in _db.Accounts on p.AccountId equals acc.AccountId
+            where p.TenantId == _ctx.TenantId
+               && p.BranchId == _ctx.BranchId
+               && p.PaymentDate >= DateOnly.FromDateTime(startOfMonth)
+               && p.PaymentDate < DateOnly.FromDateTime(startOfNextMonth)
+               && acc.FirstPaymentFlag != "Y"          // "remaining" only
+            select p;
+
+        if (_ctx.BypassTenantFilter)
+            paymentQuery = paymentQuery.IgnoreQueryFilters();
+
+        // ============================================================
+        // SUM (sequential — DbContext is not thread-safe)
+        // ============================================================
+        decimal poolMoneyAmount = await ledgerQuery
+            .SumAsync(a => (decimal?)a.Amount) ?? 0m;
+
+        decimal poolMoneyCollectionAmount = await paymentQuery.SumAsync(a => (decimal?)a.Amount) ?? 0m;
+
+        decimal combined = poolMoneyAmount + poolMoneyCollectionAmount;
+
+        // Optional: total
+        decimal combinedAmount = poolMoneyAmount + poolMoneyCollectionAmount;
 
 
         var dto = new DashboardDto();
@@ -123,6 +182,8 @@ public class DashboardService
         dto.LoanRecoveryPercentage = dto.TotalLoanAmount == 0
             ? 0
             : Math.Round((dto.TotalCollections / dto.TotalLoanAmount) * 100, 2);
+        dto.PoolMoney = poolMoneyAmount;
+        dto.PoolMoneyCollections = poolMoneyCollectionAmount;
 
         // Pending Approvals — role-aware
         bool isSifinAdmin = _ctx.Role == Roles.SifinAdmin || _ctx.Role == Roles.SifinOperator;
