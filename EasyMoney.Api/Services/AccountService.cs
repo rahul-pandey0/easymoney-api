@@ -49,6 +49,7 @@ public interface IAccountService
     Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode);
     Task<(bool isSuccess, string errorMessage)> InsertToPaymentDatabase(string batchCode); 
     Task<(bool isSuccess, string errorMessage)> InsertToLedgerDatabase(string batchCode);
+    Task<bool> IsPhoneNumberInUseAsync(string phoneNo, long? excludeMemberId = null);
 
     //Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode); 
 
@@ -1705,6 +1706,18 @@ public class AccountService : IAccountService
             _log.LogError(ex, "Error in InsertToDatabase");
             return (false, $"Unexpected error: {ex.Message}");
         }
+    }
+    public async Task<bool> IsPhoneNumberInUseAsync(string phoneNo, long? excludeMemberId = null)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNo))
+            return false;
+
+        var normalized = phoneNo.Trim();
+
+        return await _db.Members
+            .IgnoreQueryFilters()
+            .AnyAsync(m => m.Phone == normalized
+                        && (excludeMemberId == null || m.MemberId != excludeMemberId));
     }
 
 }

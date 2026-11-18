@@ -47,16 +47,24 @@ public class AccountsController : ControllerBase
         {
 
             var existingAccount = await _accounts.GetMemberAsync(req.SchemeId, req.MemberId);
-
-            // If we get here, account exists - return error
-            if (existingAccount != null)
+            var phoneTaken = await _accounts.IsPhoneNumberInUseAsync(req.PhoneNo, excludeMemberId: memberId);
+            if (phoneTaken)
             {
                 return BadRequest(new
                 {
-                   message = $"Account already exists,Please Select Other Member ID "
-                    //existingAccount = existingAccount
+                    message = $"Mobile number {req.PhoneNo} is already registered to another customer. Duplicate mobile numbers are not allowed."
                 });
             }
+
+            // If we get here, account exists - return error
+            //if (existingAccount != null)
+            //{
+            //    return BadRequest(new
+            //    {
+            //       message = $"Account already exists,Please Select Other Member ID "
+            //        //existingAccount = existingAccount
+            //    });
+            //}
 
             // Create the payload from the request
             var payload = new AccountOpenPayload(

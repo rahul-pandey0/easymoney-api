@@ -200,7 +200,42 @@ public class AuthService : IAuthService
             HintQuestion=HintQuestion,
         };
         _db.AppUsers.Add(u);
+
+         
+
+        var approval = new ApprovalRequest
+        {
+            TenantId = _tenantCtx.TenantId,
+            ActionType = ApprovalActionType.USER_CREATE,
+            EntityType = "Loan Create",
+            EntityId = u.UserId,
+            Payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                u.MemberId,
+                u.UserId,
+                u.TenantId,
+                u.CreatedBy,
+                u.UserName,
+                u.Email,
+                u.PasswordHash,
+                u.Role,
+                u.IsActive,
+                u.CreatedAt,
+                u.UpdatedAt,
+
+            }),
+            Status = ApprovalStatus.PENDING,
+            RequestedBy = u.UserId,
+            RequestedAt = _tenantCtx.CurrentDate.ToDateTime(TimeOnly.MinValue),
+            BranchId = _tenantCtx.BranchId,
+        };
+
+        _db.ApprovalRequests.Add(approval);
+
         await _db.SaveChangesAsync();
+
+
+
         return u;
     }
 

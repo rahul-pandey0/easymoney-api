@@ -400,6 +400,11 @@ public class BiddingService : IBiddingService
 
         var bid = await _db.Bids.FirstOrDefaultAsync(b => b.CycleId == cycle.CycleId && b.AccountId == a.AccountId);
         var bidReferenceNo = $"{_ctx.TenantId}{_ctx.BranchId}{_ctx.CurrentDate:ddMMyyyy}";
+        if ( req.TargetAmount < req.AllotmentAmount)
+        {
+            throw new DomainException("Partial bidding is not allowed. You must bid for the full target amount.");
+        }
+
         if (bid is null)
         {
             bid = new Bid

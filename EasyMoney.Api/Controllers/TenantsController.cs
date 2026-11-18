@@ -80,7 +80,10 @@ public class TenantsController : ControllerBase
     // GET /api/v1/tenants
     [HttpGet, Authorize(Roles = Roles.AnySifin)]
     public async Task<IActionResult> List() =>
-        Ok((await _tenants.ListAsync()).Select(ToDto));
+         Ok((await _tenants.ListAsync()).OrderByDescending(t => t.TenantId)
+        .Select(ToDto));
+    //public async Task<IActionResult> List() =>
+    //    Ok((await _tenants.ListAsync()).Select(ToDto));
 
 
 

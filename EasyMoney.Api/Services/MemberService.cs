@@ -79,6 +79,16 @@ public class MemberService : IMemberService
         var tenantId = _ctx.TenantId.Value;
         var branchId = _ctx.BranchId.Value; // Rename local variable to avoid ambiguity  
 
+
+        var phoneExists = await _db.Members
+       .IgnoreQueryFilters()
+       .AnyAsync(m => m.TenantId == tenantId && m.Phone == req.Phone);
+
+        if (phoneExists)
+            throw new DomainException(
+                $"A customer with mobile number {req.Phone} already exists. " +
+                "Duplicate mobile numbers are not allowed.");
+
         // Generate Customer Identifier Code  
         var lastMember = await _db.Members
             .IgnoreQueryFilters()
@@ -189,7 +199,7 @@ public class MemberService : IMemberService
         var totalCount = await q.CountAsync();
 
         var items = await q
-            .OrderByDescending(m => m.CreatedAt).Where(u => u.BranchId == _ctx.BranchId)
+            .OrderByDescending(m => m.MemberId).Where(u => u.BranchId == _ctx.BranchId)
             .Skip(skip)
             .Take(Math.Clamp(take, 1, 200))
             .Select(m => ToDto(m))
