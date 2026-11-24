@@ -642,23 +642,70 @@ public class AccountService : IAccountService
     {
         try
         {
+
+            //const decimal CLOSURE_CHARGE_RATE = 1.0m;   // 1% of payable
+            //const decimal GST_RATE = 18.0m;  // 18% GST on the charge
+
             // 1. Get the account - it's already being tracked
             var account = await _db.Accounts .Where(u => u.BranchId == _ctx.BranchId && u.TenantId == _ctx.TenantId)
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(x => x.AccountId == request.AccountId);
-
             if (account == null)
             {
                 throw new Exception($"Account {request.AccountId} not found.");
             }
 
-            // 2. Check if account is already closed
+            var loans = await _db.Loans
+                .IgnoreQueryFilters()
+                .Where(l => l.BranchId == _ctx.BranchId
+                         && l.TenantId == _ctx.TenantId
+                         && l.AccountId == request.AccountId)
+                .ToListAsync();
+
+            if (loans.Count != 0)
+            {
+                throw new InvalidOperationException(
+                    $"No loan found for account {request.AccountId}.");
+            }
+
+            var guarantorLoans = await _db.CoBorrowers
+        .IgnoreQueryFilters()
+        .AsNoTracking()
+        .Where(cb => cb.TenantId == _ctx.TenantId
+                  && cb.CoopAccountId == request.AccountId
+                 )
+        .Join(
+            _db.Loans.IgnoreQueryFilters().Where(l => l.Status == "ACTIVE"),
+            cb => cb.LoanId,
+            l => l.LoanId,
+            (cb, l) => new { cb.LoanId, l.Status, l.OutstandingBalance })
+        .ToListAsync();
+
+            if (guarantorLoans.Count > 0)
+            {
+                var loanIds = string.Join(", ", guarantorLoans.Select(x => x.LoanId));
+                throw new InvalidOperationException(
+                    $"Cannot close account {request.AccountId}. This account is registered as a " +
+                    $"co-borrower/guarantor on active loan(s): {loanIds}. " +
+                    $"Release the guarantee or settle those loans first.");
+            }
+
             if (account.Status == AccountStatus.CLOSED)
             {
                 throw new DomainException($"Account {account.AccountNumber} is already closed.");
             }
 
+            //var basePayable = request.AmountPayable;   
 
+            //var closureChargeBase = Math.Round(basePayable * CLOSURE_CHARGE_RATE / 100m, 2,MidpointRounding.AwayFromZero);
+
+            //var gstOnCharge = Math.Round(closureChargeBase * GST_RATE / 100m,2, MidpointRounding.AwayFromZero);
+
+            //var closureCharge = closureChargeBase + gstOnCharge;
+
+            //var amountPayable = Math.Round(basePayable + closureCharge, 2, MidpointRounding.AwayFromZero);
+
+            //request.AmountPayable = amountPayable;
 
             // 4. Create closure record
             var closure = new AccountClosure
@@ -711,7 +758,7 @@ public class AccountService : IAccountService
                 existingAccount.Status = AccountStatus.CLOSED;
                 existingAccount.ClosedDate = request.ClosureDate;
                 existingAccount.UpdatedBy = _ctx.UserId;
-                existingAccount.UpdatedAt = DateTime.UtcNow;
+                existingAccount.UpdatedAt = _ctx.CurrentDate.ToDateTime(TimeOnly.MinValue);
 
                 _log.LogInformation($"Updated account {existingAccount.AccountId} status to CLOSED for member {existingAccount.MemberId}");
             }

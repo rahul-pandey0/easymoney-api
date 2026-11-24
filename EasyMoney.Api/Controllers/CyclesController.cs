@@ -290,6 +290,37 @@ public class CyclesController : ControllerBase
     }
 
 
+    [HttpPost("bid-rollback")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer)]
+    public async Task<ActionResult<RollbackSummary>> GetRollBack()
+    {
+  
+        try
+        {
+            var summary = await _bidding.RollbackBidAsync();
+            return Ok(summary);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+
+    [HttpGet("rollback-summary")]
+    [Authorize(Roles = Roles.OrgAdmin + "," + Roles.OrgOperator + "," + Roles.OrgAuthorizer)]
+    public async Task<ActionResult<List<BidRollbackHistory>>> GetRollbackonus()
+    {
+        try
+        {
+            var summary = await _bidding.GetRollBackHistoryDetails();
+            return Ok(summary);           // ← serializes to [{...}, {...}]
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
     // REMOVE the duplicate ListBids method at the bottom (the one with route [HttpGet("{cycleId:long}/bid")])
     // Keep only the one above with route [HttpGet("{cycleId:long}/bids")]
 

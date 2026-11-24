@@ -16,6 +16,8 @@ using OfficeOpenXml;
 using System.Configuration;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
+using System.Threading.Tasks;
+using System.Security.Principal;
 
 namespace EasyMoney.Api.Services;
 
@@ -43,10 +45,11 @@ public interface IBiddingService
     Task<IReadOnlyList<Bid>> GetBidsAsync(long cycleId, string approvalStatus);
     Task<BiddingSummaryDto> GetCompleteBiddingSummaryAsync();
     Task<IReadOnlyList<Bonus>>GetBonusDetails();
-
+    Task<RollbackSummary> RollbackBidAsync();
     Task<IReadOnlyList<BonusDistribution>> GetBonusData();
      
     Task<Bonus> GetByBonusDetails(string refNo);
+    Task<List<BidRollbackHistory>> GetRollBackHistoryDetails();
     Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidData(IFormFile file, string fileExtension, string batchCode);
     Task<(bool isSuccess, string errorMessage)> InsertToDatabase(string batchCode);
 
@@ -1456,6 +1459,9 @@ public class BiddingService : IBiddingService
 
         return bonus; 
     } 
+
+
+
     public async Task<IReadOnlyList<BonusDistribution>> GetBonusData() 
     {
         var branch = await _db.Branches
@@ -1480,6 +1486,80 @@ public class BiddingService : IBiddingService
 
         return await query.ToListAsync();
     }
+    public async Task<RollbackSummary> RollbackBidAsync()
+    {
+    
+        // 1. Resolve the latest cycle for this tenant/branch
+        var cycle = await _db.BiddingCycles
+            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+            .OrderByDescending(b => b.CycleMonth)
+            .FirstOrDefaultAsync();
+
+        if (cycle == null)
+            throw new InvalidOperationException("No bidding cycle found for rollback.");
+
+        // 2. Load bids for that cycle
+        var bids = await _db.Bids
+            .Where(b => b.CycleId == cycle.CycleId)
+            .ToListAsync();
+
+        if (bids.Count == 0)
+            throw new InvalidOperationException(
+                $"Cycle {cycle.CycleId} has no bids to roll back.");
+
+        var nowUtc = _ctx.CurrentDate;
+
+        // 3. Archive each bid BEFORE deleting
+        var history = bids.Select(b => new BidRollbackHistory
+        {
+            OriginalBidId = b.BidId,
+            CycleId = b.CycleId,
+            TenantId = b.TenantId,
+            BranchId = b.BranchId,
+            AccountId = b.AccountId,
+            BidPct = b.BidPct,
+            TargetAmount = b.TragetAmount,        
+            AllotmentAmount = b.AllotmentAmount,
+            TotalBid = b.TotalBid,
+            BidDate = DateOnly.FromDateTime(b.SubmittedAt),  // ✅ original bid date
+            //Reason = reason.Trim(),          // ✅ required, no longer commented
+            RolledBackAtUtc = nowUtc,
+            RolledBackByUserId = _ctx.UserId
+        }).ToList();
+
+        _db.BidRollbackHistories.AddRange(history);
+
+        // 4. Reactivate every account that submitted a bid in this cycle
+        var accountIds = bids
+            .Select(b => b.AccountId)
+            .Distinct()
+            .ToList();
+
+        var accounts = await _db.Accounts
+            .Where(a => accountIds.Contains(a.AccountId)
+                     && a.TenantId == _ctx.TenantId
+                     && a.BranchId == _ctx.BranchId)
+            .ToListAsync();
+
+        foreach (var account in accounts)
+        {
+            account.Status = AccountStatus.ACTIVE;
+            account.IsPrized = false;               
+        }
+
+        _db.Bids.RemoveRange(bids);
+
+        // 6. Reopen the cycle
+        cycle.Status = CycleStatus.OPEN;
+        // 7. Commit everything atomically
+        await _db.SaveChangesAsync();
+
+        return new RollbackSummary(
+            cycle.CycleId,
+            accounts.Count,          
+            nowUtc);
+    }
+
     public async Task<(bool isSuccess, int rowCount, string errorCsv)> InsertvalidData(IFormFile file, string fileExtension, string batchCode)
     {
         var modifiedRows = new List<string>();
@@ -1745,6 +1825,13 @@ public class BiddingService : IBiddingService
             _log.LogError(ex, "Error in InsertToDatabase");
             return (false, $"Unexpected error: {ex.Message}");
         }
+    }
+    public async Task<List<BidRollbackHistory>> GetRollBackHistoryDetails()
+    {
+        return await _db.BidRollbackHistories
+            .Where(b => b.TenantId == _ctx.TenantId && b.BranchId == _ctx.BranchId)
+            .OrderByDescending(b => b.RolledBackAtUtc)
+            .ToListAsync();
     }
 
 }

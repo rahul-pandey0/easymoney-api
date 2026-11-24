@@ -1400,7 +1400,7 @@ public class PaymentDetail
     public decimal Amount { get; set; }
     public DateOnly PaymentDate { get; set; }
     public PaymentMethod PaymentMethod { get; set; }
-    public PaymentMethod PaymentStatus { get; set; }
+    public PaymentStatus PaymentStatus { get; set; }
     public string? ReferenceNumber { get; set; }
     public string? ChequeNumber { get; set; }
     public string? BankName { get; set; }
@@ -1791,3 +1791,47 @@ public class LoanAccountDto
     public string? LoanRemark { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
+
+public class PaymentAllocation
+{
+    public long Id { get; set; }
+    public long TenantId { get; set; }
+    public long PaymentDetailId { get; set; }
+    public long LedgerEntryId { get; set; }
+    public long JournalId { get; set; }
+    public decimal Amount { get; set; }
+    public int InstallmentMonth { get; set; }
+    public int InstallmentYear { get; set; }
+    public long? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? BranchId { get; set; }
+}
+
+public class BidRollbackHistory
+{
+    public long HistoryId { get; set; } 
+    public long? OriginalBidId { get; set; }
+    public long?CycleId { get; set; }
+    public long? TenantId { get; set; }
+    public long? BranchId { get; set; }
+    public long? AccountId { get; set; } 
+    public decimal BidPct { get; set; }
+    public DateOnly? BidDate { get; set; }
+    //public string Reason { get; set; } = default!;
+    public DateOnly RolledBackAtUtc { get; set; }
+    public long? RolledBackByUserId { get; set; }
+
+    public decimal TotalBid { get; set; }
+    public decimal TargetAmount { get; set; }
+    public decimal AllotmentAmount { get; set; }
+}
+//public interface IBiddingService
+//{
+//    Task<RollbackSummary> RollbackBidAsync(string reason);
+//}
+
+public record RollbackSummary(
+    long CycleId,
+    long BidsArchived,
+    //string Reason,
+    DateOnly RolledBackAtUtc);

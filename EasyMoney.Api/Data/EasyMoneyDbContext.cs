@@ -61,7 +61,7 @@ public class EasyMoneyDbContext : DbContext
     public DbSet<BonusDistribution> BonusDistribution => Set<BonusDistribution>(); 
     public DbSet<SifinCommission> SifinCommission => Set<SifinCommission>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
-
+    public DbSet<BidRollbackHistory> BidRollbackHistories => Set<BidRollbackHistory>();
 
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -1501,6 +1501,27 @@ public class EasyMoneyDbContext : DbContext
              .WithMany()
              .HasForeignKey(x => x.UserId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<BidRollbackHistory>(e =>
+        {
+            e.ToTable("bid_rollback_history");
+            e.HasKey(x => x.HistoryId);
+            e.Property(x => x.HistoryId).HasColumnName("history_id");
+            e.Property(x => x.OriginalBidId).HasColumnName("original_bid_id");
+            e.Property(x => x.CycleId).HasColumnName("cycle_id");
+            e.Property(x => x.TenantId).HasColumnName("tenant_id");
+            e.Property(x => x.BranchId).HasColumnName("branch_id");
+            e.Property(x => x.BidDate).HasColumnName("bid_date");
+            e.Property(x => x.AccountId).HasColumnName("account_id");
+            //e.Property(x => x.Reason).HasColumnName("reason").HasMaxLength(500).IsRequired();
+            e.Property(x => x.RolledBackAtUtc).HasColumnName("rolled_back_at_utc");
+            e.Property(x => x.RolledBackByUserId).HasColumnName("rolled_back_by_user_id");
+            e.Property(x => x.BidPct).HasColumnName("bid_pct");
+            e.Property(x => x.TargetAmount).HasColumnName("target_amount");
+            e.Property(x => x.AllotmentAmount).HasColumnName("allotment_amount");
+            e.Property(x => x.TotalBid).HasColumnName("total_bid");
+
         });
     }
     private static string IncomeBandToDb(IncomeBand b) => b switch
